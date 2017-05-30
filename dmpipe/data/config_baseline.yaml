@@ -1,0 +1,29 @@
+binning:
+  binsperdec: 4
+  binsz: 0.1
+  coordsys: GAL
+  roiwidth: 10.0
+data:
+  evfile: '@/u/gl/mdwood/ki20/mdwood/fermi/data/P8_SOURCE_V6/P8_SOURCE_V6_239557414_428903014_z100_r180_gti_ft1.lst'
+  ltcube: /u/gl/mdwood/ki20/mdwood/fermi/data/P8_SOURCE_V6/P8_SOURCE_V6_239557414_428903014_z100_r180_gti_ft1_gtltcube_z100.fits
+  scfile: /u/gl/mdwood/ki20/mdwood/fermi/data/P8_P302_BASE/P8_P302_SOURCE_239557414_476239414_ft2.fits
+fileio:
+  usescratch: false
+gtlike:
+  edisp: true
+  edisp_disable:
+  - isodiff
+  - galdiff
+  irfs: P8R2_SOURCE_V6
+model:
+  catalogs:
+  - gll_psc_v14.fit
+  galdiff: $FERMI_DIFFUSE_DIR/gll_iem_v06.fits
+  isodiff: $FERMI_DIFFUSE_DIR/iso_P8R2_SOURCE_V6_v06.txt
+  src_roiwidth: 10.0
+selection:
+  emax: 100000
+  emin: 100
+  evclass: 128
+  evtype: 3
+  zmax: 100

@@ -6,7 +6,10 @@ Interface to Dark Matter spectra
 """
 
 import sys
+import os
 import yaml
+import argparse
+
 import numpy as np
 
 from astropy.table import Table, Column
@@ -15,6 +18,13 @@ from fermipy import castro
 from fermipy import fits_utils
 from fermipy import stats_utils
 from fermipy import skymap
+from fermipy.castro import CastroData
+
+from fermipy.utils import load_yaml
+from fermipy.jobs.file_archive import FileFlags
+from fermipy.jobs.chain import add_argument, Link
+from fermipy.jobs.scatter_gather import ConfigMaker
+from fermipy.jobs.lsf_impl import build_sg_from_link
 
 from dmfit.dm_fit_spec import DMFitFunction
 
@@ -261,16 +271,16 @@ class DMSpecTable(object):
         """
         from astropy import table
 
-        col_masses = table.Column(name="REF_MASS", dtype=float, unit="GeV",
-                                  data=spec_dict['MASS'])
-        col_chans = table.Column(name="REF_CHAN", dtype=int,
-                                 data=spec_dict['CHAN'])
-        col_dfde = table.Column(name="REF_DFDE", dtype=float, shape=nebins, unit="ph / (MeV cm2 s)",
-                                data=spec_dict['DFDE'])
-        col_flux = table.Column(name="REF_FLUX", dtype=float, shape=nebins, unit="ph / (cm2 s)",
-                                data=spec_dict['FLUX'])
-        col_eflux = table.Column(name="REF_EFLUX", dtype=float, shape=nebins, unit="MeV / (cm2 s)",
-                                 data=spec_dict['EFLUX'])
+        col_masses = table.Column(name="ref_mass", dtype=float, unit="GeV",
+                                  data=spec_dict['mass'])
+        col_chans = table.Column(name="ref_chan", dtype=int,
+                                 data=spec_dict['chan'])
+        col_dfde = table.Column(name="ref_defe", dtype=float, shape=nebins, unit="ph / (MeV cm2 s)",
+                                data=spec_dict['dfde'])
+        col_flux = table.Column(name="ref_flux", dtype=float, shape=nebins, unit="ph / (cm2 s)",
+                                data=spec_dict['flux'])
+        col_eflux = table.Column(name="ref_eflux", dtype=float, shape=nebins, unit="MeV / (cm2 s)",
+                                 data=spec_dict['eflux'])
 
         table = table.Table(data=[col_masses, col_chans, col_dfde, col_flux, col_eflux])
         return table
@@ -300,16 +310,16 @@ class DMSpecTable(object):
     def spectrum(self, chan, mass, spec_type):
         """ Return the spectrum for a particular channel an mass
         """
-        mask = (self._s_table["REF_CHAN"] == chan) & (
-            np.abs(self._s_table["REF_MASS"] - mass) < 1e-9)
-        spec_vals = self._s_table[mask]["REF_%s" % spec_type].data
+        mask = (self._s_table["ref_chan"] == chan) & (
+            np.abs(self._s_table["ref_mass"] - mass) < 1e-9)
+        spec_vals = self._s_table[mask]["ref_%s" % spec_type].data
         return spec_vals
 
     def masses(self, chan):
         """ Return the array of masses for a given channel
         """
-        mask = (self._s_table["REF_CHAN"] == chan)
-        return self._s_table[mask]["REF_MASS"]
+        mask = (self._s_table["ref_chan"] == chan)
+        return self._s_table[mask]["ref_mass"]
 
     def ebin_edges(self):
         """ Return an array with the energy bin edges
@@ -336,8 +346,8 @@ class DMSpecTable(object):
         fin = pf.open(filepath)
         hdu = fin["SPECDATA"]
         hin = hdu.header
-        dref = {"REF_SIGV": hin["REF_SIGV"],
-                "REF_J": hin["REF_J"]}
+        dref = {"ref_sigv": hin["ref_sigv"],
+                "ref_J": hin["ref_J"]}
         fin.close()
         return dref
 
@@ -402,14 +412,14 @@ class DMSpecTable(object):
                 eflux[irow].flat = dmf.eflux(ebin_edges[0:-1], ebin_edges[1:], init_params)
                 irow += 1
 
-        spec_dict = {"DFDE": dfde,
-                     "FLUX": flux,
-                     "EFLUX": eflux,
-                     "MASS": masses_out,
-                     "CHAN": channels}
+        spec_dict = {"dfde": dfde,
+                     "flux": flux,
+                     "eflux": eflux,
+                     "mass": masses_out,
+                     "chan": channels}
 
-        ref_vals = {"REF_J": DMFitFunction.default_params['norm'],
-                    "REF_SIGV": DMFitFunction.default_params['sigmav']}
+        ref_vals = {"ref_J": DMFitFunction.default_params['norm'],
+                    "ref_sigv": DMFitFunction.default_params['sigmav']}
 
         return DMSpecTable.create_from_data(ebin_edges[0:-1], ebin_edges[1:],
                                             evals, spec_dict, ref_vals)
@@ -447,14 +457,14 @@ class DMSpecTable(object):
         """
         if not self.check_energy_bins(castro_data.refSpec):
             raise ValueError("CastroData energy binning does not match")
-        mask = self._s_table['REF_CHAN'] == channel
-        masses = self._s_table[mask]['REF_MASS'].data
-        spec_vals = self._s_table[mask]['REF_%s' % norm_type].data
+        mask = self._s_table['ref_chan'] == channel
+        masses = self._s_table[mask]['ref_mass'].data
+        spec_vals = self._s_table[mask]['ref_%s' % norm_type].data
         nmass = len(masses)
 
         # Get the reference values
-        ref_sigmav = self._ref_vals["REF_SIGV"]
-        ref_norm = self._ref_vals["REF_J"]
+        ref_sigmav = self._ref_vals["ref_sigv"]
+        ref_norm = self._ref_vals["ref_J"]
 
         j_prior = None
         if jfactor is None:
@@ -466,7 +476,7 @@ class DMSpecTable(object):
             j_ref = jfactor
             norm_factor = jfactor / ref_norm
         elif isinstance(jfactor, dict):
-            j_ref = jfactor.pop('jvalue')
+            j_ref = jfactor.get('j_value')
             norm_factor = j_ref / ref_norm
             j_prior = stats_utils.create_prior_functor(jfactor)
 
@@ -492,7 +502,7 @@ class DMSpecTable(object):
             dll_vals[i] -= mle_ll
 
             if j_prior is not None:
-                lnlfn = castro_data.LnLFn(norm_vals[i], dll_vals[i], 'dummy')
+                lnlfn = castro.LnLFn(norm_vals[i], dll_vals[i], 'dummy')
                 lnlfn_prior = stats_utils.LnLFn_norm_prior(lnlfn, j_prior)
                 dll_vals[i, 0:] = lnlfn_prior(norm_vals[i])
 
@@ -510,14 +520,14 @@ class DMSpecTable(object):
             raise ValueError("TSCube energy binning does not match")
 
         wcs = tscube.tscube.wcs
-        mask = self._s_table['REF_CHAN'] == channel
-        masses = self._s_table[mask]['REF_MASS'].data
-        spec_vals = self._s_table[mask]['REF_%s' % norm_type].data
+        mask = self._s_table['ref_chan'] == channel
+        masses = self._s_table[mask]['ref_mass'].data
+        spec_vals = self._s_table[mask]['ref_%s' % norm_type].data
         nmasses = len(masses)
 
         # Get the reference values
-        ref_sigmav = self._ref_vals["REF_SIGV"]
-        ref_norm = self._ref_vals["REF_J"]
+        ref_sigmav = self._ref_vals["ref_sigv"]
+        ref_norm = self._ref_vals["ref_J"]
         j_ref = ref_norm
         norm_factor = 1.
 
@@ -580,6 +590,194 @@ class DMSpecTable(object):
         return dm_table, mass_table, dm_ts_cube, dm_ul_cube, dm_mle_cube
 
 
-if __name__ == "__main__":
 
-    pass
+class DMCastroConvertor(object):
+    """Small class to convert CastroData to a DMCastroData"""
+    
+    default_options = dict(spec=('dm_spec_tscube.fits', 'Spectra table', str),
+                           sed_file=(None, 'Path to file with target SED', str),
+                           profile_yaml=(None, 'Path to yaml file with target profile', str),
+                           jprior=(None, 'Type of Prior on J-factor', str),
+                           outfile=(None, 'Path to output file', str),
+                           dry_run=(False, 'Print but do not run commands', bool),
+                           clobber=(False, 'Overwrite existing files', bool))
+    
+    def __init__(self, **kwargs):
+        """C'tor
+        """
+        self.parser = DMCastroConvertor._make_parser()
+        self.link = DMCastroConvertor._make_link(self.parser, **kwargs)
+
+    @staticmethod
+    def _make_parser():
+        """Make an argument parser for this class """
+        usage = "dmpipe-convert-castro [options]"
+        description = "Convert SED to DMCastroData"
+
+        parser = argparse.ArgumentParser(usage=usage, description=description)
+        for key, val in DMCastroConvertor.default_options.items():
+            add_argument(parser, key, val)
+        return parser
+
+    @staticmethod
+    def _make_link(parser, **kwargs):
+        link = Link(kwargs.pop('linkname', 'convert-castro'),
+                    appname=kwargs.pop('appname', 'dmpipe-convert-castro'),
+                    options=DMCastroConvertor.default_options.copy(),
+                    file_args=dict())
+        return link
+
+    @staticmethod
+    def convert_sed_to_dm(spec_table, sed, channels, norm_type, j_val):
+ 
+        c_list = []
+        t_list = []
+        n_list = []
+        
+        mass_table = None
+        for chan in channels:
+            print "Channel %s: "%chan
+            chan_idx = DMFitFunction.channel2int(chan)
+            try:
+                dm_castro = spec_table.convert_castro_data(sed, chan_idx, norm_type, j_val)
+                tab_castro = dm_castro.build_scandata_table()
+                
+                if mass_table is None:
+                    mass_table = dm_castro.build_mass_table()
+            except IndexError:
+                print ("Skipping channel %s"%chan)
+                continue
+            c_list.append(dm_castro)
+            t_list.append(tab_castro)
+            n_list.append(chan)
+
+        t_list.append(mass_table)
+        n_list.append("MASSES")
+        return c_list, t_list, n_list
+        
+
+    def run(self, argv):
+        """Run this analysis"""
+        args = self.parser.parse_args(argv)
+        
+        channels = ['ee','mumu','tautau','bb','tt','gg','ww','zz','cc','uu','dd','ss']
+        norm_type = 'eflux'
+        
+        spec_table = DMSpecTable.create_from_fits(args.spec)
+        profile = load_yaml(args.profile_yaml)
+
+        j_value = profile.get('j_integ')
+        j_sigma = profile.get('j_sigma', None)
+        if args.jprior is None or args.jprior == 'None' or j_sigma is None or j_sigma == 0.0:
+            j_factor = j_value
+            j_prior_key = 'none'
+        else:
+            j_factor = dict(functype=args.jprior,
+                            j_value=j_value,
+                            mu=j_value, sigma=j_sigma)
+            j_prior_key = args.jprior
+       
+        sed = CastroData.create_from_sedfile(args.sed_file, norm_type)
+        profile_yaml = os.path.join(args.profile_yaml)
+        c_list, t_list, n_list = DMCastroConvertor.convert_sed_to_dm(spec_table, sed, channels, norm_type, j_factor)
+        
+        fits_utils.write_tables_to_fits(args.outfile, t_list,
+                                        clobber=args.clobber, namelist=n_list)
+        
+
+class ConfigMaker_CastroConvertor(ConfigMaker):
+    """Small class to generate configurations for this script
+
+    This adds the following arguments:
+    """
+    default_options = dict(spec=('dm_spec_tscube.fits', 'Spectra table', str),
+                           targets_yaml=(None, 'Yaml file with list of targets', str),
+                           jprior=(None, 'Type of Prior on J-factor', str),
+                           clobber=(False, 'Overwrite existing files', bool))
+
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        ConfigMaker.__init__(self, link,
+                             options=kwargs.get('options',
+                                                ConfigMaker_CastroConvertor.default_options.copy()))
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        input_config = {}
+        job_configs = {}
+        output_config = {}
+
+        targets_yaml_path = args['targets_yaml']
+        topdir = os.path.dirname(targets_yaml_path)
+        targets = load_yaml(targets_yaml_path)
+        jprior = args['jprior']
+        spec = args['spec']
+        dry_run = args['dry_run']
+        clobber = args['clobber']
+        
+        for target_name, profile_list in targets.items():
+            target_dir = os.path.join(topdir, target_name)
+            for profile in profile_list:
+                full_key = "%s:%s"%(target_name, profile)
+                sed_file = os.path.join(target_dir, "sed_%s.fits"%profile)
+                profile_yaml = os.path.join(target_dir, "profile_%s.yaml"%profile)
+                outfile = os.path.join(target_dir, "dmlike_%s_%s.yaml"%(profile, jprior))
+                logfile = "scatter_convert_%s_%s.log"%(target_name, profile)
+                job_config = dict(spec=spec,
+                                  sed_file=sed_file,
+                                  profile_yaml=profile_yaml,
+                                  jprior=jprior,
+                                  outfile=outfile,
+                                  logfile=logfile,
+                                  dry_run=dry_run,
+                                  clobber=clobber)
+                job_configs[full_key] = job_config
+    
+        return input_config, job_configs, output_config
+ 
+
+def create_link_castro_convertor(**kwargs):
+    """Build and return a `Link` object that can invoke GtAssembleModel"""
+    castro_convertor = DMCastroConvertor(**kwargs)
+    return castro_convertor.link
+
+def create_sg_castro_convertor(**kwargs):
+    """Build and return a ScatterGather object that can invoke this script"""
+    castro_convertor = DMCastroConvertor()
+    link = castro_convertor.link
+    link.linkname = kwargs.pop('linkname', link.linkname)
+    appname = kwargs.pop('appname', 'dmpipe-convert-castro-sg')
+
+    lsf_args = {'W': 1500,
+                'R': 'rhel60'}
+
+    usage = "%s [options]"%(appname)
+    description = "Convert SEDs to DMCastroData objects"
+
+    config_maker = ConfigMaker_CastroConvertor(link)
+    lsf_sg = build_sg_from_link(link, config_maker,
+                                lsf_args=lsf_args,
+                                usage=usage,
+                                description=description,
+                                appname=appname,
+                                **kwargs)
+    return lsf_sg
+
+
+def main_single():
+    """Entry point for command line use for single job """
+    castro_convertor = DMCastroConvertor()
+    castro_convertor.run(sys.argv[1:])
+
+
+def main_batch():
+    """Entry point for command line use for dispatching batch jobs """
+    lsf_sg = create_sg_castro_convertor()
+    lsf_sg(sys.argv)
+
+
+
+if __name__ == "__main__":
+    main_batch()
