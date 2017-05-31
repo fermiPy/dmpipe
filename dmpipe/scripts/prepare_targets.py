@@ -82,8 +82,8 @@ def main():
     
     parser = argparse.ArgumentParser(usage=usage,description=description)
     parser.add_argument('--roster', '-r', required=True, help='Roster to build targets for')
-    parser.add_argument('--config', '-c', required=True, help='Baseline configuration yaml file')
-    parser.add_argument('--output', '-o', required=True, help='Output directory.')
+    parser.add_argument('--baseconfig', '-b', required=True, help='Baseline configuration yaml file')
+    parser.add_argument('--topdir', '-t', required=True, help='Top level output directory.')
 
     # Argument parsing
     args = parser.parse_args()
@@ -93,9 +93,9 @@ def main():
     rost = roster_lib.create_roster(args.roster)
     roster_dict[args.roster] = rost
 
-    base_config = load_yaml(args.config)
+    base_config = load_yaml(args.baseconfig)
 
-    write_target_dirs(args.output, roster_dict, base_config)
+    write_target_dirs(args.topdir, roster_dict, base_config)
 
 
 if __name__ == "__main__":

@@ -195,14 +195,14 @@ class DMFitFunction(spectrum.SpectralFunction):
             return spec(dArg(ex))
 
     @staticmethod
-    def _eval_dfde(evals, params):
+    def _eval_dnde(x, params, scale=1.0, extra_params=None):
         """ Return energy in MeV. This could be vectorized. """
         DMFitFunction._update(params)
-        if isinstance(evals, collections.Iterable):
-            return np.asarray([DMFitFunction.call_pylike_spectrum(DMFitFunction.static_dmf, i)
-                               for i in evals])
+        if isinstance(x, collections.Iterable):
+            return np.asarray([DMFitFunction.call_pylike_spectrum(DMFitFunction.static_dmf, xx/scale)
+                               for xx in x])
         else:
-            return DMFitFunction.call_pylike_spectrum(DMFitFunction.static_dmf, evals)
+            return DMFitFunction.call_pylike_spectrum(DMFitFunction.static_dmf, x/scale)
 
 
 if __name__ == "__main__":

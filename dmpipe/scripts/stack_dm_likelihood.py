@@ -97,15 +97,16 @@ def main():
     
     parser = argparse.ArgumentParser(usage=usage,description=description)
     parser.add_argument('--jprior', '-j', default=None, type=str, help='Type of Prior on J-factor')
-    parser.add_argument('--dir', '-d', required=True, help='Name of top-level directory')
+    parser.add_argument('--rosterlist', '-r', default='roster_list.yaml', 'Yaml file with list of rosters', str),
+    parser.add_argument('--topdir', '-d', required=True, help='Name of top-level directory')
     parser.add_argument('--clobber', action='store_true', help='Overwrite output file.')
     
     # Argument parsing
     args = parser.parse_args()
     channels = ['ee','mumu','tautau','bb','tt','gg','ww','zz','cc','uu','dd','ss']
 
-    roster_dict = load_yaml(os.path.join(args.dir, 'roster_list.yaml'))
-    stack_rosters(roster_dict, args.dir, channels, args.jprior, args.clobber)   
+    roster_dict = load_yaml(os.path.join(args.dir, args.rosterlist))
+    stack_rosters(roster_dict, args.topdir, channels, args.jprior, args.clobber)   
   
 
 if __name__=='__main__':

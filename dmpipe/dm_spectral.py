@@ -26,7 +26,7 @@ from fermipy.jobs.chain import add_argument, Link
 from fermipy.jobs.scatter_gather import ConfigMaker
 from fermipy.jobs.lsf_impl import build_sg_from_link
 
-from dmfit.dm_fit_spec import DMFitFunction
+from dmpipe.dm_fit_spec import DMFitFunction
 
 
 
@@ -275,14 +275,14 @@ class DMSpecTable(object):
                                   data=spec_dict['mass'])
         col_chans = table.Column(name="ref_chan", dtype=int,
                                  data=spec_dict['chan'])
-        col_dfde = table.Column(name="ref_defe", dtype=float, shape=nebins, unit="ph / (MeV cm2 s)",
-                                data=spec_dict['dfde'])
+        col_dnde = table.Column(name="ref_dnde", dtype=float, shape=nebins, unit="ph / (MeV cm2 s)",
+                                data=spec_dict['dnde'])
         col_flux = table.Column(name="ref_flux", dtype=float, shape=nebins, unit="ph / (cm2 s)",
                                 data=spec_dict['flux'])
         col_eflux = table.Column(name="ref_eflux", dtype=float, shape=nebins, unit="MeV / (cm2 s)",
                                  data=spec_dict['eflux'])
 
-        table = table.Table(data=[col_masses, col_chans, col_dfde, col_flux, col_eflux])
+        table = table.Table(data=[col_masses, col_chans, col_dnde, col_flux, col_eflux])
         return table
 
     def __init__(self, e_table, s_table, ref_vals):
@@ -394,7 +394,7 @@ class DMSpecTable(object):
         nrow = len(ichans) * len(masses)
         irow = 0
 
-        dfde = np.ndarray((nrow, nebins))
+        dnde = np.ndarray((nrow, nebins))
         flux = np.ndarray((nrow, nebins))
         eflux = np.ndarray((nrow, nebins))
         masses_out = np.ndarray((nrow))
@@ -407,12 +407,12 @@ class DMSpecTable(object):
                 init_params[1] = mass
                 masses_out[irow] = mass
                 channels[irow] = i
-                dfde[irow].flat = dmf.dfde(evals)
+                dnde[irow].flat = dmf.dnde(evals)
                 flux[irow].flat = dmf.flux(ebin_edges[0:-1], ebin_edges[1:], init_params)
                 eflux[irow].flat = dmf.eflux(ebin_edges[0:-1], ebin_edges[1:], init_params)
                 irow += 1
 
-        spec_dict = {"dfde": dfde,
+        spec_dict = {"dnde": dnde,
                      "flux": flux,
                      "eflux": eflux,
                      "mass": masses_out,
@@ -690,8 +690,9 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
 
     This adds the following arguments:
     """
-    default_options = dict(spec=('dm_spec_tscube.fits', 'Spectra table', str),
-                           targets_yaml=(None, 'Yaml file with list of targets', str),
+    default_options = dict(spec=('dm_spec.fits', 'Spectra table', str),
+                           topdir=(None, 'Top level directory', str),
+                           targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
                            jprior=(None, 'Type of Prior on J-factor', str),
                            clobber=(False, 'Overwrite existing files', bool))
 
@@ -709,8 +710,8 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
         job_configs = {}
         output_config = {}
 
-        targets_yaml_path = args['targets_yaml']
-        topdir = os.path.dirname(targets_yaml_path)
+        topdir = args['topdir']
+        targets_yaml_path = os.path.join(topdir, args['targetlist'])
         targets = load_yaml(targets_yaml_path)
         jprior = args['jprior']
         spec = args['spec']

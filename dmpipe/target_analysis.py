@@ -196,7 +196,7 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
 
     This adds the following arguments:
     """
-    default_options = dict(targets=('target_list.yaml', 'Yaml file with list of targets', str),
+    default_options = dict(targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
                            config=('config_baseline.yaml', 'Name of configuration file', str),                           
                            topdir=(None, 'Top level directory', str))
 
@@ -216,7 +216,7 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
         output_config = {}
 
         topdir = args['topdir']
-        targets_yaml = os.path.join(topdir, args['targets'])
+        targets_yaml = os.path.join(topdir, args['targetlist'])
         config_yaml = args['config']
         
         targets = load_yaml(targets_yaml)
@@ -233,7 +233,7 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
 
     This adds the following arguments:
     """
-    default_options = dict(targets=('target_list.yaml', 'Yaml file with list of targets', str),
+    default_options = dict(targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
                            config=('config_baseline.yaml', 'Name of configuration file', str),                           
                            topdir=(None, 'Top level directory', str))
 
@@ -253,7 +253,7 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
         output_config = {}
 
         topdir = args['topdir']
-        targets_yaml = os.path.join(topdir, args['targets'])
+        targets_yaml = os.path.join(topdir, args['targetlist'])
         config_yaml = args['config']
         
         targets = load_yaml(targets_yaml)
