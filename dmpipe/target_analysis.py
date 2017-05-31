@@ -31,7 +31,7 @@ class TargetAnalysis(object):
     """
     NULL_MODEL = 'srcmdls/null.xml'
 
-    default_options = dict(config=('config.yaml', 'Name of config script', str),
+    default_options = dict(config=('config_baseline.yaml', 'Name of config script', str),
                            dry_run=(False, 'Print but do not run commands', bool))
 
     def __init__(self, **kwargs):
@@ -117,7 +117,7 @@ class SEDAnalysis(object):
     """
     NULL_MODEL = 'srcmdls/null.xml'
 
-    default_options = dict(config=('config.yaml', 'Name of config script', str),
+    default_options = dict(config=('config_baseline.yaml', 'Name of config script', str),
                            dry_run=(False, 'Print but do not run commands', bool),
                            profiles=([], 'Profiles to build SED for', list))
 

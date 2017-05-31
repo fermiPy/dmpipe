@@ -1,0 +1,114 @@
+
+dmpipe-spec-table --config  <config> --outfile <outfile>
+
+  actions:
+    Build a table of spectra, looping over channels and masses
+
+  inputs:
+    {config} = config_baseline.yaml
+
+  outputs:
+    {outfile} = dm_spec.fits
+
+
+
+dmpipe-prepare-targets --roster <roster> --baseconfig <baseconfig> --topdir <topdir>
+
+  actions:
+    makes J-factor template maps for targets
+    builds targets.yaml file (if needed)
+    loops over targets, prepares fermipy directory and config.yaml file for each target case
+
+  inputs:    
+    Roster taken from dmsky
+    {baseconfig} = config_baseline.yaml
+
+  outputs:
+    {topdir}/target_list.yaml
+    foreach target:
+      {target_dir} = {topdir}/{target}
+      {target_dir}/config_baseline.yaml 
+      foreach target_case:
+        profile__{profile}.fits
+        profile__{profile}.yaml
+
+
+dmpipe-analyze-roi-sg --topdir <topdir> [--config <config> --targetlist <targetlist>]
+
+  actions: 
+    runs fermipy baseline analysis for target ROIs
+  
+  inputs: 
+    {topdir}/{targetlist} = {topdir}/target_list.yaml
+    foreach target:
+      {target_dir} = {topdir}/{target}
+      {target_dir}/{config} = {target_dir}/config_baseline.yaml 
+
+  outputs:
+    foreach target:
+      {target_dir} = {topdir}/{target}
+      {target_dir}/ft1_XX.fits
+      {target_dir}/ccube.fits
+      {target_dir}/ccube_XX.fits
+      {target_dir}/bexpmap_XX.fits
+      {target_dir}/bexpmap_roi_XX.fits
+      {target_dir}/srcmap_XX.fits
+      {target_dir}/srcmdl_XX.fits
+      {target_dir}/fermipy_baseline.log
+      {target_dir}/fit_{target}_baseline.*
+      {target_dir}/mcube_{target}_baseline_XX.fits
+
+
+dmpipe-analyze-sed-sg --topdir <topdir> [--config <config> --targetlist <targetlist>]
+
+  actions:
+     loops over target cases runs SED analysis
+
+  inputs:
+    {topdir}/{targetlist} = {topdir}/target_list.yaml
+    foreach target:
+      {target_dir} = {topdir}/{target}
+      {target_dir}/{config} = {target_dir}/config_baseline.yaml 
+
+  outputs:
+    foreach target:
+      foreach target_case:
+        {target_dir}/sed_{profile}.*
+
+
+dmpipe-convert-castro-sg --topdir <topdir> [--spec <spec> --targetlist <targetlist> --jprior <jprior>]
+
+  actions:
+    loops over target cases, converts CastroData in (E,Eflux) to DMCastroData in (M,sigmav)
+
+  inputs:
+    {spec} = dm_spec.fits
+    {targetlist} = {topdir}/target_list.yaml
+    foreach target:
+      {target_dir} = {topdir}/{target}
+      foreach target_case:
+        {target_dir}/sed_{profile}.fits
+
+  outputs:
+    foreach target:
+      foreach target_case:
+        {target_dir}/dmlike_{profile}_{jprior}.fits 
+
+
+
+dm-stack-likelihood --topdir <topdir> [--rosterlist <rosterlist> --jprior <jprior>]
+
+  actions:
+     loops over target cases stacking DMCastroData in (M,sigmav)
+
+  inputs:
+    {topdir}/{rosterlist} = {topdir}/roster_list.yaml
+    foreach target_case:
+      {target_dir} = {topdir}/{target}
+      {target_dir}/dmlike_{profile}_{jprior}.fits 
+
+  outputs:
+    foreach roster:
+      {topdir}/stacked/results_{roster}_{jprior}.fits
+
+ 
