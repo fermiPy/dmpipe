@@ -33,7 +33,7 @@ dmpipe-prepare-targets --roster <roster> --baseconfig <baseconfig> --topdir <top
         profile__{profile}.yaml
 
 
-dmpipe-analyze-roi-sg --topdir <topdir> [--config <config> --targetlist <targetlist>]
+dmpipe-analyze-roi-sg --action run  --topdir <topdir> [--config <config> --targetlist <targetlist>]
 
   actions: 
     runs fermipy baseline analysis for target ROIs
@@ -59,7 +59,7 @@ dmpipe-analyze-roi-sg --topdir <topdir> [--config <config> --targetlist <targetl
       {target_dir}/mcube_{target}_baseline_XX.fits
 
 
-dmpipe-analyze-sed-sg --topdir <topdir> [--config <config> --targetlist <targetlist>]
+dmpipe-analyze-sed-sg --action run --topdir <topdir> [--config <config> --targetlist <targetlist>]
 
   actions:
      loops over target cases runs SED analysis
@@ -76,7 +76,7 @@ dmpipe-analyze-sed-sg --topdir <topdir> [--config <config> --targetlist <targetl
         {target_dir}/sed_{profile}.*
 
 
-dmpipe-convert-castro-sg --topdir <topdir> [--spec <spec> --targetlist <targetlist> --jprior <jprior>]
+dmpipe-convert-castro-sg --action run --topdir <topdir> [--spec <spec> --targetlist <targetlist> --jprior <jprior>]
 
   actions:
     loops over target cases, converts CastroData in (E,Eflux) to DMCastroData in (M,sigmav)
@@ -96,7 +96,7 @@ dmpipe-convert-castro-sg --topdir <topdir> [--spec <spec> --targetlist <targetli
 
 
 
-dm-stack-likelihood --topdir <topdir> [--rosterlist <rosterlist> --jprior <jprior>]
+dmpipe-stack-likelihood --topdir <topdir> [--rosterlist <rosterlist> --jprior <jprior>]
 
   actions:
      loops over target cases stacking DMCastroData in (M,sigmav)

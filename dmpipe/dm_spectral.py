@@ -252,6 +252,13 @@ class DMCastroData(castro.CastroData_Base):
 class DMSpecTable(object):
     """ Version of the DM spectral tables in tabular form
     """
+    def __init__(self, e_table, s_table, ref_vals, **kwargs):
+        """ C'tor to build this object from energy binning and spectral values tables.
+        """
+        self._e_table = e_table
+        self._s_table = s_table
+        self._ref_vals = ref_vals
+
     @staticmethod
     def make_ebounds_table(emin, emax, eref):
         """ Construct the energy bounds table
@@ -285,12 +292,6 @@ class DMSpecTable(object):
         table = table.Table(data=[col_masses, col_chans, col_dnde, col_flux, col_eflux])
         return table
 
-    def __init__(self, e_table, s_table, ref_vals):
-        """ C'tor to build this object from energy binning and spectral values tables.
-        """
-        self._e_table = e_table
-        self._s_table = s_table
-        self._ref_vals = ref_vals
 
     @property
     def ebounds_table(self):
@@ -590,7 +591,6 @@ class DMSpecTable(object):
         return dm_table, mass_table, dm_ts_cube, dm_ul_cube, dm_mle_cube
 
 
-
 class DMCastroConvertor(object):
     """Small class to convert CastroData to a DMCastroData"""
     
@@ -654,7 +654,6 @@ class DMCastroConvertor(object):
         t_list.append(mass_table)
         n_list.append("MASSES")
         return c_list, t_list, n_list
-        
 
     def run(self, argv):
         """Run this analysis"""
@@ -684,6 +683,161 @@ class DMCastroConvertor(object):
         fits_utils.write_tables_to_fits(args.outfile, t_list,
                                         clobber=args.clobber, namelist=n_list)
         
+
+
+class DMSpecTableBuilder(object):
+    """ Version of the DM spectral tables in tabular form
+    """
+    default_options = dict(config=(None, 'Name of config script', str),
+                           outfile=(None, 'Name of output file', str),
+                           clobber=(False, 'Overwrite existing files', bool),
+                           dry_run=(False, 'Print but do not run commands', bool))
+
+    def __init__(self, **kwargs):
+        """ C'tor to build this object from energy binning and spectral values tables.
+        """
+        self.parser = DMSpecTableBuilder._make_parser()
+        self.link = DMSpecTableBuilder._make_link(self.parser, **kwargs)
+
+    @staticmethod
+    def _make_parser():
+        """Make an argument parser for this class """
+        usage = "dmpipe-spec-table [options]"
+        description = "Build a table with the spectra"
+
+        parser = argparse.ArgumentParser(usage=usage, description=description)
+        for key, val in DMSpecTableBuilder.default_options.items():
+            add_argument(parser, key, val)
+        return parser
+
+    @staticmethod
+    def _make_link(parser, **kwargs):
+        link = Link(kwargs.pop('linkname', 'spec-table'),
+                    appname='dmpipe-spec-table',
+                    options=DMSpecTableBuilder.default_options.copy(),
+                    file_args=dict())
+        return link
+        
+    def run(self, argv):
+        """Run this analysis"""
+        args = self.parser.parse_args(argv)
+
+        channels = ['ee','mumu','tautau','bb','tt','gg','ww','zz','cc','uu','dd','ss']
+        masses = np.logspace(1,6,21)
+        
+        dm_spec_table = DMSpecTable.create_from_config(args.config, channels, masses)
+        dm_spec_table.write_fits(args.outfile, args.clobber)
+
+
+
+class DMCastroStacker(object):
+    """Small class to convert stack DMCastroData """
+    default_options = dict(topdir=(None, 'Name of top-level directory', str),
+                           jprior=(None, 'Type of Prior on J-factor', str),
+                           rosterlist=('roster_list.yaml', 'Yaml file with list of rosters', str),
+                           clobber=(False, 'Overwrite output file', bool),
+                           dry_run=(False, 'Print but do not run commands', bool))
+
+    def __init__(self, **kwargs):
+        """ C'tor to build this object from energy binning and spectral values tables.
+        """
+        self.parser = DMCastroStacker._make_parser()
+        self.link = DMCastroStacker._make_link(self.parser, **kwargs)
+
+    @staticmethod
+    def _make_parser():
+        """Make an argument parser for this class """
+        usage = "dmpipe-stack-likelihood [options]"
+        description = "Stack the likelihood from targets"
+
+        parser = argparse.ArgumentParser(usage=usage, description=description)
+        for key, val in DMCastroStacker.default_options.items():
+            add_argument(parser, key, val)
+        return parser
+
+    @staticmethod
+    def _make_link(parser, **kwargs):
+        link = Link(kwargs.pop('linkname', 'stack-likelihood'),
+                    appname='dmpipe-stack-likelihood',
+                    options=DMCastroStacker.default_options.copy(),
+                    file_args=dict())
+        return link
+
+    @staticmethod     
+    def stack_roster(roster_name, rost, basedir, channels, jprior_key):
+        """
+        """
+        component_dict = {}
+        out_dict = {}
+        for chan in channels:
+            component_dict[chan] = []    
+            
+        for target_key in rost:
+            tokens = target_key.split(':')
+            target_name = tokens[0]
+            target_version = tokens[1]
+            target_dir = os.path.join(basedir, target_name)
+            dmlike_path = os.path.join(target_dir, "dmlike_%s_%s.fits"%(target_version, jprior_key))
+            tab_m = Table.read(dmlike_path, hdu="MASSES")
+            
+            for chan in channels:
+                try:
+                    tab_s = Table.read(dmlike_path, hdu=chan)
+                except KeyError:
+                    continue
+                dm_castro = DMCastroData.create_from_tables(tab_s, tab_m)
+                component_dict[chan].append(dm_castro)
+
+        for chan, comps in component_dict.items():
+            if len(comps) == 0:
+                continue
+            stacked = DMCastroData.create_from_stack(comps)
+            out_dict[chan] = stacked
+
+        return out_dict
+
+
+    @staticmethod     
+    def write_stacked(basedir, roster_name, stacked_dict, jprior_key, clobber):
+        """
+        """
+        outdir = os.path.join(basedir, "stacked")
+        try:
+            os.makedirs(outdir)
+        except OSError:
+            pass        
+        outpath = os.path.join(outdir, "results_%s_%s.fits"%(roster_name, jprior_key))
+        print("Writing stacked results %s"%outpath)
+        channels = stacked_dict.keys()
+        t_list = []
+        n_list = []
+        mass_table = None
+        for chan in channels:
+            stacked = stacked_dict[chan]
+            if mass_table is None:
+                mass_table = stacked.build_mass_table()
+            t_list.append(stacked.build_scandata_table())
+            n_list.append(chan)
+        t_list.append(mass_table)
+        n_list.append("MASSES")
+        fits_utils.write_tables_to_fits(outpath, t_list,
+                                        clobber=clobber, namelist=n_list)
+
+
+    @staticmethod     
+    def stack_rosters(roster_dict, basedir, channels, jprior_key, clobber):
+        """
+        """
+        for roster_name, rost in roster_dict.items():
+            stacked_dict = DMCastroStacker.stack_roster(roster_name, rost, basedir, channels, jprior_key)
+            DMCastroStacker.write_stacked(basedir, roster_name, stacked_dict, jprior_key, clobber)
+
+    def run(self, argv):
+        """Run this analysis"""
+        args = self.parser.parse_args(argv)
+        roster_dict = load_yaml(os.path.join(args.topdir, args.rosterlist))
+        DMCastroStacker.stack_rosters(roster_dict, args.topdir, channels, args.jprior, args.clobber)   
+  
 
 class ConfigMaker_CastroConvertor(ConfigMaker):
     """Small class to generate configurations for this script
@@ -740,9 +894,19 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
  
 
 def create_link_castro_convertor(**kwargs):
-    """Build and return a `Link` object that can invoke GtAssembleModel"""
+    """Build and return a `Link` object that can invoke DMCastroConvertor"""
     castro_convertor = DMCastroConvertor(**kwargs)
     return castro_convertor.link
+
+def create_link_spec_table_builder(**kwargs):
+    """Build and return a `Link` object that can invoke DMSpecTableBuilder"""
+    spec_table_builder = DMSpecTableBuilder(**kwargs)
+    return spec_table_builder.link
+
+def create_link_stack_likelihood(**kwargs):
+    """Build and return a `Link` object that can invoke DMSpecTableBuilder"""
+    castro_stacker = DMCastroStacker(**kwargs)
+    return castro_stacker.link
 
 def create_sg_castro_convertor(**kwargs):
     """Build and return a ScatterGather object that can invoke this script"""
@@ -766,14 +930,22 @@ def create_sg_castro_convertor(**kwargs):
                                 **kwargs)
     return lsf_sg
 
+def main_spec_table():
+    """Entry point for command line use for single job """
+    spec_table_builder = DMSpecTableBuilder()
+    spec_table_builder.run(sys.argv[1:])
 
-def main_single():
+def main_stack_likelihood():
+    """Entry point for command line use for single job """
+    castro_stacker = DMCastroStacker(**kwargs)
+    castro_stacker.run(sys.argv[1:])
+
+def main_convert_single():
     """Entry point for command line use for single job """
     castro_convertor = DMCastroConvertor()
     castro_convertor.run(sys.argv[1:])
 
-
-def main_batch():
+def main_convert_batch():
     """Entry point for command line use for dispatching batch jobs """
     lsf_sg = create_sg_castro_convertor()
     lsf_sg(sys.argv)

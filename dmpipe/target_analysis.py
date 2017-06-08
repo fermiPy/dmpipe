@@ -12,8 +12,9 @@ import os
 import sys
 import argparse
 
+from dmsky.roster import RosterLibrary
 
-from fermipy.utils import load_yaml
+from fermipy.utils import load_yaml, write_yaml
 
 from fermipy.jobs.file_archive import FileFlags
 from fermipy.jobs.chain import add_argument, Link
@@ -24,13 +25,117 @@ from fermipy.gtanalysis import GTAnalysis
 from fermipy.catalog import Catalog3FGL
 
 
+class TargetPreparer(object):    
+    """Small class wrap an analysis script.
+
+    This is useful for parallelizing analysis using the fermipy.jobs module.
+    """
+
+    default_options = dict(roster=(None, 'Roster to build targets for', str),
+                           topdir=(None, 'Top level output directory', str),
+                           baseconfig=('config_baseline.yaml', 'Name of config script', str),
+                           dry_run=(False, 'Print but do not run commands', bool))
+
+    def __init__(self, **kwargs):
+        """C'tor
+        """
+        self.parser = TargetPreparer._make_parser()
+        self.link = TargetPreparer._make_link(self.parser, **kwargs)
+
+    @staticmethod
+    def _make_parser():
+        """Make an argument parser for this class """
+        usage = "dmpipe-prepare-targets [options]"
+        description = "Run analysis on a target"
+
+        parser = argparse.ArgumentParser(usage=usage, description=description)
+        for key, val in TargetPreparer.default_options.items():
+            add_argument(parser, key, val)
+        return parser
+
+    @staticmethod
+    def _make_link(parser, **kwargs):
+        link = Link(kwargs.pop('linkname', 'prepare-targets'),
+                    appname='dmpipe-prepare-targets',
+                    options=TargetPreparer.default_options.copy(),
+                    file_args=dict())
+        return link
+
+    @staticmethod
+    def write_target_dirs(basedir, roster_dict, base_config):
+        """
+        """
+        target_dict = {}
+    
+        target_info_dict = {}
+        roster_info_dict = {}
+
+        try:
+            os.makedirs(basedir)
+        except OSError:
+            pass
+
+        for roster_name, rost in roster_dict.items():
+            tlist = []
+            for target_name, target in rost.items():
+                target_key = "%s:%s"%(target_name, target.version)
+                print("Writing %s"%(target_key))
+                tlist.append(target_key)
+                if target_info_dict.has_key(target_name):
+                    target_info_dict[target_name].append(target.version)
+                else:
+                    target_info_dict[target_name] = [target.version]
+                target_dir = os.path.join(basedir, target_name)
+                target_config_path = os.path.join(target_dir, 'config_baseline.yaml')    
+                jmap_path = os.path.join(target_dir, 'profile_%s.fits'%target.version)
+                profile_path = os.path.join(target_dir, 'profile_%s.yaml'%target.version)
+
+                if target_dict.has_key(target_name):
+                    # Already made the config for this target
+                    target_config = target_dict[target_name]
+                else:
+                    # Make the config for this target
+                    try:
+                        os.makedirs(target_dir)
+                    except OSError:
+                        pass
+                    target_config = base_config.copy()
+                    target_config['selection']['ra'] = target.ra
+                    target_config['selection']['dec'] = target.dec
+                    target_dict[target_name] = target_config
+                    write_yaml(target_config, target_config_path)
+               
+
+                profile_data = target.profile.copy()
+                target.write_jmap_wcs(jmap_path, clobber=True)
+                profile_data['j_integ'] = target.j_integ
+                profile_data['j_sigma'] = target.j_sigma
+                profile_data['j_map_file'] = jmap_path
+                write_yaml(profile_data, profile_path)
+
+            roster_info_dict[roster_name] = tlist
+
+        write_yaml(roster_info_dict, os.path.join(basedir, 'roster_list.yaml'))
+        write_yaml(target_info_dict, os.path.join(basedir, 'target_list.yaml'))
+
+    def run(self, argv):
+        """Run this analysis"""
+        args = self.parser.parse_args(argv)
+        roster_lib = RosterLibrary()
+        roster_dict  = {}
+        rost = roster_lib.create_roster(args.roster)
+        roster_dict[args.roster] = rost
+        
+        base_config = load_yaml(args.baseconfig)
+
+        TargetPreparer.write_target_dirs(args.topdir, roster_dict, base_config)
+
+
 class TargetAnalysis(object):
     """Small class wrap an analysis script.
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
-    NULL_MODEL = 'srcmdls/null.xml'
-
     default_options = dict(config=('config_baseline.yaml', 'Name of config script', str),
                            dry_run=(False, 'Print but do not run commands', bool))
 
@@ -266,10 +371,24 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
         return input_config, job_configs, output_config
 
 
+def create_link_prepare_targets(**kwargs):
+    """Build and return a `Link` object that can invoke DMCastroConvertor"""
+    target_prep = TargetPreparer(**kwargs)
+    return target_prep.link
+
+def create_link_roi_analysis(**kwargs):
+    """Build and return a `Link` object that can invoke DMCastroConvertor"""
+    target_analysis = TargetAnalysis(**kwargs)
+    return target_analysis.link
+
+def create_link_sed_analysis(**kwargs):
+    """Build and return a `Link` object that can invoke DMSpecTableBuilder"""
+    sed_analysis = SEDAnalysis(**kwargs)
+    return sed_analysis.link
 
 def create_sg_roi_analysis(**kwargs):
     """Build and return a ScatterGather object that can invoke this script"""
-    roi_analysis = TargetAnalysis()
+    roi_analysis = TargetAnalysis(**kwargs)
     link = roi_analysis.link
     link.linkname = kwargs.pop('linkname', link.linkname)
     appname = kwargs.pop('appname', 'dmpipe-analyze-roi-sg')
@@ -288,6 +407,8 @@ def create_sg_roi_analysis(**kwargs):
                                 appname=appname,
                                 **kwargs)
     return lsf_sg
+
+
 
 
 def create_sg_sed_analysis(**kwargs):
@@ -312,6 +433,10 @@ def create_sg_sed_analysis(**kwargs):
                                 **kwargs)
     return lsf_sg
 
+def main_prepare_targets():
+    """ Entry point for analysis of a single ROI """
+    target_prep = TargetPreparer()
+    target_prep.run(sys.argv[1:])
 
 def main_roi_single():
     """ Entry point for analysis of a single ROI """
