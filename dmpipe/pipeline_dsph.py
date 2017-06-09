@@ -10,79 +10,101 @@ import sys
 import os
 import argparse
 
-import yaml
 
 from fermipy.jobs.job_archive import JobArchive
 from fermipy.jobs.lsf_impl import check_log
+from fermipy.jobs.chain import Link, Chain
 
-from dmpipe.dm_spectral import create_link_castro_convertor, create_link_spec_table_builder,\
+from dmpipe.dm_spectral import create_link_spec_table_builder,\
     create_link_stack_likelihood, create_sg_castro_convertor
 
-from dmpipe.target_analysis import create_link_prepare_targets, create_sg_roi_analysis, create_sg_sed_analysis
+from dmpipe.target_analysis import create_link_prepare_targets, create_sg_roi_analysis,\
+    create_sg_sed_analysis
 
 
-BUILDER_DICT = {'create_link_castro_convertor':create_link_castro_convertor,
-                'create_link_spec_table_builder':create_link_spec_table_builder,
-                'create_link_stack_likelihood':create_link_stack_likelihood,
-                'create_sg_castro_convertor':create_sg_castro_convertor,
-                'create_link_prepare_targets':create_link_prepare_targets,
-                'create_sg_roi_analysis':create_sg_roi_analysis,
-                'create_sg_sed_analysis':create_sg_sed_analysis}
+class Pipeline_dsph(Chain):
+    """Small class to chain together the steps of the dSphs pipeline
+    """
+    default_options = dict(topdir=('dsph_flight', 'Top-level analysis directory.', str),
+                           baseconfig=('config_baseline.yaml',
+                                       'Template analysis configuration.', str),
+                           spec_table=('dm_spec.fits', 'FITS file with DM spectra', str),
+                           roster=(None, 'Roster of targets to analyze', str),
+                           dry_run=(False, 'Dry run only', bool))
+
+    def __init__(self, linkname, **kwargs):
+        """C'tor
+        """
+        link_spec_table = create_link_spec_table_builder(linkname="%s.spec-table" % linkname,
+                                                         mapping={'outfile': 'spec_table',
+                                                                  'config': 'baseconfig'})
+        link_prepare_targets = create_link_prepare_targets(linkname="%s.prepare-targets" % linkname)
+        sg_roi_analysis = create_sg_roi_analysis(linkname="%s.roi-analysis-sg" % linkname,
+                                                 mapping={'action': 'action_roi'})
+        sg_sed_analysis = create_sg_sed_analysis(linkname="%s.sed-analysis-sg" % linkname,
+                                                 mapping={'action': 'action_sed'})
+        sg_castro_conv = create_sg_castro_convertor(linkname="%s.castro-convertor-sg" % linkname,
+                                                    mapping={'action': 'action_castro'})
+        link_stack_likelihood = create_link_stack_likelihood(
+            linkname="%s.stack-likelihood" % linkname)
+
+        parser = argparse.ArgumentParser(usage='dmpipe-dsph-chain',
+                                         description="Run dSphs analysis chain")
+        Chain.__init__(self, linkname,
+                       links=[link_spec_table, link_prepare_targets,
+                              sg_roi_analysis, sg_sed_analysis, sg_castro_conv,
+                              link_stack_likelihood],
+                       appname='dmpipe-dsph-chain',
+                       options=Pipeline_dsph.default_options.copy(),
+                       argmapper=self._map_arguments,
+                       parser=parser,
+                       **kwargs)
+
+    def _map_arguments(self, input_dict):
+        """Map from the top-level arguments to the arguments provided to
+        the indiviudal links """
+        output_dict = input_dict.copy()
+        output_dict['action_roi'] = 'skip'
+        output_dict['action_sed'] = 'skip'
+        output_dict['action_castro'] = 'skip'
+        return output_dict
+
+    def run_argparser(self, argv):
+        """Initialize a link with a set of arguments using argparser
+        """
+        args = Link.run_argparser(self, argv)
+        for link in self._links.values():
+            link.run_link(stream=sys.stdout, dry_run=True)
+        return args
 
 
-def build_analysis_link(linktype, **kwargs):
-    """Build and return a `fermipy.jobs.Link` object to run a
-    part of the analysis"""
+def create_chain_dsph_pipeline(**kwargs):
+    """Build and return a `Pipeline_dsph` object """
+    ret_chain = Pipeline_dsph(linkname=kwargs.pop('linkname', 'Pipeline_dsph'))
+    return ret_chain
 
-    builder_name = 'create_%s'%linktype
-    try:
-        builder_func = BUILDER_DICT[builder_name]
-    except KeyError:
-        raise KeyError("Could not build an analysis link using a creator function %s"%builder_name)
-    return builder_func(**kwargs)
+
+def main_chain():
+    """Energy point for running the entire Cosmic-ray analysis """
+
+    job_archive = JobArchive.build_archive(job_archive_table='job_archive_temp2.fits',
+                                           file_archive_table='file_archive_temp2.fits',
+                                           base_path=os.path.abspath('.') + '/')
+
+    the_chain = Pipeline_dsph('dsphs', job_archive=job_archive)
+    args = the_chain.run_argparser(sys.argv[1:])
+    logfile = "log_%s_top.log" % the_chain.linkname
+    the_chain.archive_self(logfile)
+    if args.dry_run:
+        outstr = sys.stdout
+    else:
+        outstr = open(logfile, 'append')
+    the_chain.run_chain(outstr, args.dry_run)
+    if not args.dry_run:
+        outstr.close()
+    the_chain.finalize(args.dry_run)
+    job_archive.update_job_status(check_log)
 
 
 if __name__ == '__main__':
-
-    JOB_ARCHIVE = JobArchive.build_archive(job_archive_table='job_archive_temp2.fits',
-                                           file_archive_table='file_archive_temp2.fits',
-                                           base_path=os.path.abspath('.')+'/')
-
-    PARSER = argparse.ArgumentParser(usage="diffuse_analysis.py [options] analyses",
-                                     description="Run a high level analysis")
-    PARSER.add_argument('--config', type=str, default=None, help="Yaml configuration file")
-    PARSER.add_argument('--dry_run', action='store_true', help="Dry run only")
-    PARSER.add_argument('analyses', nargs='+', type=str, help="Analysis steps to run")
-
-    ARGS = PARSER.parse_args()
-
-    CONFIG = yaml.load(open(ARGS.config))
-
-    ANALYSES = ARGS.analyses
-    if 'ALL' in ANALYSES:
-        ANALYSES = ['spec_table', 'prepare_targets',
-                    'roi_analysis', 'sed_analysis', 'castro_convertor',
-                    'stack_likelihood']  
-
-    for ANALYSIS in ANALYSES:
-        ANALYSIS_CONFIG = CONFIG[ANALYSIS]
-        LINKTYPE = ANALYSIS_CONFIG.pop('linktype')
-        #LINK_KWARGS = dict(linkname=LINKTYPE)
-        #LINK = build_analysis_link(LINKTYPE, **LINK_KWARGS)
-        LINK = build_analysis_link(LINKTYPE)
-        LINK.update_args(ANALYSIS_CONFIG)
-        logfile = logfile="log_%s_top.log"%ANALYSIS
-        LINK.register_self(logfile=logfile)
-        JOB_ARCHIVE.register_jobs(LINK.get_jobs())
-        if ARGS.dry_run:
-            outstr = sys.stdout
-        else:
-            outstr = open(logfile, 'append')
-        print ("Logfile = %s"%logfile)
-        LINK.run(outstr, ARGS.dry_run)
-        if not ARGS.dry_run:
-            outstr.close()
-
-    JOB_ARCHIVE.file_archive.update_file_status()
-    JOB_ARCHIVE.write_table_file()
-    JOB_ARCHIVE.update_job_status(check_log)
+    main_chain()

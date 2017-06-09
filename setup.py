@@ -32,7 +32,7 @@ setup(
         'dmpipe-analyze-sed-sg = dmpipe.target_analysis:main_sed_batch',
         'dmpipe-convert-castro = dmpipe.dm_spectral:main_convert_single',
         'dmpipe-convert-castro-sg = dmpipe.dm_spectral:main_convert_batch',
-        'dmpipe-stack-likelihood = dmpipe.dm_spectral.main_stack_likelihood',
+        'dmpipe-stack-likelihood = dmpipe.dm_spectral:main_stack_likelihood',
         'dmpipe-spec-table = dmpipe.dm_spectral:main_spec_table',
     ]},
     install_requires=[
@@ -40,8 +40,8 @@ setup(
         'astropy >= 1.2.1',
         'matplotlib >= 1.5.0',
         'scipy >= 0.14',
-        #'fermipy >= 0.14.0',
-        'fermipy == 0.13.5+8.g2849a.dirty',
+        'fermipy >= 0.14.0',
+        #'fermipy == 0.13.5+8.g2849a.dirty',
         'pyyaml',
         'healpy',
         'dmsky'

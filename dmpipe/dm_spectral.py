@@ -4,12 +4,13 @@
 """
 Interface to Dark Matter spectra
 """
+from __future__ import absolute_import, division, print_function
 
 import sys
 import os
-import yaml
 import argparse
 
+import yaml
 import numpy as np
 
 from astropy.table import Table, Column
@@ -21,13 +22,11 @@ from fermipy import skymap
 from fermipy.castro import CastroData
 
 from fermipy.utils import load_yaml
-from fermipy.jobs.file_archive import FileFlags
-from fermipy.jobs.chain import add_argument, Link
+from fermipy.jobs.chain import Link
 from fermipy.jobs.scatter_gather import ConfigMaker
 from fermipy.jobs.lsf_impl import build_sg_from_link
 
-from dmpipe.dm_fit_spec import DMFitFunction
-
+from fermipy.spectrum import DMFitFunction
 
 
 class DMCastroData(castro.CastroData_Base):
@@ -76,7 +75,7 @@ class DMCastroData(castro.CastroData_Base):
         self._astro_prior = astro_prior
         self._prior_applied = prior_applied
         if isinstance(channel, str):
-            self._channel = DMFitFunction.channel2int(channel)
+            self._channel = DMFitFunction.channel_rev_map[channel]
         else:
             self._channel = channel
         super(DMCastroData, self).__init__(norm_vals, nll_vals, norm_type="sigmav")
@@ -252,7 +251,8 @@ class DMCastroData(castro.CastroData_Base):
 class DMSpecTable(object):
     """ Version of the DM spectral tables in tabular form
     """
-    def __init__(self, e_table, s_table, ref_vals, **kwargs):
+
+    def __init__(self, e_table, s_table, ref_vals):
         """ C'tor to build this object from energy binning and spectral values tables.
         """
         self._e_table = e_table
@@ -291,7 +291,6 @@ class DMSpecTable(object):
 
         table = table.Table(data=[col_masses, col_chans, col_dnde, col_flux, col_eflux])
         return table
-
 
     @property
     def ebounds_table(self):
@@ -387,7 +386,7 @@ class DMSpecTable(object):
         ebin_edges = np.logspace(log_emin, log_emax, nebins + 1)
         evals = np.sqrt(ebin_edges[0:-1] * ebin_edges[1:])
 
-        ichans = [DMFitFunction.channel2int(c) for c in channels]
+        ichans = DMFitFunction.channel_name_mapping.keys()
 
         init_params = np.array([1e-26, 100.])
         dmf = DMFitFunction(init_params)
@@ -401,9 +400,9 @@ class DMSpecTable(object):
         masses_out = np.ndarray((nrow))
         channels = np.ndarray((nrow), int)
 
-        #for i, chan in zip(ichans, channels):
+        # for i, chan in zip(ichans, channels):
         for i in ichans:
-            DMFitFunction.set_default_par_value('channel0', i)
+            #DMFitFunction.set_default_par_value('channel0', i)
             for mass in masses:
                 init_params[1] = mass
                 masses_out[irow] = mass
@@ -419,8 +418,8 @@ class DMSpecTable(object):
                      "mass": masses_out,
                      "chan": channels}
 
-        ref_vals = {"ref_J": DMFitFunction.default_params['norm'],
-                    "ref_sigv": DMFitFunction.default_params['sigmav']}
+        ref_vals = {"ref_J": 1e20,
+                    "ref_sigv": 1e-26}
 
         return DMSpecTable.create_from_data(ebin_edges[0:-1], ebin_edges[1:],
                                             evals, spec_dict, ref_vals)
@@ -490,7 +489,7 @@ class DMSpecTable(object):
         dll_vals = np.ndarray((nmass, n_scan_pt))
         mle_vals = np.ndarray((nmass))
 
-        #for i, mass in enumerate(masses):
+        # for i, mass in enumerate(masses):
         for i in range(nmass):
             max_ratio = 1. / ((spec_vals[i] / norm_limits).max())
             log_max_ratio = np.log10(max_ratio)
@@ -558,7 +557,7 @@ class DMSpecTable(object):
             dll_vals = np.ndarray((nmasses, n_scan_pt))
             mle_vals = np.ndarray((nmasses))
 
-            #for i, m in enumerate(masses):
+            # for i, m in enumerate(masses):
             for i in range(nmasses):
                 max_ratio = 1. / ((spec_vals[i] / norm_limits).max())
                 log_max_ratio = np.log10(max_ratio)
@@ -591,9 +590,9 @@ class DMSpecTable(object):
         return dm_table, mass_table, dm_ts_cube, dm_ul_cube, dm_mle_cube
 
 
-class DMCastroConvertor(object):
+class DMCastroConvertor(Link):
     """Small class to convert CastroData to a DMCastroData"""
-    
+
     default_options = dict(spec=('dm_spec_tscube.fits', 'Spectra table', str),
                            sed_file=(None, 'Path to file with target SED', str),
                            profile_yaml=(None, 'Path to yaml file with target profile', str),
@@ -601,51 +600,38 @@ class DMCastroConvertor(object):
                            outfile=(None, 'Path to output file', str),
                            dry_run=(False, 'Print but do not run commands', bool),
                            clobber=(False, 'Overwrite existing files', bool))
-    
+
     def __init__(self, **kwargs):
         """C'tor
         """
-        self.parser = DMCastroConvertor._make_parser()
-        self.link = DMCastroConvertor._make_link(self.parser, **kwargs)
-
-    @staticmethod
-    def _make_parser():
-        """Make an argument parser for this class """
-        usage = "dmpipe-convert-castro [options]"
-        description = "Convert SED to DMCastroData"
-
-        parser = argparse.ArgumentParser(usage=usage, description=description)
-        for key, val in DMCastroConvertor.default_options.items():
-            add_argument(parser, key, val)
-        return parser
-
-    @staticmethod
-    def _make_link(parser, **kwargs):
-        link = Link(kwargs.pop('linkname', 'convert-castro'),
-                    appname=kwargs.pop('appname', 'dmpipe-convert-castro'),
-                    options=DMCastroConvertor.default_options.copy(),
-                    file_args=dict())
-        return link
+        parser = argparse.ArgumentParser(usage="dmpipe-convert-castro [options]",
+                                         description="Convert SED to DMCastroData")
+        Link.__init__(self, kwargs.pop('linkname', 'convert-castro'),
+                      parser=parser,
+                      appname=kwargs.pop('appname', 'dmpipe-convert-castro'),
+                      options=DMCastroConvertor.default_options.copy(),
+                      file_args=dict(),
+                      **kwargs)
 
     @staticmethod
     def convert_sed_to_dm(spec_table, sed, channels, norm_type, j_val):
- 
+        """ Convert an SED file to a DMCastroData object """
         c_list = []
         t_list = []
         n_list = []
-        
+
         mass_table = None
         for chan in channels:
-            print "Channel %s: "%chan
-            chan_idx = DMFitFunction.channel2int(chan)
+            print ("Channel %s: " % chan)
+            chan_idx = DMFitFunction.channel_rev_map[chan]
             try:
                 dm_castro = spec_table.convert_castro_data(sed, chan_idx, norm_type, j_val)
                 tab_castro = dm_castro.build_scandata_table()
-                
+
                 if mass_table is None:
                     mass_table = dm_castro.build_mass_table()
             except IndexError:
-                print ("Skipping channel %s"%chan)
+                print ("Skipping channel %s" % chan)
                 continue
             c_list.append(dm_castro)
             t_list.append(tab_castro)
@@ -655,13 +641,13 @@ class DMCastroConvertor(object):
         n_list.append("MASSES")
         return c_list, t_list, n_list
 
-    def run(self, argv):
+    def run_analysis(self, argv):
         """Run this analysis"""
-        args = self.parser.parse_args(argv)
-        
-        channels = ['ee','mumu','tautau','bb','tt','gg','ww','zz','cc','uu','dd','ss']
+        args = self._parser.parse_args(argv)
+
+        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt', 'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
         norm_type = 'eflux'
-        
+
         spec_table = DMSpecTable.create_from_fits(args.spec)
         profile = load_yaml(args.profile_yaml)
 
@@ -675,17 +661,16 @@ class DMCastroConvertor(object):
                             j_value=j_value,
                             mu=j_value, sigma=j_sigma)
             j_prior_key = args.jprior
-       
+
         sed = CastroData.create_from_sedfile(args.sed_file, norm_type)
-        profile_yaml = os.path.join(args.profile_yaml)
-        c_list, t_list, n_list = DMCastroConvertor.convert_sed_to_dm(spec_table, sed, channels, norm_type, j_factor)
-        
+        c_list, t_list, n_list = DMCastroConvertor.convert_sed_to_dm(
+            spec_table, sed, channels, norm_type, j_factor)
+
         fits_utils.write_tables_to_fits(args.outfile, t_list,
                                         clobber=args.clobber, namelist=n_list)
-        
 
 
-class DMSpecTableBuilder(object):
+class DMSpecTableBuilder(Link):
     """ Version of the DM spectral tables in tabular form
     """
     default_options = dict(config=(None, 'Name of config script', str),
@@ -696,41 +681,26 @@ class DMSpecTableBuilder(object):
     def __init__(self, **kwargs):
         """ C'tor to build this object from energy binning and spectral values tables.
         """
-        self.parser = DMSpecTableBuilder._make_parser()
-        self.link = DMSpecTableBuilder._make_link(self.parser, **kwargs)
+        parser = argparse.ArgumentParser(usage="dmpipe-spec-table [options]",
+                                         description="Build a table with the spectra")
+        Link.__init__(self, kwargs.pop('linkname', 'spec-table'),
+                      parser=parser,
+                      appname=kwargs.pop('appname', 'dmpipe-spec-table'),
+                      options=DMSpecTableBuilder.default_options.copy(),
+                      **kwargs)
 
-    @staticmethod
-    def _make_parser():
-        """Make an argument parser for this class """
-        usage = "dmpipe-spec-table [options]"
-        description = "Build a table with the spectra"
-
-        parser = argparse.ArgumentParser(usage=usage, description=description)
-        for key, val in DMSpecTableBuilder.default_options.items():
-            add_argument(parser, key, val)
-        return parser
-
-    @staticmethod
-    def _make_link(parser, **kwargs):
-        link = Link(kwargs.pop('linkname', 'spec-table'),
-                    appname='dmpipe-spec-table',
-                    options=DMSpecTableBuilder.default_options.copy(),
-                    file_args=dict())
-        return link
-        
-    def run(self, argv):
+    def run_analysis(self, argv):
         """Run this analysis"""
-        args = self.parser.parse_args(argv)
+        args = self._parser.parse_args(argv)
 
-        channels = ['ee','mumu','tautau','bb','tt','gg','ww','zz','cc','uu','dd','ss']
-        masses = np.logspace(1,6,21)
-        
+        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt', 'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
+        masses = np.logspace(1, 6, 21)
+
         dm_spec_table = DMSpecTable.create_from_config(args.config, channels, masses)
         dm_spec_table.write_fits(args.outfile, args.clobber)
 
 
-
-class DMCastroStacker(object):
+class DMCastroStacker(Link):
     """Small class to convert stack DMCastroData """
     default_options = dict(topdir=(None, 'Name of top-level directory', str),
                            jprior=(None, 'Type of Prior on J-factor', str),
@@ -741,45 +711,32 @@ class DMCastroStacker(object):
     def __init__(self, **kwargs):
         """ C'tor to build this object from energy binning and spectral values tables.
         """
-        self.parser = DMCastroStacker._make_parser()
-        self.link = DMCastroStacker._make_link(self.parser, **kwargs)
+        parser = argparse.ArgumentParser(usage="dmpipe-stack-likelihood [options]",
+                                         description="Stack the likelihood from targets")
+        Link.__init__(self, kwargs.pop('linkname', 'stack-likelihood'),
+                      parser=parser,
+                      appname='dmpipe-stack-likelihood',
+                      options=DMCastroStacker.default_options.copy(),
+                      **kwargs)
 
     @staticmethod
-    def _make_parser():
-        """Make an argument parser for this class """
-        usage = "dmpipe-stack-likelihood [options]"
-        description = "Stack the likelihood from targets"
-
-        parser = argparse.ArgumentParser(usage=usage, description=description)
-        for key, val in DMCastroStacker.default_options.items():
-            add_argument(parser, key, val)
-        return parser
-
-    @staticmethod
-    def _make_link(parser, **kwargs):
-        link = Link(kwargs.pop('linkname', 'stack-likelihood'),
-                    appname='dmpipe-stack-likelihood',
-                    options=DMCastroStacker.default_options.copy(),
-                    file_args=dict())
-        return link
-
-    @staticmethod     
     def stack_roster(roster_name, rost, basedir, channels, jprior_key):
-        """
+        """ Stack all of the DMCastroData in a roster
         """
         component_dict = {}
         out_dict = {}
         for chan in channels:
-            component_dict[chan] = []    
-            
+            component_dict[chan] = []
+
         for target_key in rost:
             tokens = target_key.split(':')
             target_name = tokens[0]
             target_version = tokens[1]
             target_dir = os.path.join(basedir, target_name)
-            dmlike_path = os.path.join(target_dir, "dmlike_%s_%s.fits"%(target_version, jprior_key))
+            dmlike_path = os.path.join(target_dir, "dmlike_%s_%s.fits" %
+                                       (target_version, jprior_key))
             tab_m = Table.read(dmlike_path, hdu="MASSES")
-            
+
             for chan in channels:
                 try:
                     tab_s = Table.read(dmlike_path, hdu=chan)
@@ -796,18 +753,17 @@ class DMCastroStacker(object):
 
         return out_dict
 
-
-    @staticmethod     
+    @staticmethod
     def write_stacked(basedir, roster_name, stacked_dict, jprior_key, clobber):
-        """
+        """ Write the stacked DMCastroData object to a FITS file
         """
         outdir = os.path.join(basedir, "stacked")
         try:
             os.makedirs(outdir)
         except OSError:
-            pass        
-        outpath = os.path.join(outdir, "results_%s_%s.fits"%(roster_name, jprior_key))
-        print("Writing stacked results %s"%outpath)
+            pass
+        outpath = os.path.join(outdir, "results_%s_%s.fits" % (roster_name, jprior_key))
+        print("Writing stacked results %s" % outpath)
         channels = stacked_dict.keys()
         t_list = []
         n_list = []
@@ -823,21 +779,22 @@ class DMCastroStacker(object):
         fits_utils.write_tables_to_fits(outpath, t_list,
                                         clobber=clobber, namelist=n_list)
 
-
-    @staticmethod     
+    @staticmethod
     def stack_rosters(roster_dict, basedir, channels, jprior_key, clobber):
-        """
+        """ Stack all of the DMCastroData in a dictionary of rosters
         """
         for roster_name, rost in roster_dict.items():
-            stacked_dict = DMCastroStacker.stack_roster(roster_name, rost, basedir, channels, jprior_key)
+            stacked_dict = DMCastroStacker.stack_roster(
+                roster_name, rost, basedir, channels, jprior_key)
             DMCastroStacker.write_stacked(basedir, roster_name, stacked_dict, jprior_key, clobber)
 
-    def run(self, argv):
+    def run_analysis(self, argv):
         """Run this analysis"""
-        args = self.parser.parse_args(argv)
+        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt', 'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
+        args = self._parser.parse_args(argv)
         roster_dict = load_yaml(os.path.join(args.topdir, args.rosterlist))
-        DMCastroStacker.stack_rosters(roster_dict, args.topdir, channels, args.jprior, args.clobber)   
-  
+        DMCastroStacker.stack_rosters(roster_dict, args.topdir, channels, args.jprior, args.clobber)
+
 
 class ConfigMaker_CastroConvertor(ConfigMaker):
     """Small class to generate configurations for this script
@@ -866,20 +823,25 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
 
         topdir = args['topdir']
         targets_yaml_path = os.path.join(topdir, args['targetlist'])
-        targets = load_yaml(targets_yaml_path)
+
+        try:
+            targets = load_yaml(targets_yaml_path)
+        except IOError:
+            targets = {}
+
         jprior = args['jprior']
         spec = args['spec']
         dry_run = args['dry_run']
         clobber = args['clobber']
-        
+
         for target_name, profile_list in targets.items():
             target_dir = os.path.join(topdir, target_name)
             for profile in profile_list:
-                full_key = "%s:%s"%(target_name, profile)
-                sed_file = os.path.join(target_dir, "sed_%s.fits"%profile)
-                profile_yaml = os.path.join(target_dir, "profile_%s.yaml"%profile)
-                outfile = os.path.join(target_dir, "dmlike_%s_%s.yaml"%(profile, jprior))
-                logfile = "scatter_convert_%s_%s.log"%(target_name, profile)
+                full_key = "%s:%s" % (target_name, profile)
+                sed_file = os.path.join(target_dir, "sed_%s.fits" % profile)
+                profile_yaml = os.path.join(target_dir, "profile_%s.yaml" % profile)
+                outfile = os.path.join(target_dir, "dmlike_%s_%s.yaml" % (profile, jprior))
+                logfile = "scatter_convert_%s_%s.log" % (target_name, profile)
                 job_config = dict(spec=spec,
                                   sed_file=sed_file,
                                   profile_yaml=profile_yaml,
@@ -889,36 +851,39 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
                                   dry_run=dry_run,
                                   clobber=clobber)
                 job_configs[full_key] = job_config
-    
+
         return input_config, job_configs, output_config
- 
+
 
 def create_link_castro_convertor(**kwargs):
     """Build and return a `Link` object that can invoke DMCastroConvertor"""
     castro_convertor = DMCastroConvertor(**kwargs)
-    return castro_convertor.link
+    return castro_convertor
+
 
 def create_link_spec_table_builder(**kwargs):
     """Build and return a `Link` object that can invoke DMSpecTableBuilder"""
     spec_table_builder = DMSpecTableBuilder(**kwargs)
-    return spec_table_builder.link
+    return spec_table_builder
+
 
 def create_link_stack_likelihood(**kwargs):
     """Build and return a `Link` object that can invoke DMSpecTableBuilder"""
     castro_stacker = DMCastroStacker(**kwargs)
-    return castro_stacker.link
+    return castro_stacker
+
 
 def create_sg_castro_convertor(**kwargs):
     """Build and return a ScatterGather object that can invoke this script"""
     castro_convertor = DMCastroConvertor()
-    link = castro_convertor.link
+    link = castro_convertor
     link.linkname = kwargs.pop('linkname', link.linkname)
     appname = kwargs.pop('appname', 'dmpipe-convert-castro-sg')
 
     lsf_args = {'W': 1500,
                 'R': 'rhel60'}
 
-    usage = "%s [options]"%(appname)
+    usage = "%s [options]" % (appname)
     description = "Convert SEDs to DMCastroData objects"
 
     config_maker = ConfigMaker_CastroConvertor(link)
@@ -930,20 +895,24 @@ def create_sg_castro_convertor(**kwargs):
                                 **kwargs)
     return lsf_sg
 
+
 def main_spec_table():
     """Entry point for command line use for single job """
     spec_table_builder = DMSpecTableBuilder()
-    spec_table_builder.run(sys.argv[1:])
+    spec_table_builder.run_analysis(sys.argv[1:])
+
 
 def main_stack_likelihood():
     """Entry point for command line use for single job """
-    castro_stacker = DMCastroStacker(**kwargs)
-    castro_stacker.run(sys.argv[1:])
+    castro_stacker = DMCastroStacker()
+    castro_stacker.run_analysis(sys.argv[1:])
+
 
 def main_convert_single():
     """Entry point for command line use for single job """
     castro_convertor = DMCastroConvertor()
-    castro_convertor.run(sys.argv[1:])
+    castro_convertor.run_analysis(sys.argv[1:])
+
 
 def main_convert_batch():
     """Entry point for command line use for dispatching batch jobs """
@@ -951,6 +920,5 @@ def main_convert_batch():
     lsf_sg(sys.argv)
 
 
-
 if __name__ == "__main__":
-    main_batch()
+    main_convert_batch()

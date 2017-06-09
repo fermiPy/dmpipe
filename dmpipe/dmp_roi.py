@@ -4,6 +4,7 @@
 """
 Classes and utilities that define a set of regions of interest to tile the sky
 """
+from __future__ import absolute_import, division, print_function
 
 import sys
 import os
