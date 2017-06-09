@@ -1,33 +1,30 @@
 #!/usr/bin/env python
 #
 
-"""
-Interface to Dark Matter spectra
-"""
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-import os
-import sys
+"""
+Top level script to make a castro plot
+"""
+from __future__ import absolute_import, division, print_function
+
+
 import argparse
-
-import yaml
-
-from astropy.table import Table
 
 from fermipy.castro import CastroData
 from fermipy.sed_plotting import plotCastro
 
 
-        
 def main():
-    """
+    """ Hook for command line interface
     """
     # Argument defintion
-    usage = "usage: %(prog)s [input]"    
+    usage = "usage: %(prog)s [input]"
     description = "Collect all the new source"
-    
-    parser = argparse.ArgumentParser(usage=usage,description=description)
+
+    parser = argparse.ArgumentParser(usage=usage, description=description)
     parser.add_argument('--input', '-i', required=True, help='Input FITS file')
-    
+
     # Argument parsing
     args = parser.parse_args()
 
@@ -38,6 +35,5 @@ def main():
     return plot
 
 
-if __name__=='__main__':
-    plot = main()
-
+if __name__ == '__main__':
+    PLOT = main()

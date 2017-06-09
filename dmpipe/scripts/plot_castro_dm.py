@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 #
 
-"""
-Interface to Dark Matter spectra
-"""
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-import os
-import sys
+"""
+Top level script to make a castro plot in mass / sigmav space
+"""
+from __future__ import absolute_import, division, print_function
+
 import argparse
-
-import yaml
 
 from astropy.table import Table
 
@@ -17,18 +16,17 @@ from dmpipe.dm_spectral import DMCastroData
 from dmpipe.dm_plotting import plot_dm_castro
 
 
-        
 def main():
-    """
+    """ Hook for command line interface
     """
     # Argument defintion
-    usage = "usage: %(prog)s [input]"    
+    usage = "usage: %(prog)s [input]"
     description = "Collect all the new source"
-    
-    parser = argparse.ArgumentParser(usage=usage,description=description)
+
+    parser = argparse.ArgumentParser(usage=usage, description=description)
     parser.add_argument('--chan', '-c', required=True, help='Channel')
     parser.add_argument('--input', '-i', required=True, help='Input FITS file')
-    
+
     # Argument parsing
     args = parser.parse_args()
 
@@ -40,6 +38,5 @@ def main():
     return dm_plot
 
 
-if __name__=='__main__':
-    dm_plot = main()
-
+if __name__ == '__main__':
+    DM_PLOT = main()
