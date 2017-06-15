@@ -12,6 +12,9 @@ import argparse
 
 from astropy.table import Table
 
+from fermipy.utils import init_matplotlib_backend
+init_matplotlib_backend()
+
 from dmpipe.dm_spectral import DMCastroData
 from dmpipe.dm_plotting import plot_dm_castro
 
@@ -26,6 +29,7 @@ def main():
     parser = argparse.ArgumentParser(usage=usage, description=description)
     parser.add_argument('--chan', '-c', required=True, help='Channel')
     parser.add_argument('--input', '-i', required=True, help='Input FITS file')
+    parser.add_argument('--output', '-o', default=None, type=str, help='Output file')
 
     # Argument parsing
     args = parser.parse_args()
@@ -35,6 +39,8 @@ def main():
     dm_castro = DMCastroData.create_from_tables(tab_s, tab_m)
 
     dm_plot = plot_dm_castro(dm_castro)
+    if args.output:
+        dm_plot[0].savefig(args.output)
     return dm_plot
 
 

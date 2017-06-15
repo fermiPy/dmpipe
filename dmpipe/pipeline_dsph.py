@@ -35,18 +35,24 @@ class Pipeline_dsph(Chain):
     def __init__(self, linkname, **kwargs):
         """C'tor
         """
+        job_archive = kwargs.get('job_archive', None)
         link_spec_table = create_link_spec_table_builder(linkname="%s.spec-table" % linkname,
                                                          mapping={'outfile': 'spec_table',
-                                                                  'config': 'baseconfig'})
-        link_prepare_targets = create_link_prepare_targets(linkname="%s.prepare-targets" % linkname)
+                                                                  'config': 'baseconfig'},
+                                                         job_archive=job_archive)
+        link_prepare_targets = create_link_prepare_targets(linkname="%s.prepare-targets" % linkname,
+                                                           job_archive=job_archive)
         sg_roi_analysis = create_sg_roi_analysis(linkname="%s.roi-analysis-sg" % linkname,
-                                                 mapping={'action': 'action_roi'})
+                                                 mapping={'action': 'action_roi'},
+                                                 job_archive=job_archive)
         sg_sed_analysis = create_sg_sed_analysis(linkname="%s.sed-analysis-sg" % linkname,
-                                                 mapping={'action': 'action_sed'})
+                                                 mapping={'action': 'action_sed'},
+                                                 job_archive=job_archive)
         sg_castro_conv = create_sg_castro_convertor(linkname="%s.castro-convertor-sg" % linkname,
-                                                    mapping={'action': 'action_castro'})
-        link_stack_likelihood = create_link_stack_likelihood(
-            linkname="%s.stack-likelihood" % linkname)
+                                                    mapping={'action': 'action_castro'},
+                                                    job_archive=job_archive)
+        link_stack_likelihood = create_link_stack_likelihood(linkname="%s.stack-likelihood" % linkname,
+                                                             job_archive=job_archive)
 
         parser = argparse.ArgumentParser(usage='dmpipe-dsph-chain',
                                          description="Run dSphs analysis chain")
@@ -64,9 +70,13 @@ class Pipeline_dsph(Chain):
         """Map from the top-level arguments to the arguments provided to
         the indiviudal links """
         output_dict = input_dict.copy()
-        output_dict['action_roi'] = 'skip'
-        output_dict['action_sed'] = 'skip'
-        output_dict['action_castro'] = 'skip'
+        if input_dict.get('dry_run', False):
+            action = 'skip'
+        else:
+            action = 'check_status'
+        output_dict['action_roi'] = action
+        output_dict['action_sed'] = action
+        output_dict['action_castro'] = action
         return output_dict
 
     def run_argparser(self, argv):

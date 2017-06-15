@@ -14,11 +14,13 @@ import argparse
 
 from dmsky.roster import RosterLibrary
 
-from fermipy.utils import load_yaml, write_yaml
+from fermipy.utils import load_yaml, write_yaml, init_matplotlib_backend
 
 from fermipy.jobs.chain import Link
 from fermipy.jobs.scatter_gather import ConfigMaker
 from fermipy.jobs.lsf_impl import build_sg_from_link
+
+init_matplotlib_backend('Agg')
 
 try:
     from fermipy.gtanalysis import GTAnalysis
@@ -143,7 +145,7 @@ class TargetAnalysis(Link):
 
         if not HAVE_ST:
             raise RuntimeError("Trying to run fermipy analysis, but don't have ST")
-
+        
         gta = GTAnalysis(args.config, logging={'verbosity': 3},
                          fileio={'workdir_regex': '\.xml$|\.npy$'})
 
@@ -253,7 +255,7 @@ class SEDAnalysis(Link):
             # remove the source
             gta.delete_source(pkey)
             # put the ROI back to how it was
-            gta.load_xml('fit_draco_baseline')
+            gta.load_xml('fit_baseline')
 
         return gta
 
@@ -327,7 +329,7 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
 
         try:
             targets = load_yaml(targets_yaml)
-        except OSError:
+        except IOError:
             targets = {}
 
         for target_name, target_list in targets.items():
@@ -382,7 +384,7 @@ def create_sg_roi_analysis(**kwargs):
 
 def create_sg_sed_analysis(**kwargs):
     """Build and return a ScatterGather object that can invoke this script"""
-    sed_analysis = SEDAnalysis()
+    sed_analysis = SEDAnalysis(**kwargs)
     link = sed_analysis
     link.linkname = kwargs.pop('linkname', link.linkname)
     appname = kwargs.pop('appname', 'dmpipe-analyze-sed-sg')

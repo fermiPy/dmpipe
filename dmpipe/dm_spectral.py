@@ -840,7 +840,7 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
                 full_key = "%s:%s" % (target_name, profile)
                 sed_file = os.path.join(target_dir, "sed_%s.fits" % profile)
                 profile_yaml = os.path.join(target_dir, "profile_%s.yaml" % profile)
-                outfile = os.path.join(target_dir, "dmlike_%s_%s.yaml" % (profile, jprior))
+                outfile = os.path.join(target_dir, "dmlike_%s_%s.fits" % (profile, jprior))
                 logfile = "scatter_convert_%s_%s.log" % (target_name, profile)
                 job_config = dict(spec=spec,
                                   sed_file=sed_file,
@@ -875,7 +875,7 @@ def create_link_stack_likelihood(**kwargs):
 
 def create_sg_castro_convertor(**kwargs):
     """Build and return a ScatterGather object that can invoke this script"""
-    castro_convertor = DMCastroConvertor()
+    castro_convertor = DMCastroConvertor(**kwargs)
     link = castro_convertor
     link.linkname = kwargs.pop('linkname', link.linkname)
     appname = kwargs.pop('appname', 'dmpipe-convert-castro-sg')
