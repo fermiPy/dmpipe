@@ -621,6 +621,8 @@ class DMCastroConvertor(Link):
         n_list = []
 
         mass_table = None
+
+        print ("J Value", j_val)
         for chan in channels:
             print ("Channel %s: " % chan)
             chan_idx = DMFitFunction.channel_rev_map[chan]

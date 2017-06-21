@@ -73,7 +73,7 @@ class Pipeline_dsph(Chain):
         if input_dict.get('dry_run', False):
             action = 'skip'
         else:
-            action = 'check_status'
+            action = 'run'
         output_dict['action_roi'] = action
         output_dict['action_sed'] = action
         output_dict['action_castro'] = action
