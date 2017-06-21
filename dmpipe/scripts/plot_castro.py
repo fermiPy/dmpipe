@@ -24,7 +24,8 @@ def main():
 
     parser = argparse.ArgumentParser(usage=usage, description=description)
     parser.add_argument('--input', '-i', required=True, help='Input FITS file')
-
+    parser.add_argument('--output', '-o', default=None, type=str, help='Output file')
+ 
     # Argument parsing
     args = parser.parse_args()
 
@@ -32,6 +33,9 @@ def main():
     ylims = [1e-8, 1e-5]
 
     plot = plotCastro(castro_data, ylims)
+    if args.output:
+        plot[0].savefig(args.output)    
+        return None
     return plot
 
 

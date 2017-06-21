@@ -36,6 +36,7 @@ setup(
         'dmpipe-spec-table = dmpipe.dm_spectral:main_spec_table',
         'dmpipe-pipeline-dsph = dmpipe.pipeline_dsph:main_chain',
         'dmpipe-plot-dm = dmpipe.scripts.plot_castro_dm:main', 
+        'dmpipe-plot-castro = dmpipe.scripts.plot_castro:main', 
     ]},
     install_requires=[
         'numpy >= 1.6.1',
@@ -43,7 +44,8 @@ setup(
         'matplotlib >= 1.5.0',
         'scipy >= 0.14',
         #'fermipy >= 0.14.0',
-        'fermipy == 0.13.5+13.g44b5.dirty',
+        #'fermipy == 0.13.5+13.g44b5.dirty',
+        'fermipy==0.13.5+17.g75ce.dirty',
         'pyyaml',
         'healpy',
         'dmsky'

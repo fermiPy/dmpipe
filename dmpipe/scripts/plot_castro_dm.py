@@ -41,6 +41,7 @@ def main():
     dm_plot = plot_dm_castro(dm_castro)
     if args.output:
         dm_plot[0].savefig(args.output)
+        return None
     return dm_plot
 
 
