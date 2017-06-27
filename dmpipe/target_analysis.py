@@ -294,7 +294,9 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
 
         for target_name in targets.keys():
             config_path = os.path.join(topdir, target_name, config_yaml)
-            job_config = dict(config=config_path)
+            logfile = os.path.join(topdir, target_name, "%s_%s.log"%(self.link.linkname, target_name))
+            job_config = dict(config=config_path, 
+                              logfile=logfile)
             job_configs[target_name] = job_config
 
         return input_config, job_configs, output_config
@@ -342,19 +344,19 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
 
 
 def create_link_prepare_targets(**kwargs):
-    """Build and return a `Link` object that can invoke DMCastroConvertor"""
+    """Build and return a `Link` object that can invoke TargetPreparer"""
     target_prep = TargetPreparer(**kwargs)
     return target_prep
 
 
 def create_link_roi_analysis(**kwargs):
-    """Build and return a `Link` object that can invoke DMCastroConvertor"""
+    """Build and return a `Link` object that can invoke TargetAnalysis"""
     target_analysis = TargetAnalysis(**kwargs)
     return target_analysis
 
 
 def create_link_sed_analysis(**kwargs):
-    """Build and return a `Link` object that can invoke DMSpecTableBuilder"""
+    """Build and return a `Link` object that can invoke SEDAnalysis"""
     sed_analysis = SEDAnalysis(**kwargs)
     return sed_analysis
 

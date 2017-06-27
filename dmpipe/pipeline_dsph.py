@@ -42,13 +42,13 @@ class Pipeline_dsph(Chain):
                                                          job_archive=job_archive)
         link_prepare_targets = create_link_prepare_targets(linkname="%s.prepare-targets" % linkname,
                                                            job_archive=job_archive)
-        sg_roi_analysis = create_sg_roi_analysis(linkname="%s.roi-analysis-sg" % linkname,
+        sg_roi_analysis = create_sg_roi_analysis(linkname="%s.roi-analysis" % linkname,
                                                  mapping={'action': 'action_roi'},
                                                  job_archive=job_archive)
-        sg_sed_analysis = create_sg_sed_analysis(linkname="%s.sed-analysis-sg" % linkname,
+        sg_sed_analysis = create_sg_sed_analysis(linkname="%s.sed-analysis" % linkname,
                                                  mapping={'action': 'action_sed'},
                                                  job_archive=job_archive)
-        sg_castro_conv = create_sg_castro_convertor(linkname="%s.castro-convertor-sg" % linkname,
+        sg_castro_conv = create_sg_castro_convertor(linkname="%s.dm-castro" % linkname,
                                                     mapping={'action': 'action_castro'},
                                                     job_archive=job_archive)
         link_stack_likelihood = create_link_stack_likelihood(linkname="%s.stack-likelihood" % linkname,
@@ -97,8 +97,8 @@ def create_chain_dsph_pipeline(**kwargs):
 def main_chain():
     """Energy point for running the entire Cosmic-ray analysis """
 
-    job_archive = JobArchive.build_archive(job_archive_table='job_archive_temp2.fits',
-                                           file_archive_table='file_archive_temp2.fits',
+    job_archive = JobArchive.build_archive(job_archive_table='job_archive_dSphs.fits',
+                                           file_archive_table='file_archive_dSphs.fits',
                                            base_path=os.path.abspath('.') + '/')
 
     the_chain = Pipeline_dsph('dsphs', job_archive=job_archive)
