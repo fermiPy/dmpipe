@@ -835,6 +835,7 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
         spec = args['spec']
         dry_run = args['dry_run']
         clobber = args['clobber']
+        logdir = os.path.abspath(topdir).replace('gpfs', 'nfs')
 
         for target_name, profile_list in targets.items():
             target_dir = os.path.join(topdir, target_name)
@@ -843,7 +844,7 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
                 sed_file = os.path.join(target_dir, "sed_%s.fits" % profile)
                 profile_yaml = os.path.join(target_dir, "profile_%s.yaml" % profile)
                 outfile = os.path.join(target_dir, "dmlike_%s_%s.fits" % (profile, jprior))
-                logfile = "scatter_convert_%s_%s.log" % (target_name, profile)
+                logfile = os.path.join(logdir, target_name, "scatter_convert_%s_%s.log" % (target_name, profile))
                 job_config = dict(spec=spec,
                                   sed_file=sed_file,
                                   profile_yaml=profile_yaml,

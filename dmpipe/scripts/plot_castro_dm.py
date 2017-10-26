@@ -88,6 +88,7 @@ class ConfigMaker_PlotCastroDM(ConfigMaker):
 
         topdir = args['topdir']
         targets_yaml = os.path.join(topdir, args['targetlist'])
+        logdir = os.path.abspath(topdir).replace('gpfs', 'nfs')
 
         try:
             targets = load_yaml(targets_yaml)
@@ -106,10 +107,11 @@ class ConfigMaker_PlotCastroDM(ConfigMaker):
                 targ_key = "%s_%s"%(target_name, targ_prof)
                 input_path = os.path.join(topdir, target_name, 'dmlike_%s_%s.fits'%(targ_prof, j_prior_key))
                 output_path = os.path.join(topdir, target_name, 'dmlike_%s_%s_%s.png'%(targ_prof, chan, j_prior_key))
-                logfile = os.path.join(topdir, target_name, 'plot_dm_%s_%s_%s.log'%(targ_prof, chan, j_prior_key))
+                logfile = os.path.join(logdir, target_name, 'plot_dm_%s_%s_%s.log'%(targ_prof, chan, j_prior_key))
                 job_config = dict(input=input_path,
                                   output=output_path,
                                   j_prior=j_prior_key,
+                                  logfile=logfile,
                                   chan=chan)
                 job_configs[targ_key] = job_config
                 
