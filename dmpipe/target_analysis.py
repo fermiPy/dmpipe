@@ -100,6 +100,8 @@ class TargetPreparer(Link):
                 profile_data['j_integ'] = target.j_integ
                 profile_data['j_sigma'] = target.j_sigma
                 profile_data['j_map_file'] = jmap_path
+
+                print (profile_data)
                 write_yaml(profile_data, profile_path)
 
             roster_info_dict[roster_name] = tlist
@@ -376,7 +378,7 @@ def create_sg_roi_analysis(**kwargs):
     appname = kwargs.pop('appname', 'dmpipe-analyze-roi-sg')
 
     lsf_args = {'W': 1500,
-                'R': 'rhel60'}
+                'R': '\"select[rhel60 && !fell]\"'}
 
     usage = "%s [options]" % (appname)
     description = "Run analyses on a series of ROIs"
@@ -399,7 +401,7 @@ def create_sg_sed_analysis(**kwargs):
     appname = kwargs.pop('appname', 'dmpipe-analyze-sed-sg')
 
     lsf_args = {'W': 1500,
-                'R': 'rhel60'}
+                'R': '\"select[rhel60 && !fell]\"'}
 
     usage = "%s [options]" % (appname)
     description = "Run analyses on a series of ROIs"

@@ -117,7 +117,7 @@ def create_sg_plot_castro(**kwargs):
     appname = kwargs.pop('appname', 'dmpipe-plot-castro-sg')
 
     lsf_args = {'W': 50,
-                'R': 'rhel60'}
+                'R': '\"select[rhel60 && !fell]\"'}
 
     usage = "%s [options]" % (appname)
     description = "Make castro plots for set of targets"

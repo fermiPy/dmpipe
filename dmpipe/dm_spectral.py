@@ -418,7 +418,7 @@ class DMSpecTable(object):
                      "mass": masses_out,
                      "chan": channels}
 
-        ref_vals = {"ref_J": 1e20,
+        ref_vals = {"ref_J": 1e19,
                     "ref_sigv": 1e-26}
 
         return DMSpecTable.create_from_data(ebin_edges[0:-1], ebin_edges[1:],
@@ -884,7 +884,7 @@ def create_sg_castro_convertor(**kwargs):
     appname = kwargs.pop('appname', 'dmpipe-convert-castro-sg')
 
     lsf_args = {'W': 1500,
-                'R': 'rhel60'}
+                'R': '\"select[rhel60 && !fell]\"'}
 
     usage = "%s [options]" % (appname)
     description = "Convert SEDs to DMCastroData objects"
