@@ -110,6 +110,7 @@ class ConfigMaker_PlotCastroDM(ConfigMaker):
                 job_config = dict(input=input_path,
                                   output=output_path,
                                   j_prior=j_prior_key,
+                                  logfile=logfile,
                                   chan=chan)
                 job_configs[targ_key] = job_config
                 

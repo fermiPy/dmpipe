@@ -191,6 +191,13 @@ class DMCastroData(castro.CastroData_Base):
         return DMCastroData(norm_vals, nll_vals, norm, channel,
                             masses, astro_value, prior, prior_applied)
 
+    @staticmethod
+    def create_from_fitsfile(filepath, channel):
+        """ Create a DMCastroData object likelihood scan and mass tables in FITS file """
+        tab_s = Table.read(filepath, hdu=channel)
+        tab_m = Table.read(filepath, hdu='MASSES')
+        return DMCastroData.create_from_tables(tab_s, tab_m)
+
     def build_lnl_fn(self, normv, nllv):
         """ Build a function to return the likelihood value arrays of
         normalization and likelihood values
@@ -375,6 +382,8 @@ class DMSpecTable(object):
         """
         config = yaml.safe_load(open(configfile))
 
+        chan_names = ['ee', 'mumu', 'tautau', 'bb', 'tt', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
+
         emin = config['selection']['emin']
         emax = config['selection']['emax']
         log_emin = np.log10(emin)
@@ -386,12 +395,7 @@ class DMSpecTable(object):
         ebin_edges = np.logspace(log_emin, log_emax, nebins + 1)
         evals = np.sqrt(ebin_edges[0:-1] * ebin_edges[1:])
 
-        ichans = DMFitFunction.channel_name_mapping.keys()
-
-        init_params = np.array([1e-26, 100.])
-        dmf = DMFitFunction(init_params)
-
-        nrow = len(ichans) * len(masses)
+        nrow = len(chan_names) * len(masses)
         irow = 0
 
         dnde = np.ndarray((nrow, nebins))
@@ -400,13 +404,18 @@ class DMSpecTable(object):
         masses_out = np.ndarray((nrow))
         channels = np.ndarray((nrow), int)
 
+        ref_J = 1.0e20
+        ref_sigv = 1.0e-26
+
+
         # for i, chan in zip(ichans, channels):
-        for i in ichans:
-            #DMFitFunction.set_default_par_value('channel0', i)
+        for chan in chan_names:
+            ichan = DMFitFunction.channel_rev_map[chan]
             for mass in masses:
-                init_params[1] = mass
+                init_params = np.array([ref_sigv, mass])
+                dmf = DMFitFunction(init_params, chan=chan, jfactor=ref_J)
                 masses_out[irow] = mass
-                channels[irow] = i
+                channels[irow] = ichan
                 dnde[irow].flat = dmf.dnde(evals)
                 flux[irow].flat = dmf.flux(ebin_edges[0:-1], ebin_edges[1:], init_params)
                 eflux[irow].flat = dmf.eflux(ebin_edges[0:-1], ebin_edges[1:], init_params)
@@ -418,8 +427,8 @@ class DMSpecTable(object):
                      "mass": masses_out,
                      "chan": channels}
 
-        ref_vals = {"ref_J": 1e20,
-                    "ref_sigv": 1e-26}
+        ref_vals = {"ref_J": ref_J,
+                    "ref_sigv": ref_sigv}
 
         return DMSpecTable.create_from_data(ebin_edges[0:-1], ebin_edges[1:],
                                             evals, spec_dict, ref_vals)
@@ -593,7 +602,7 @@ class DMSpecTable(object):
 class DMCastroConvertor(Link):
     """Small class to convert CastroData to a DMCastroData"""
 
-    default_options = dict(spec=('dm_spec_tscube.fits', 'Spectra table', str),
+    default_options = dict(spec=('dm_spec.fits', 'Spectra table', str),
                            sed_file=(None, 'Path to file with target SED', str),
                            profile_yaml=(None, 'Path to yaml file with target profile', str),
                            jprior=(None, 'Type of Prior on J-factor', str),
@@ -843,7 +852,7 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
                 sed_file = os.path.join(target_dir, "sed_%s.fits" % profile)
                 profile_yaml = os.path.join(target_dir, "profile_%s.yaml" % profile)
                 outfile = os.path.join(target_dir, "dmlike_%s_%s.fits" % (profile, jprior))
-                logfile = "scatter_convert_%s_%s.log" % (target_name, profile)
+                logfile = os.path.join(topdir, target_name, "%s_%s_%s.log"%(self.link.linkname, target_name, profile))
                 job_config = dict(spec=spec,
                                   sed_file=sed_file,
                                   profile_yaml=profile_yaml,
@@ -882,7 +891,7 @@ def create_sg_castro_convertor(**kwargs):
     link.linkname = kwargs.pop('linkname', link.linkname)
     appname = kwargs.pop('appname', 'dmpipe-convert-castro-sg')
 
-    lsf_args = {'W': 1500,
+    lsf_args = {'W': 500,
                 'R': 'rhel60'}
 
     usage = "%s [options]" % (appname)

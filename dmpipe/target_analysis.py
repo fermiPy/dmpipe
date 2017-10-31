@@ -16,6 +16,9 @@ from dmsky.roster import RosterLibrary
 
 from fermipy.utils import load_yaml, write_yaml, init_matplotlib_backend
 
+from fermipy.castro import CastroData
+from fermipy.sed_plotting import plotCastro
+
 from fermipy.jobs.chain import Link
 from fermipy.jobs.scatter_gather import ConfigMaker
 from fermipy.jobs.lsf_impl import build_sg_from_link
@@ -243,19 +246,29 @@ class SEDAnalysis(Link):
         # This should be a no-op, b/c it was done in the baseline analysis
 
         gta.free_sources(skydir=gta.roi.skydir, distance=1.0, pars='norm')
+        ylims = [1e-8, 1e-5]
 
         for profile in args.profiles:
             pkey, pdict = SEDAnalysis._build_profile_dict(basedir, profile)
+            outfile="sed_%s.fits" % pkey
+            outplot=os.path.join(basedir, "sed_%s.png" % pkey)
             # test_case need to be a dict with spectrum and morphology
             gta.add_source(pkey, pdict)
             # refit the ROI
             gta.fit()
             # build the SED
-            gta.sed(pkey, outfile="sed_%s.fits" % pkey)
+            gta.sed(pkey, outfile=outfile)       
+            # plot the SED
+            if True:
+                castro_data = CastroData.create_from_sedfile(os.path.join(basedir, outfile))
+                plot = plotCastro(castro_data, ylims)
+                plot[0].savefig(outplot)    
             # remove the source
             gta.delete_source(pkey)
             # put the ROI back to how it was
             gta.load_xml('fit_baseline')
+
+            
 
         return gta
 
@@ -336,8 +349,10 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
 
         for target_name, target_list in targets.items():
             config_path = os.path.join(topdir, target_name, config_yaml)
+            logfile = os.path.join(topdir, target_name, "%s_%s.log"%(self.link.linkname, target_name))
             job_config = dict(config=config_path,
-                              profiles=target_list)
+                              profiles=target_list, 
+                              logfile=logfile)
             job_configs[target_name] = job_config
 
         return input_config, job_configs, output_config

@@ -29,19 +29,15 @@ class Pipeline_dsph(Chain):
                            baseconfig=('config_baseline.yaml',
                                        'Template analysis configuration.', str),
                            spec_table=('dm_spec.fits', 'FITS file with DM spectra', str),
-                           roster=(None, 'Roster of targets to analyze', str),
+                           targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
+                           rosterlist=('roster_list.yaml', 'Yaml file with list of rosters', str),
+                           jprior=(None, 'Type of Prior on J-factor', str),
                            dry_run=(False, 'Dry run only', bool))
 
     def __init__(self, linkname, **kwargs):
         """C'tor
         """
         job_archive = kwargs.get('job_archive', None)
-        link_spec_table = create_link_spec_table_builder(linkname="%s.spec-table" % linkname,
-                                                         mapping={'outfile': 'spec_table',
-                                                                  'config': 'baseconfig'},
-                                                         job_archive=job_archive)
-        link_prepare_targets = create_link_prepare_targets(linkname="%s.prepare-targets" % linkname,
-                                                           job_archive=job_archive)
         sg_roi_analysis = create_sg_roi_analysis(linkname="%s.roi-analysis" % linkname,
                                                  mapping={'action': 'action_roi'},
                                                  job_archive=job_archive)
@@ -57,8 +53,7 @@ class Pipeline_dsph(Chain):
         parser = argparse.ArgumentParser(usage='dmpipe-dsph-chain',
                                          description="Run dSphs analysis chain")
         Chain.__init__(self, linkname,
-                       links=[link_spec_table, link_prepare_targets,
-                              sg_roi_analysis, sg_sed_analysis, sg_castro_conv,
+                       links=[sg_roi_analysis, sg_sed_analysis, sg_castro_conv,
                               link_stack_likelihood],
                        appname='dmpipe-dsph-chain',
                        options=Pipeline_dsph.default_options.copy(),
@@ -71,7 +66,7 @@ class Pipeline_dsph(Chain):
         the indiviudal links """
         output_dict = input_dict.copy()
         if input_dict.get('dry_run', False):
-            action = 'skip'
+            action = 'check_status'
         else:
             action = 'run'
         output_dict['action_roi'] = action

@@ -194,7 +194,8 @@ def plot_limits(sdict, xlims, ylims, alpha=0.05):
         else:
             axis.plot(xvals, yvals, label=key)
 
-    leg = axis.legend(loc="upper left")  # ,fontsize=10,ncol=2)
+    #leg = axis.legend(loc="upper left")  # ,fontsize=10,ncol=2)
+    leg = None
     return fig, axis, leg
 
 
