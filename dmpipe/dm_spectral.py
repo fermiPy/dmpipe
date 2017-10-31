@@ -404,7 +404,7 @@ class DMSpecTable(object):
         masses_out = np.ndarray((nrow))
         channels = np.ndarray((nrow), int)
 
-        ref_J = 1.0e20
+        ref_J = 1.0e19
         ref_sigv = 1.0e-26
 
 
@@ -844,6 +844,7 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
         spec = args['spec']
         dry_run = args['dry_run']
         clobber = args['clobber']
+        logdir = os.path.abspath(topdir).replace('gpfs', 'nfs')
 
         for target_name, profile_list in targets.items():
             target_dir = os.path.join(topdir, target_name)
@@ -852,7 +853,11 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
                 sed_file = os.path.join(target_dir, "sed_%s.fits" % profile)
                 profile_yaml = os.path.join(target_dir, "profile_%s.yaml" % profile)
                 outfile = os.path.join(target_dir, "dmlike_%s_%s.fits" % (profile, jprior))
+<<<<<<< HEAD
                 logfile = os.path.join(topdir, target_name, "%s_%s_%s.log"%(self.link.linkname, target_name, profile))
+=======
+                logfile = os.path.join(logdir, target_name, "scatter_convert_%s_%s.log" % (target_name, profile))
+>>>>>>> 7aa898d64f791a2f20b12290c216fb60ad36d268
                 job_config = dict(spec=spec,
                                   sed_file=sed_file,
                                   profile_yaml=profile_yaml,
@@ -891,8 +896,13 @@ def create_sg_castro_convertor(**kwargs):
     link.linkname = kwargs.pop('linkname', link.linkname)
     appname = kwargs.pop('appname', 'dmpipe-convert-castro-sg')
 
+<<<<<<< HEAD
     lsf_args = {'W': 500,
                 'R': 'rhel60'}
+=======
+    lsf_args = {'W': 1500,
+                'R': '\"select[rhel60 && !fell]\"'}
+>>>>>>> 7aa898d64f791a2f20b12290c216fb60ad36d268
 
     usage = "%s [options]" % (appname)
     description = "Convert SEDs to DMCastroData objects"

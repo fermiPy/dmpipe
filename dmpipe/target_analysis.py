@@ -99,10 +99,12 @@ class TargetPreparer(Link):
                     write_yaml(target_config, target_config_path)
 
                 profile_data = target.profile.copy()
-                target.write_jmap_wcs(jmap_path, clobber=True)
+                #target.write_jmap_wcs(jmap_path, clobber=True)
                 profile_data['j_integ'] = target.j_integ
                 profile_data['j_sigma'] = target.j_sigma
                 profile_data['j_map_file'] = jmap_path
+
+                print (profile_data)
                 write_yaml(profile_data, profile_path)
 
             roster_info_dict[roster_name] = tlist
@@ -300,6 +302,8 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
         targets_yaml = os.path.join(topdir, args['targetlist'])
         config_yaml = args['config']
 
+        logdir = os.path.abspath(topdir).replace('gpfs', 'nfs')
+
         try:
             targets = load_yaml(targets_yaml)
         except IOError:
@@ -307,7 +311,7 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
 
         for target_name in targets.keys():
             config_path = os.path.join(topdir, target_name, config_yaml)
-            logfile = os.path.join(topdir, target_name, "%s_%s.log"%(self.link.linkname, target_name))
+            logfile = os.path.join(logdir, target_name, "%s_%s.log"%(self.link.linkname, target_name))
             job_config = dict(config=config_path, 
                               logfile=logfile)
             job_configs[target_name] = job_config
@@ -347,11 +351,13 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
         except IOError:
             targets = {}
 
+        logdir = os.path.abspath(topdir).replace('gpfs', 'nfs')
+
         for target_name, target_list in targets.items():
             config_path = os.path.join(topdir, target_name, config_yaml)
-            logfile = os.path.join(topdir, target_name, "%s_%s.log"%(self.link.linkname, target_name))
+            logfile = os.path.join(logdir, target_name, "%s_%s.log"%(self.link.linkname, target_name))
             job_config = dict(config=config_path,
-                              profiles=target_list, 
+                              profiles=target_list,
                               logfile=logfile)
             job_configs[target_name] = job_config
 
@@ -384,7 +390,7 @@ def create_sg_roi_analysis(**kwargs):
     appname = kwargs.pop('appname', 'dmpipe-analyze-roi-sg')
 
     lsf_args = {'W': 1500,
-                'R': 'rhel60'}
+                'R': '\"select[rhel60 && !fell]\"'}
 
     usage = "%s [options]" % (appname)
     description = "Run analyses on a series of ROIs"
@@ -407,7 +413,7 @@ def create_sg_sed_analysis(**kwargs):
     appname = kwargs.pop('appname', 'dmpipe-analyze-sed-sg')
 
     lsf_args = {'W': 1500,
-                'R': 'rhel60'}
+                'R': '\"select[rhel60 && !fell]\"'}
 
     usage = "%s [options]" % (appname)
     description = "Run analyses on a series of ROIs"

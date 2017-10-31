@@ -81,6 +81,7 @@ class ConfigMaker_PlotCastro(ConfigMaker):
 
         topdir = args['topdir']
         targets_yaml = os.path.join(topdir, args['targetlist'])
+        logdir = os.path.abspath(topdir).replace('gpfs', 'nfs')
 
         try:
             targets = load_yaml(targets_yaml)
@@ -92,9 +93,10 @@ class ConfigMaker_PlotCastro(ConfigMaker):
                 targ_key = "%s_%s"%(target_name, targ_prof)
                 input_path = os.path.join(topdir, target_name, 'sed_%s.fits'%targ_prof)
                 output_path = os.path.join(topdir, target_name, 'sed_%s.png'%targ_prof)
-                logfile = os.path.join(topdir, target_name, 'plot_castro_%s.log'%targ_prof)
+                logfile = os.path.join(logdir, target_name, 'plot_castro_%s.log'%targ_prof)
                 job_config = dict(input=input_path,
-                                  output=output_path)
+                                  output=output_path,
+                                  logfile=logfile)
                 job_configs[targ_key] = job_config
                 
         return input_config, job_configs, output_config
@@ -115,7 +117,7 @@ def create_sg_plot_castro(**kwargs):
     appname = kwargs.pop('appname', 'dmpipe-plot-castro-sg')
 
     lsf_args = {'W': 50,
-                'R': 'rhel60'}
+                'R': '\"select[rhel60 && !fell]\"'}
 
     usage = "%s [options]" % (appname)
     description = "Make castro plots for set of targets"
