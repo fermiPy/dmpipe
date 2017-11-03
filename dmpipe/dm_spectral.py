@@ -94,7 +94,7 @@ class DMCastroData(castro.CastroData_Base):
     def norm_value(self):
         """ The global normalization value
 
-        The array off normalization values should be multiplied by this factor """
+        The array of normalization values should be multiplied by this factor """
         return self._norm_value
 
     @property
@@ -487,6 +487,7 @@ class DMSpecTable(object):
         elif isinstance(jfactor, dict):
             j_ref = jfactor.get('j_value')
             norm_factor = j_ref / ref_norm
+            jfactor['mu'] = norm_factor
             j_prior = stats_utils.create_prior_functor(jfactor)
 
         norm_limits = castro_data.getLimits(1e-5)
@@ -638,7 +639,6 @@ class DMCastroConvertor(Link):
             try:
                 dm_castro = spec_table.convert_castro_data(sed, chan_idx, norm_type, j_val)
                 tab_castro = dm_castro.build_scandata_table()
-
                 if mass_table is None:
                     mass_table = dm_castro.build_mass_table()
             except IndexError:
