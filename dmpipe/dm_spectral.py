@@ -149,7 +149,7 @@ class DMCastroData(castro.CastroData_Base):
         return self._channel
 
     @staticmethod
-    def create_from_stack(components, nystep=100, ylims=(1e-28, 1e-22), weights=None):
+    def create_from_stack(components, nystep=200, ylims=(1e-30, 1e-20), weights=None):
         """ Create a DMCastroData object by stacking a series of DMCastroData objects
         """
         if len(components) == 0:
