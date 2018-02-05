@@ -38,7 +38,8 @@ setup(
         'dmpipe-plot-dm = dmpipe.scripts.plot_castro_dm:main_single', 
         'dmpipe-plot-dm-sg = dmpipe.scripts.plot_castro_dm:main_batch', 
         'dmpipe-plot-castro = dmpipe.scripts.plot_castro:main_single', 
-        'dmpipe-plot-castro-sg = dmpipe.scripts.plot_castro:main_batch', 
+        'dmpipe-plot-castro-sg = dmpipe.scripts.plot_castro:main_batch',
+        'dmpipe-calc-sed-limits = dmpipe.scripts.calc_sed_limits:main', 
     ]},
     install_requires=[
         'numpy >= 1.6.1',

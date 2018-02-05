@@ -149,13 +149,14 @@ class DMCastroData(castro.CastroData_Base):
         return self._channel
 
     @staticmethod
-    def create_from_stack(components, nystep=100, ylims=(1e-28, 1e-22), weights=None):
+    def create_from_stack(components, nystep=200, ylims=(1e-30, 1e-20), weights=None):
         """ Create a DMCastroData object by stacking a series of DMCastroData objects
         """
         if len(components) == 0:
             return None
         shape = (components[0].nx, nystep)
-        norm_vals, nll_vals = castro.CastroData_Base.stack_nll(shape, components, ylims, weights)
+        norm_vals, nll_vals = castro.CastroData_Base.stack_nll(
+            shape, components, ylims, weights)
         return DMCastroData(norm_vals, nll_vals, 1.0,
                             components[0].channel, components[0].masses, astro_value=None)
 
@@ -234,7 +235,8 @@ class DMCastroData(castro.CastroData_Base):
             col_prior_mean = Column(name="PRIOR_MEAN", dtype=float)
             col_prior_sigma = Column(name="PRIOR_SIGMA", dtype=float)
             col_prior_applied = Column(name="PRIOR_APPLIED", dtype=bool)
-            collist += [col_prior_type, col_prior_mean, col_prior_sigma, col_prior_applied]
+            collist += [col_prior_type, col_prior_mean,
+                        col_prior_sigma, col_prior_applied]
             valdict["PRIOR_TYPE"] = self.prior_type
             valdict["PRIOR_MEAN"] = self.prior_mean
             valdict["PRIOR_SIGMA"] = self.prior_sigma
@@ -247,7 +249,8 @@ class DMCastroData(castro.CastroData_Base):
     def build_mass_table(self):
         """Build a FITS table with mass values
         """
-        col_masses = Column(name="MASSES", dtype=float, shape=self._masses.shape)
+        col_masses = Column(name="MASSES", dtype=float,
+                            shape=self._masses.shape)
         col_channel = Column(name="CHANNEL", dtype=int)
         tab = Table(data=[col_masses, col_channel])
         tab.add_row({"MASSES": self._masses,
@@ -272,9 +275,12 @@ class DMSpecTable(object):
         """
         from astropy import table
 
-        col_emin = table.Column(name="E_MIN", dtype=float, unit="MeV", data=emin)
-        col_emax = table.Column(name="E_MAX", dtype=float, unit="MeV", data=emax)
-        col_eref = table.Column(name="E_REF", dtype=float, unit="MeV", data=eref)
+        col_emin = table.Column(
+            name="E_MIN", dtype=float, unit="MeV", data=emin)
+        col_emax = table.Column(
+            name="E_MAX", dtype=float, unit="MeV", data=emax)
+        col_eref = table.Column(
+            name="E_REF", dtype=float, unit="MeV", data=eref)
 
         tab = table.Table(data=[col_emin, col_emax, col_eref])
         return tab
@@ -296,7 +302,8 @@ class DMSpecTable(object):
         col_eflux = table.Column(name="ref_eflux", dtype=float, shape=nebins, unit="MeV / (cm2 s)",
                                  data=spec_dict['eflux'])
 
-        table = table.Table(data=[col_masses, col_chans, col_dnde, col_flux, col_eflux])
+        table = table.Table(
+            data=[col_masses, col_chans, col_dnde, col_flux, col_eflux])
         return table
 
     @property
@@ -376,28 +383,36 @@ class DMSpecTable(object):
         s_table = DMSpecTable.make_spectra_table(len(emins), data_dict)
         return DMSpecTable(e_table, s_table, ref_vals)
 
-    @staticmethod
-    def create_from_config(configfile, channels, masses):
-        """ Build a DMSpecTable object from a yaml config file
+    @classmethod
+    def create(cls, emin, emax, channels, masses):
+        """Create a DM spectrum table.
+
+        Parameters
+        ----------
+        emin : `~numpy.ndarray`
+            Low bin edges.
+        emax : `~numpy.ndarray`
+            High bin edges.
+        channels : list
+            List of channel names.
+        masses : `~numpy.ndarray`
+            Mass points at which to evaluate the spectrum.
         """
-        config = yaml.safe_load(open(configfile))
 
         chan_names = ['ee', 'mumu', 'tautau', 'bb', 'tt', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
 
         emin = config['selection']['emin']
         emax = config['selection']['emax']
-        log_emin = np.log10(emin)
-        log_emax = np.log10(emax)
-        ndec = log_emax - log_emin
-        binsperdec = config['binning']['binsperdec']
-        nebins = int(np.ceil(binsperdec * ndec))
+        ebin_edges = np.concatenate((emin, emax[-1:]))
+        evals = np.sqrt(ebin_edges[:-1] * ebin_edges[1:])
+        ichans = DMFitFunction.channel_name_mapping.keys()
 
-        ebin_edges = np.logspace(log_emin, log_emax, nebins + 1)
-        evals = np.sqrt(ebin_edges[0:-1] * ebin_edges[1:])
+        init_params = np.array([1e-26, 100.])
+        dmf = DMFitFunction(init_params, jfactor=1E20)
 
-        nrow = len(chan_names) * len(masses)
-        irow = 0
-
+        nebins = len(ebin_edges) - 1
+        nchan = len(ichans)
+        nrow = len(ichans) * len(masses)
         dnde = np.ndarray((nrow, nebins))
         flux = np.ndarray((nrow, nebins))
         eflux = np.ndarray((nrow, nebins))
@@ -407,19 +422,14 @@ class DMSpecTable(object):
         ref_J = 1.0e19
         ref_sigv = 1.0e-26
 
-
-        # for i, chan in zip(ichans, channels):
-        for chan in chan_names:
-            ichan = DMFitFunction.channel_rev_map[chan]
-            for mass in masses:
-                init_params = np.array([ref_sigv, mass])
-                dmf = DMFitFunction(init_params, chan=chan, jfactor=ref_J)
-                masses_out[irow] = mass
-                channels[irow] = ichan
-                dnde[irow].flat = dmf.dnde(evals)
-                flux[irow].flat = dmf.flux(ebin_edges[0:-1], ebin_edges[1:], init_params)
-                eflux[irow].flat = dmf.eflux(ebin_edges[0:-1], ebin_edges[1:], init_params)
-                irow += 1
+        for i, ichan in enumerate(ichans):
+            dmf.set_channel(ichan)
+            s = slice(i * len(masses), (i + 1) * len(masses))
+            dnde[s] = dmf.dnde(evals, (init_params[0], masses)).T
+            flux[s] = dmf.flux(emin, emax, (init_params[0], masses)).T
+            eflux[s] = dmf.eflux(emin, emax, (init_params[0], masses)).T
+            channels[s] = ichan
+            masses_out[s] = masses
 
         spec_dict = {"dnde": dnde,
                      "flux": flux,
@@ -430,8 +440,24 @@ class DMSpecTable(object):
         ref_vals = {"ref_J": ref_J,
                     "ref_sigv": ref_sigv}
 
-        return DMSpecTable.create_from_data(ebin_edges[0:-1], ebin_edges[1:],
-                                            evals, spec_dict, ref_vals)
+        return cls.create_from_data(ebin_edges[0:-1], ebin_edges[1:],
+                                    evals, spec_dict, ref_vals)
+
+    @classmethod
+    def create_from_config(cls, configfile, channels, masses):
+        """ Build a DMSpecTable object from a yaml config file
+        """
+        config = yaml.safe_load(open(configfile))
+
+        emin = config['selection']['emin']
+        emax = config['selection']['emax']
+        log_emin = np.log10(emin)
+        log_emax = np.log10(emax)
+        ndec = log_emax - log_emin
+        binsperdec = config['binning']['binsperdec']
+        nebins = int(np.ceil(binsperdec * ndec))
+        ebin_edges = np.logspace(log_emin, log_emax, nebins + 1)
+        return cls.create(ebin_edges[:-1], ebin_edges[1:], channels, masses)
 
     def check_energy_bins(self, ref_spec, tol=1e-3):
         """ Make sure that the energy binning matches the reference spectrum
@@ -491,8 +517,7 @@ class DMSpecTable(object):
 
         norm_limits = castro_data.getLimits(1e-5)
         spec_vals *= norm_factor
-
-        n_scan_pt = 100
+        n_scan_pt = 200
 
         norm_vals = np.ndarray((nmass, n_scan_pt))
         dll_vals = np.ndarray((nmass, n_scan_pt))
@@ -502,8 +527,9 @@ class DMSpecTable(object):
         for i in range(nmass):
             max_ratio = 1. / ((spec_vals[i] / norm_limits).max())
             log_max_ratio = np.log10(max_ratio)
-            norm_vals[i][0] = 0.
-            norm_vals[i][1:] = np.logspace(log_max_ratio - 2, log_max_ratio + 2, n_scan_pt - 1)
+            norm_vals[i][0] = 10**(log_max_ratio-5)
+            norm_vals[i][1:] = np.logspace(log_max_ratio - 4, log_max_ratio + 4,
+                                           n_scan_pt - 1)
             test_vals = (np.expand_dims(spec_vals[i], 1) * (np.expand_dims(norm_vals[i], 1).T))
             dll_vals[i, 0:] = castro_data(test_vals)
             mle_vals[i] = norm_vals[i][dll_vals[i].argmin()]
@@ -571,8 +597,10 @@ class DMSpecTable(object):
                 max_ratio = 1. / ((spec_vals[i] / norm_limits).max())
                 log_max_ratio = np.log10(max_ratio)
                 norm_vals[i][0] = 0.
-                norm_vals[i][1:] = np.logspace(log_max_ratio - 2, log_max_ratio + 2, n_scan_pt - 1)
-                test_vals = (np.expand_dims(spec_vals[i], 1) * (np.expand_dims(norm_vals[i], 1).T))
+                norm_vals[i][1:] = np.logspace(log_max_ratio - 2,
+                                               log_max_ratio + 2, n_scan_pt - 1)
+                test_vals = (np.expand_dims(spec_vals[i], 1) *
+                             (np.expand_dims(norm_vals[i], 1).T))
                 dll_vals[i, 0:] = castro_data(test_vals)
                 mle_vals[i] = norm_vals[i][dll_vals[i].argmin()]
                 mle_ll = dll_vals[i].min()
@@ -656,7 +684,8 @@ class DMCastroConvertor(Link):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
 
-        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt', 'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
+        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt',
+                    'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
         norm_type = 'eflux'
 
         spec_table = DMSpecTable.create_from_fits(args.spec)
@@ -704,7 +733,8 @@ class DMSpecTableBuilder(Link):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
 
-        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt', 'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
+        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt',
+                    'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
         masses = np.logspace(1, 6, 21)
 
         dm_spec_table = DMSpecTable.create_from_config(args.config, channels, masses)
@@ -801,7 +831,8 @@ class DMCastroStacker(Link):
 
     def run_analysis(self, argv):
         """Run this analysis"""
-        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt', 'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
+        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt',
+                    'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
         args = self._parser.parse_args(argv)
         roster_dict = load_yaml(os.path.join(args.topdir, args.rosterlist))
         DMCastroStacker.stack_rosters(roster_dict, args.topdir, channels, args.jprior, args.clobber)
@@ -853,11 +884,7 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
                 sed_file = os.path.join(target_dir, "sed_%s.fits" % profile)
                 profile_yaml = os.path.join(target_dir, "profile_%s.yaml" % profile)
                 outfile = os.path.join(target_dir, "dmlike_%s_%s.fits" % (profile, jprior))
-<<<<<<< HEAD
                 logfile = os.path.join(topdir, target_name, "%s_%s_%s.log"%(self.link.linkname, target_name, profile))
-=======
-                logfile = os.path.join(logdir, target_name, "scatter_convert_%s_%s.log" % (target_name, profile))
->>>>>>> 7aa898d64f791a2f20b12290c216fb60ad36d268
                 job_config = dict(spec=spec,
                                   sed_file=sed_file,
                                   profile_yaml=profile_yaml,
@@ -896,13 +923,8 @@ def create_sg_castro_convertor(**kwargs):
     link.linkname = kwargs.pop('linkname', link.linkname)
     appname = kwargs.pop('appname', 'dmpipe-convert-castro-sg')
 
-<<<<<<< HEAD
     lsf_args = {'W': 500,
-                'R': 'rhel60'}
-=======
-    lsf_args = {'W': 1500,
                 'R': '\"select[rhel60 && !fell]\"'}
->>>>>>> 7aa898d64f791a2f20b12290c216fb60ad36d268
 
     usage = "%s [options]" % (appname)
     description = "Convert SEDs to DMCastroData objects"
