@@ -81,6 +81,7 @@ def compute_limits(sedfile, roster, chan, masses, alpha=0.05, apply_prior=False,
     lims_out += [cd_dm_comb.getLimits(alpha)]
     ts_out += [cd_dm_comb.ts_vals()]
     names += ['combined']
+    masses = np.vstack([masses for i in range(len(names))])
     lims_out = np.vstack(lims_out)
     ts_out = np.vstack(ts_out)
 
@@ -93,15 +94,17 @@ def compute_limits(sedfile, roster, chan, masses, alpha=0.05, apply_prior=False,
         len(names) + 1)
 
     cols = [Column(name='name', data=names),
-            Column(name='mass', data=np.vstack([masses for i in range(len(names))]), unit='GeV'),
+            Column(name='mass', data=masses, unit='GeV'),
             Column(name='sigmav_ul', data=lims_out, unit='cm^3 / s'),
             Column(name='ts', data=ts_out),
             ]
 
+    text_out = np.vstack([masses[0]] + [lims_out])
+
     tab = Table(cols)
     tab.write('%s_%s.fits' % (outprefix, chan), overwrite=True)
     np.savetxt('%s_%s.txt' % (outprefix, chan),
-               lims_out.T, fmt='%12.5g', header=header)
+               text_out.T, fmt='%12.5g', header=header)
 
 
 def main(args=None):
@@ -161,6 +164,7 @@ def main(args=None):
         tautau=[2.00, 3.16, 5.00, 7.07, 10.00, 15.81, 25.00, 35.36, 50.00, 70.70, ] + masses_high,
     )
 
+    print (args.jfactor, args.jsigma)
     if args.roster is None:
         target = dmsky.targets.Dwarf(j_integ=float(args.jfactor), j_sigma=float(args.jsigma),
                                      name=args.target,
