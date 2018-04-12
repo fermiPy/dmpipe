@@ -18,12 +18,15 @@ from fermipy.utils import init_matplotlib_backend, load_yaml
 init_matplotlib_backend()
 
 from fermipy.jobs.chain import Link
-from fermipy.jobs.scatter_gather import ConfigMaker
-from fermipy.jobs.lsf_impl import build_sg_from_link
+from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
+from fermipy.jobs.lsf_impl import get_lsf_default_args, LSF_Interface
 
 from dmpipe.dm_spectral import DMCastroData
 from dmpipe.dm_plotting import plot_dm_castro
 
+from dmpipe.name_policy import NameFactory
+
+NAME_FACTORY = NameFactory(basedir='.')
 
 class CastroPlotterDM(Link):
     """Small class wrap an analysis script.
@@ -82,13 +85,10 @@ class ConfigMaker_PlotCastroDM(ConfigMaker):
     def build_job_configs(self, args):
         """Hook to build job configurations
         """
-        input_config = {}
         job_configs = {}
-        output_config = {}
 
         topdir = args['topdir']
         targets_yaml = os.path.join(topdir, args['targetlist'])
-        logdir = os.path.abspath(topdir).replace('gpfs', 'nfs')
 
         try:
             targets = load_yaml(targets_yaml)
@@ -104,10 +104,15 @@ class ConfigMaker_PlotCastroDM(ConfigMaker):
 
         for target_name, target_list in targets.items():
             for targ_prof in target_list:
+                name_keys = dict(target_type=topdir,
+                                 target_name=target_name,
+                                 profile=targ_prof,
+                                 jprior=j_prior_key,
+                                 fullpath=True)
                 targ_key = "%s_%s"%(target_name, targ_prof)
-                input_path = os.path.join(topdir, target_name, 'dmlike_%s_%s.fits'%(targ_prof, j_prior_key))
-                output_path = os.path.join(topdir, target_name, 'dmlike_%s_%s_%s.png'%(targ_prof, chan, j_prior_key))
-                logfile = os.path.join(logdir, target_name, 'plot_dm_%s_%s_%s.log'%(targ_prof, chan, j_prior_key))
+                input_path = NAME_FACTORY.dmlikefile(**name_keys)
+                output_path = input_path.replace('.fits', '.png')
+                logfile = make_nfs_path(input_path.replace('.fits', 'log'))
                 job_config = dict(input=input_path,
                                   output=output_path,
                                   j_prior=j_prior_key,
@@ -115,7 +120,7 @@ class ConfigMaker_PlotCastroDM(ConfigMaker):
                                   chan=chan)
                 job_configs[targ_key] = job_config
                 
-        return input_config, job_configs, output_config
+        return job_configs
 
 
 
@@ -127,20 +132,20 @@ def create_link_plot_dm(**kwargs):
 
 def create_sg_plot_dm(**kwargs):
     """Build and return a ScatterGather object that can invoke this script"""
-
-    link = CastroPlotterDM(**kwargs)
-    link.linkname = kwargs.pop('linkname', link.linkname)
     appname = kwargs.pop('appname', 'dmpipe-plot-dm-sg')
+    link = create_link_plot_dm(**kwargs)
+    link.linkname = kwargs.pop('linkname', link.linkname)
 
-    lsf_args = {'W': 50,
-                'R': '\"select[rhel60 && !fell]\"'}
+    batch_args = get_lsf_default_args()    
+    batch_args['lsf_args']['W'] = 50
+    batch_interface = LSF_Interface(**batch_args)
 
     usage = "%s [options]" % (appname)
     description = "Make castro plots for set of targets"
 
     config_maker = ConfigMaker_PlotCastroDM(link)
     lsf_sg = build_sg_from_link(link, config_maker,
-                                lsf_args=lsf_args,
+                                interface=batch_interface,
                                 usage=usage,
                                 description=description,
                                 appname=appname,

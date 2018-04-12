@@ -164,14 +164,14 @@ def plot_stacked(sdict, xlims, ibin=0):
     return fig, axis, leg
 
 
-def plot_limits(sdict, xlims, ylims, alpha=0.05):
-    """ Plot the upper limits as a functino of DM particle mass and cross section.
+def plot_limits_from_arrays(ldict, xlims, ylims, bands):
+    """ Plot the upper limits as a function of DM particle mass and cross section.
 
-    sdict      : A dictionary of CastroData objects,
-                 with the log-likelihood v. normalization for each energy bin
-    xlims      : x-axis limits
-    ylims      : y-axis limits
-    alpha      : Confidence level to use in setting limits = 1 - alpha
+    ldict      : A dictionary of strings pointing to pairs of `np.array` objects,
+                 The keys will be used as labels
+    xlims      : x-axis limits for the plot
+    ylims      : y-axis limits for the plot
+    bands      : Dictionary with the expected limit bands
     """
     import matplotlib.pyplot as plt
     import matplotlib
@@ -186,17 +186,47 @@ def plot_limits(sdict, xlims, ylims, alpha=0.05):
     axis.set_xlim((xlims[0], xlims[1]))
     axis.set_ylim((ylims[0], ylims[1]))
 
-    for key, val in sdict.items():
-        xvals = val.masses
-        yvals = val.getLimits(alpha)
+    if bands is not None:
+        plot_expected_limit_bands(axis, bands)
+
+    for key, val in ldict.items():
+        print (key, val)
+        xvals = val[0]
+        yvals = val[1]
         if key.lower() == "stacked":
             axis.plot(xvals, yvals, lw=3, label=key)
         else:
             axis.plot(xvals, yvals, label=key)
 
-    #leg = axis.legend(loc="upper left")  # ,fontsize=10,ncol=2)
-    leg = None
+    leg = axis.legend(loc="upper left")  # ,fontsize=10,ncol=2)
     return fig, axis, leg
+
+
+def plot_expected_limit_bands(axis, bands):
+    """ Plot the expected limit bands """
+    masses = bands['MASSES']
+    print (masses.shape, bands['q02'].shape, bands['q16'].shape, 
+           bands['median'].shape, bands['q84'].shape,  bands['q97'].shape)
+
+    axis.fill_between(masses, bands['q02'], bands['q97'], color='yellow')
+    axis.fill_between(masses, bands['q16'], bands['q84'], color='green')
+    axis.plot(masses, bands['median'], color='gray')
+
+
+def plot_limits(sdict, xlims, ylims, alpha=0.05):
+    """ Plot the upper limits as a function of DM particle mass and cross section.
+
+    sdict      : A dictionary of CastroData objects,
+                 with the log-likelihood v. normalization for each energy bin
+    xlims      : x-axis limits
+    ylims      : y-axis limits
+    alpha      : Confidence level to use in setting limits = 1 - alpha
+    """
+    
+    ldict = {}
+    for key, val in sdict.items():
+        ldict[key] = (val.masses, val.getLimits(alpha))
+    return plot_limits_from_arrays(ldict[key], xlims, ylims)
 
 
 def compare_limits(sdict, xlims, ylims, alpha=0.05):
