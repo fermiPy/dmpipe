@@ -28,7 +28,7 @@ class Pipeline_dsph(Chain):
     default_options = dict(topdir=('dsph_flight', 'Top-level analysis directory.', str),
                            baseconfig=('config_baseline.yaml',
                                        'Template analysis configuration.', str),
-                           spec_table=('dm_spec.fits', 'FITS file with DM spectra', str),
+                           spec_table=('dm_spectra.fits', 'FITS file with DM spectra', str),
                            targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
                            rosterlist=('roster_list.yaml', 'Yaml file with list of rosters', str),
                            jprior=(None, 'Type of Prior on J-factor', str),
