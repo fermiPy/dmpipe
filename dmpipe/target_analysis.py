@@ -11,6 +11,9 @@ from __future__ import absolute_import, division, print_function
 import os
 import sys
 import argparse
+import numpy as np
+
+from shutil import copyfile
 
 from dmsky.roster import RosterLibrary
 
@@ -20,8 +23,10 @@ from fermipy.castro import CastroData
 from fermipy.sed_plotting import plotCastro
 
 from fermipy.jobs.chain import Link
-from fermipy.jobs.scatter_gather import ConfigMaker
-from fermipy.jobs.lsf_impl import build_sg_from_link
+from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
+from fermipy.jobs.lsf_impl import make_nfs_path, get_lsf_default_args, LSF_Interface
+
+from dmpipe.name_policy import NameFactory
 
 init_matplotlib_backend('Agg')
 
@@ -31,6 +36,7 @@ try:
 except ImportError:
     HAVE_ST = False
 
+NAME_FACTORY = NameFactory(basedir=('.'))
 
 class TargetPreparer(Link):
     """Small class wrap an analysis script.
@@ -40,8 +46,11 @@ class TargetPreparer(Link):
 
     default_options = dict(roster=(None, 'Roster to build targets for', str),
                            topdir=(None, 'Top level output directory', str),
-                           baseconfig=('config_baseline.yaml', 'Name of config script', str),
+                           config=(None, 'Name of config script', str),
+                           sim=(None, 'Name of simulation scenario', str), 
                            dry_run=(False, 'Print but do not run commands', bool))
+
+    copyfiles = ['srcmap_00.fits', 'fit_baseline.fits', 'fit_baseline.npy', 'fit_baseline_00.xml']
 
     def __init__(self, **kwargs):
         """C'tor
@@ -55,7 +64,16 @@ class TargetPreparer(Link):
                       **kwargs)
 
     @staticmethod
-    def write_target_dirs(basedir, roster_dict, base_config):
+    def copy_analysis_files(orig_dir, dest_dir, files):
+        """ Copy a list of files from orig_dir to dest_dir"""
+        for f in files:
+            orig_path = os.path.join(orig_dir, f)
+            dest_path = os.path.join(dest_dir, f)
+            copyfile(orig_path, dest_path)
+
+
+    @staticmethod
+    def write_target_dirs(topdir, roster_dict, base_config, sim):
         """ Create and populate directoris for target analysis
         """
         target_dict = {}
@@ -63,25 +81,49 @@ class TargetPreparer(Link):
         target_info_dict = {}
         roster_info_dict = {}
 
+        if sim is None or sim == 'none':
+            is_sim = False
+        else:
+            is_sim = True
+
         try:
-            os.makedirs(basedir)
+            if is_sim:
+                os.makedirs("%s_sim"%topdir)
+            else:
+                os.makedirs(topdir)
         except OSError:
             pass
 
         for roster_name, rost in roster_dict.items():
             tlist = []
             for target_name, target in rost.items():
-                target_key = "%s:%s" % (target_name, target.version)
+                if is_sim:
+                    target_key = "%s:%s:%s" % (target_name, target.version, sim)
+                else:
+                    target_key = "%s:%s" % (target_name, target.version)
                 print("Writing %s" % (target_key))
                 tlist.append(target_key)
                 if target_info_dict.has_key(target_name):
                     target_info_dict[target_name].append(target.version)
                 else:
                     target_info_dict[target_name] = [target.version]
-                target_dir = os.path.join(basedir, target_name)
-                target_config_path = os.path.join(target_dir, 'config_baseline.yaml')
-                jmap_path = os.path.join(target_dir, 'profile_%s.fits' % target.version)
-                profile_path = os.path.join(target_dir, 'profile_%s.yaml' % target.version)
+                name_keys = dict(target_type=topdir,
+                                 target_name=target_name,
+                                 profile=target.version,
+                                 sim_name=sim,
+                                 fullpath=True)
+                
+                target_dir = NAME_FACTORY.targetdir(**name_keys)
+                if is_sim:                    
+                    profile_path = NAME_FACTORY.sim_profilefile(**name_keys)
+                    sim_target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
+                    target_config_path = os.path.join(sim_target_dir, 'config.yaml')
+                else:
+                    profile_path = NAME_FACTORY.profilefile(**name_keys)
+                    sim_target_dir = None
+                    target_config_path = os.path.join(target_dir, 'config.yaml')
+
+                jmap_path = profile_path.replace('.yaml', 'fits')
 
                 if target_dict.has_key(target_name):
                     # Already made the config for this target
@@ -89,12 +131,24 @@ class TargetPreparer(Link):
                 else:
                     # Make the config for this target
                     try:
-                        os.makedirs(target_dir)
+                        if is_sim:
+                            os.makedirs(sim_target_dir)
+                        else:
+                            os.makedirs(target_dir)
                     except OSError:
                         pass
                     target_config = base_config.copy()
                     target_config['selection']['ra'] = target.ra
                     target_config['selection']['dec'] = target.dec
+                    if is_sim:
+                        TargetPreparer.copy_analysis_files(target_dir, sim_target_dir, TargetPreparer.copyfiles)
+                        target_config['gtlike']['bexpmap'] = os.path.abspath(os.path.join(target_dir,'bexpmap_00.fits'))
+                        target_config['gtlike']['srcmap'] = os.path.abspath(os.path.join(sim_target_dir,'srcmap_00.fits'))
+                        target_config['gtlike']['use_external_srcmap'] = True
+                        sim_orig_file = os.path.join('config', 'sim_%s.yaml'%sim)
+                        sim_dest_file = os.path.join(sim_target_dir, 'sim_%s.yaml'%sim)
+                        copyfile(sim_orig_file, sim_dest_file)
+
                     target_dict[target_name] = target_config
                     write_yaml(target_config, target_config_path)
 
@@ -104,13 +158,20 @@ class TargetPreparer(Link):
                 profile_data['j_sigma'] = target.j_sigma
                 profile_data['j_map_file'] = jmap_path
 
-                print (profile_data)
                 write_yaml(profile_data, profile_path)
 
             roster_info_dict[roster_name] = tlist
 
-        write_yaml(roster_info_dict, os.path.join(basedir, 'roster_list.yaml'))
-        write_yaml(target_info_dict, os.path.join(basedir, 'target_list.yaml'))
+        if is_sim:
+            roster_file = os.path.join("%s_sim"%topdir, "sim_%s"%sim, 'roster_list.yaml')
+            target_file = os.path.join("%s_sim"%topdir, "sim_%s"%sim, 'target_list.yaml')
+        else:
+            roster_file = os.path.join(topdir, 'roster_list.yaml')
+            target_file = os.path.join(topdir, 'target_list.yaml')
+
+        write_yaml(roster_info_dict, roster_file)
+        write_yaml(target_info_dict, target_file)
+
 
     def run_analysis(self, argv):
         """Run this analysis"""
@@ -120,9 +181,9 @@ class TargetPreparer(Link):
         rost = roster_lib.create_roster(args.roster)
         roster_dict[args.roster] = rost
 
-        base_config = load_yaml(args.baseconfig)
+        base_config = load_yaml(args.config)
 
-        TargetPreparer.write_target_dirs(args.topdir, roster_dict, base_config)
+        TargetPreparer.write_target_dirs(args.topdir, roster_dict, base_config, args.sim)
 
 
 class TargetAnalysis(Link):
@@ -130,7 +191,7 @@ class TargetAnalysis(Link):
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
-    default_options = dict(config=('config_baseline.yaml', 'Name of config script', str),
+    default_options = dict(config=('config.yaml', 'Name of config script', str),
                            dry_run=(False, 'Print but do not run commands', bool))
 
     def __init__(self, **kwargs):
@@ -184,7 +245,8 @@ class TargetAnalysis(Link):
 
         gta.write_roi('base_roi', make_plots=True)
 
-        gta.find_sources(sqrt_ts_threshold=5.0)
+        gta.find_sources(sqrt_ts_threshold=5.0, search_skydir=gta.roi.skydir,
+                         search_minmax_radius=[1.0, np.nan])
         gta.optimize()
         gta.print_roi()
         gta.print_params()
@@ -202,7 +264,7 @@ class SEDAnalysis(Link):
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
-    default_options = dict(config=('config_baseline.yaml', 'Name of config script', str),
+    default_options = dict(config=('config.yaml', 'Name of config script', str),
                            dry_run=(False, 'Print but do not run commands', bool),
                            profiles=([], 'Profiles to build SED for', list))
 
@@ -253,7 +315,7 @@ class SEDAnalysis(Link):
         for profile in args.profiles:
             pkey, pdict = SEDAnalysis._build_profile_dict(basedir, profile)
             outfile="sed_%s.fits" % pkey
-            outplot=os.path.join(basedir, "sed_%s.png" % pkey)
+            outplot="sed_%s.png" % pkey
             # test_case need to be a dict with spectrum and morphology
             gta.add_source(pkey, pdict)
             # refit the ROI
@@ -281,7 +343,6 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
     This adds the following arguments:
     """
     default_options = dict(targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
-                           config=('config_baseline.yaml', 'Name of configuration file', str),
                            topdir=(None, 'Top level directory', str))
 
     def __init__(self, link, **kwargs):
@@ -294,15 +355,11 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
     def build_job_configs(self, args):
         """Hook to build job configurations
         """
-        input_config = {}
         job_configs = {}
-        output_config = {}
 
         topdir = args['topdir']
         targets_yaml = os.path.join(topdir, args['targetlist'])
-        config_yaml = args['config']
-
-        logdir = os.path.abspath(topdir).replace('gpfs', 'nfs')
+        config_yaml = 'config.yaml'
 
         try:
             targets = load_yaml(targets_yaml)
@@ -310,13 +367,17 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
             targets = {}
 
         for target_name in targets.keys():
-            config_path = os.path.join(topdir, target_name, config_yaml)
-            logfile = os.path.join(logdir, target_name, "%s_%s.log"%(self.link.linkname, target_name))
+            name_keys = dict(target_type=topdir,
+                             target_name=target_name,
+                             fullpath=True)
+            target_dir = NAME_FACTORY.targetdir(**name_keys)
+            config_path = os.path.join(target_dir, config_yaml)
+            logfile = make_nfs_path(os.path.join(target_dir, "%s_%s.log"%(self.link.linkname, target_name)))
             job_config = dict(config=config_path, 
                               logfile=logfile)
             job_configs[target_name] = job_config
 
-        return input_config, job_configs, output_config
+        return job_configs
 
 
 class ConfigMaker_SEDAnalysis(ConfigMaker):
@@ -325,7 +386,6 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
     This adds the following arguments:
     """
     default_options = dict(targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
-                           config=('config_baseline.yaml', 'Name of configuration file', str),
                            topdir=(None, 'Top level directory', str))
 
     def __init__(self, link, **kwargs):
@@ -338,30 +398,30 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
     def build_job_configs(self, args):
         """Hook to build job configurations
         """
-        input_config = {}
         job_configs = {}
-        output_config = {}
 
         topdir = args['topdir']
         targets_yaml = os.path.join(topdir, args['targetlist'])
-        config_yaml = args['config']
+        config_yaml = 'config.yaml'
 
         try:
             targets = load_yaml(targets_yaml)
         except IOError:
             targets = {}
 
-        logdir = os.path.abspath(topdir).replace('gpfs', 'nfs')
-
         for target_name, target_list in targets.items():
-            config_path = os.path.join(topdir, target_name, config_yaml)
-            logfile = os.path.join(logdir, target_name, "%s_%s.log"%(self.link.linkname, target_name))
+            name_keys = dict(target_type=topdir,
+                             target_name=target_name,
+                             fullpath=True)
+            target_dir = NAME_FACTORY.targetdir(**name_keys)
+            config_path = os.path.join(target_dir, config_yaml)
+            logfile =  make_nfs_path(os.path.join(target_dir, "%s_%s.log"%(self.link.linkname, target_name)))
             job_config = dict(config=config_path,
                               profiles=target_list,
                               logfile=logfile)
             job_configs[target_name] = job_config
 
-        return input_config, job_configs, output_config
+        return job_configs
 
 
 def create_link_prepare_targets(**kwargs):
@@ -386,46 +446,46 @@ def create_sg_roi_analysis(**kwargs):
     """Build and return a ScatterGather object that can invoke this script"""
     roi_analysis = TargetAnalysis(**kwargs)
     link = roi_analysis
-    link.linkname = kwargs.pop('linkname', link.linkname)
+
     appname = kwargs.pop('appname', 'dmpipe-analyze-roi-sg')
 
-    lsf_args = {'W': 1500,
-                'R': '\"select[rhel60 && !fell]\"'}
+    batch_args = get_lsf_default_args()    
+    batch_interface = LSF_Interface(**batch_args)
 
     usage = "%s [options]" % (appname)
     description = "Run analyses on a series of ROIs"
 
     config_maker = ConfigMaker_TargetAnalysis(link)
-    lsf_sg = build_sg_from_link(link, config_maker,
-                                lsf_args=lsf_args,
-                                usage=usage,
-                                description=description,
-                                appname=appname,
-                                **kwargs)
-    return lsf_sg
+    sg = build_sg_from_link(link, config_maker,
+                            interface=batch_interface,
+                            usage=usage,
+                            description=description,
+                            appname=appname,
+                            **kwargs)
+    return sg
 
 
 def create_sg_sed_analysis(**kwargs):
     """Build and return a ScatterGather object that can invoke this script"""
     sed_analysis = SEDAnalysis(**kwargs)
     link = sed_analysis
-    link.linkname = kwargs.pop('linkname', link.linkname)
+
     appname = kwargs.pop('appname', 'dmpipe-analyze-sed-sg')
 
-    lsf_args = {'W': 1500,
-                'R': '\"select[rhel60 && !fell]\"'}
+    batch_args = get_lsf_default_args()    
+    batch_interface = LSF_Interface(**batch_args)
 
     usage = "%s [options]" % (appname)
     description = "Run analyses on a series of ROIs"
 
     config_maker = ConfigMaker_SEDAnalysis(link)
-    lsf_sg = build_sg_from_link(link, config_maker,
-                                lsf_args=lsf_args,
-                                usage=usage,
-                                description=description,
-                                appname=appname,
-                                **kwargs)
-    return lsf_sg
+    sg = build_sg_from_link(link, config_maker,
+                            interface=batch_interface,
+                            usage=usage,
+                            description=description,
+                            appname=appname,
+                            **kwargs)
+    return sg
 
 
 def main_prepare_targets():
