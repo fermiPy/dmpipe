@@ -27,6 +27,7 @@ from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
 from fermipy.jobs.lsf_impl import make_nfs_path, get_lsf_default_args, LSF_Interface
 
 from dmpipe.name_policy import NameFactory
+from dmpipe import defaults
 
 init_matplotlib_backend('Agg')
 
@@ -44,11 +45,11 @@ class TargetPreparer(Link):
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
 
-    default_options = dict(roster=(None, 'Roster to build targets for', str),
-                           topdir=(None, 'Top level output directory', str),
-                           config=(None, 'Name of config script', str),
-                           sim=(None, 'Name of simulation scenario', str), 
-                           dry_run=(False, 'Print but do not run commands', bool))
+    default_options = dict(ttype=defaults.common['ttype'],
+                           roster=defaults.common['roster'],
+                           config=defaults.common['config'],
+                           sim=defaults.sims['sim'],
+                           dry_run=defaults.common['dry_run'])
 
     copyfiles = ['srcmap_00.fits', 'fit_baseline.fits', 'fit_baseline.npy', 'fit_baseline_00.xml']
 
@@ -69,11 +70,14 @@ class TargetPreparer(Link):
         for f in files:
             orig_path = os.path.join(orig_dir, f)
             dest_path = os.path.join(dest_dir, f)
-            copyfile(orig_path, dest_path)
+            try:
+                copyfile(orig_path, dest_path)
+            except IOError:
+                sys.stderr.write("WARNING: failed to copy %s\n"%orig_path)
 
 
     @staticmethod
-    def write_target_dirs(topdir, roster_dict, base_config, sim):
+    def write_target_dirs(ttype, roster_dict, base_config, sim):
         """ Create and populate directoris for target analysis
         """
         target_dict = {}
@@ -88,9 +92,9 @@ class TargetPreparer(Link):
 
         try:
             if is_sim:
-                os.makedirs("%s_sim"%topdir)
+                os.makedirs("%s_sim"%ttype)
             else:
-                os.makedirs(topdir)
+                os.makedirs(ttype)
         except OSError:
             pass
 
@@ -107,7 +111,7 @@ class TargetPreparer(Link):
                     target_info_dict[target_name].append(target.version)
                 else:
                     target_info_dict[target_name] = [target.version]
-                name_keys = dict(target_type=topdir,
+                name_keys = dict(target_type=ttype,
                                  target_name=target_name,
                                  profile=target.version,
                                  sim_name=sim,
@@ -163,11 +167,11 @@ class TargetPreparer(Link):
             roster_info_dict[roster_name] = tlist
 
         if is_sim:
-            roster_file = os.path.join("%s_sim"%topdir, "sim_%s"%sim, 'roster_list.yaml')
-            target_file = os.path.join("%s_sim"%topdir, "sim_%s"%sim, 'target_list.yaml')
+            roster_file = os.path.join("%s_sim"%ttype, "sim_%s"%sim, 'roster_list.yaml')
+            target_file = os.path.join("%s_sim"%ttype, "sim_%s"%sim, 'target_list.yaml')
         else:
-            roster_file = os.path.join(topdir, 'roster_list.yaml')
-            target_file = os.path.join(topdir, 'target_list.yaml')
+            roster_file = os.path.join(ttype, 'roster_list.yaml')
+            target_file = os.path.join(ttype, 'target_list.yaml')
 
         write_yaml(roster_info_dict, roster_file)
         write_yaml(target_info_dict, target_file)
@@ -178,12 +182,26 @@ class TargetPreparer(Link):
         args = self._parser.parse_args(argv)
         roster_lib = RosterLibrary()
         roster_dict = {}
+
+        if args.roster is None or args.roster == 'none':
+            sys.stderr.write("You must specify a target roster")
+            return -1
+        
+        if args.ttype is None or args.ttype == 'none':
+            sys.stderr.write("You must specify a target type")
+            return -1
+
+        name_keys = dict(target_type=args.ttype,
+                         fullpath=True)
+        config_file = NAME_FACTORY.ttypeconfig(**name_keys)
+        if args.config is not None and args.config != 'none':
+            config_file = args.config
+
         rost = roster_lib.create_roster(args.roster)
         roster_dict[args.roster] = rost
 
-        base_config = load_yaml(args.config)
-
-        TargetPreparer.write_target_dirs(args.topdir, roster_dict, base_config, args.sim)
+        base_config = load_yaml(config_file)
+        TargetPreparer.write_target_dirs(args.ttype, roster_dict, base_config, args.sim)
 
 
 class TargetAnalysis(Link):
@@ -191,8 +209,8 @@ class TargetAnalysis(Link):
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
-    default_options = dict(config=('config.yaml', 'Name of config script', str),
-                           dry_run=(False, 'Print but do not run commands', bool))
+    default_options = dict(config=defaults.common['config'],
+                           dry_run=defaults.common['dry_run'])
 
     def __init__(self, **kwargs):
         """C'tor
@@ -264,8 +282,8 @@ class SEDAnalysis(Link):
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
-    default_options = dict(config=('config.yaml', 'Name of config script', str),
-                           dry_run=(False, 'Print but do not run commands', bool),
+    default_options = dict(config=defaults.common['config'],
+                           dry_run=defaults.common['dry_run'],
                            profiles=([], 'Profiles to build SED for', list))
 
     def __init__(self, **kwargs):
@@ -323,7 +341,8 @@ class SEDAnalysis(Link):
             # build the SED
             gta.sed(pkey, outfile=outfile)       
             # plot the SED
-            if True:
+            # FIXME, make this optional
+            if False:
                 castro_data = CastroData.create_from_sedfile(os.path.join(basedir, outfile))
                 plot = plotCastro(castro_data, ylims)
                 plot[0].savefig(outplot)    
@@ -342,8 +361,10 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
 
     This adds the following arguments:
     """
-    default_options = dict(targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
-                           topdir=(None, 'Top level directory', str))
+    default_options = dict(ttype=defaults.common['ttype'],
+                           targetlist=defaults.common['targetlist'],
+                           config=defaults.common['config'],
+                           dry_run=defaults.common['dry_run'])
 
     def __init__(self, link, **kwargs):
         """C'tor
@@ -357,17 +378,20 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
         """
         job_configs = {}
 
-        topdir = args['topdir']
-        targets_yaml = os.path.join(topdir, args['targetlist'])
-        config_yaml = 'config.yaml'
+        ttype = args['ttype']
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
+        if targets_yaml is None:
+            return job_configs
 
-        try:
-            targets = load_yaml(targets_yaml)
-        except IOError:
-            targets = {}
+        config_yaml = 'config.yaml'
+        config_override = args.get('config')
+        if config_override is not None and config_override != 'none':
+            config_yaml = config_override
+
+        targets = load_yaml(targets_yaml)
 
         for target_name in targets.keys():
-            name_keys = dict(target_type=topdir,
+            name_keys = dict(target_type=ttype,
                              target_name=target_name,
                              fullpath=True)
             target_dir = NAME_FACTORY.targetdir(**name_keys)
@@ -385,8 +409,10 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
 
     This adds the following arguments:
     """
-    default_options = dict(targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
-                           topdir=(None, 'Top level directory', str))
+    default_options = dict(ttype=defaults.common['ttype'],
+                           targetlist=defaults.common['targetlist'],
+                           config=defaults.common['config'],
+                           dry_run=defaults.common['dry_run'])
 
     def __init__(self, link, **kwargs):
         """C'tor
@@ -399,18 +425,17 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
         """Hook to build job configurations
         """
         job_configs = {}
+        
+        ttype = args['ttype']
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
+        if targets_yaml is None:
+            return job_configs
 
-        topdir = args['topdir']
-        targets_yaml = os.path.join(topdir, args['targetlist'])
+        targets = load_yaml(targets_yaml)
         config_yaml = 'config.yaml'
-
-        try:
-            targets = load_yaml(targets_yaml)
-        except IOError:
-            targets = {}
-
+ 
         for target_name, target_list in targets.items():
-            name_keys = dict(target_type=topdir,
+            name_keys = dict(target_type=ttype,
                              target_name=target_name,
                              fullpath=True)
             target_dir = NAME_FACTORY.targetdir(**name_keys)

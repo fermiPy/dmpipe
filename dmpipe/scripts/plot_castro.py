@@ -23,6 +23,7 @@ from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
 from fermipy.jobs.lsf_impl import make_nfs_path, get_lsf_default_args, LSF_Interface
 
 from dmpipe.name_policy import NameFactory
+from dmpipe import defaults
 
 NAME_FACTORY = NameFactory(basedir='.')
 
@@ -33,8 +34,8 @@ class CastroPlotter(Link):
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
 
-    default_options = dict(input=(None, 'Input file path', str),
-                           output=(None, 'Output file path', str),)
+    default_options = dict(infile=defaults.generic['infile'],
+                           outfile=defaults.generic['outfile'])
 
     def __init__(self, **kwargs):
         """C'tor
@@ -50,12 +51,12 @@ class CastroPlotter(Link):
     def run_analysis(self, argv):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
-        castro_data = CastroData.create_from_sedfile(args.input)
+        castro_data = CastroData.create_from_sedfile(args.infile)
         ylims = [1e-8, 1e-5]
         
         plot = plotCastro(castro_data, ylims)
-        if args.output:
-            plot[0].savefig(args.output)    
+        if args.outfile:
+            plot[0].savefig(args.outfile)   
             return None
         return plot
   
@@ -66,8 +67,9 @@ class ConfigMaker_PlotCastro(ConfigMaker):
 
     This adds the following arguments:
     """
-    default_options = dict(targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
-                           topdir=(None, 'Top level directory', str))
+    default_options = dict(ttype=defaults.common['ttype'],
+                           targetlist=defaults.common['targetlist'],
+                           dry_run=defaults.common['dry_run'])
 
     def __init__(self, link, **kwargs):
         """C'tor
@@ -81,27 +83,25 @@ class ConfigMaker_PlotCastro(ConfigMaker):
         """
         job_configs = {}
 
-        topdir = args['topdir']
-        targets_yaml = os.path.join(topdir, args['targetlist'])
+        ttype = args['ttype']
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
+        if targets_yaml is None:
+            return job_configs
 
-        try:
-            targets = load_yaml(targets_yaml)
-        except IOError:
-            targets = {}
+        targets = load_yaml(targets_yaml)
 
         for target_name, target_list in targets.items():
             for targ_prof in target_list:
-                name_keys = dict(target_type=topdir,
+                name_keys = dict(target_type=ttype,
                                  target_name=target_name,
                                  profile=targ_prof,
                                  fullpath=True)
                 targ_key = "%s_%s"%(target_name, targ_prof)
-
                 input_path = NAME_FACTORY.sedfile(**name_keys)
                 output_path = input_path.replace('.fits', '.png')
-                logfile = make_nfs_path(input_path.replace('.fits', 'log'))
-                job_config = dict(input=input_path,
-                                  output=output_path,
+                logfile = make_nfs_path(input_path.replace('.fits', '.log'))
+                job_config = dict(infile=input_path,
+                                  outfile=output_path,
                                   logfile=logfile)
                 job_configs[targ_key] = job_config
                 

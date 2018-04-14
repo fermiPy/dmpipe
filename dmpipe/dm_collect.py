@@ -27,6 +27,7 @@ from fermipy.jobs.lsf_impl import make_nfs_path, get_lsf_default_args, LSF_Inter
 from fermipy import fits_utils
 
 from dmpipe.name_policy import NameFactory
+from dmpipe import defaults
 
 init_matplotlib_backend('Agg')
 
@@ -139,8 +140,8 @@ def summarize_sed_results(sed_table):
 
 def summarize_limits_results(limit_table):
     """Build a stats summary table for a table that has all the SED results """
-    del_cols = ['UL_0.65', 'UL_0.95', 'MLES']
-    stats_cols = ['UL_0.65', 'UL_0.95', 'MLES']
+    del_cols = ['UL_0.68', 'UL_0.95', 'MLES']
+    stats_cols = ['UL_0.95', 'MLES']
 
     table_out = Table(limit_table[0])
     table_out.remove_columns(del_cols)
@@ -153,11 +154,12 @@ class CollectSEDResults(Link):
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
-    default_options = dict(sed_file=(None, 'Template SED file name', str),
-                           nsims=(20, 'Number of realizations to simulate', int),
-                           seed=(0, 'Seed to use for first realization', int),
-                           outfile=(None, 'Path to output file', str),
-                           dry_run=(False, 'Print but do not run commands', bool))
+    default_options = dict(sed_file=defaults.common['sed_file'],
+                           outfile=defaults.generic['outfile'],
+                           summaryfile=defaults.generic['summaryfile'],
+                           nsims=defaults.sims['nsims'], 
+                           seed=defaults.sims['seed'],
+                           dry_run=defaults.common['dry_run'])
 
     collist = [dict(name='e_min', unit = 'MeV'),
                dict(name='e_ref', unit = 'MeV'),
@@ -203,32 +205,32 @@ class CollectSEDResults(Link):
         sedfile = args.sed_file
         first = args.seed
         last = first + args.nsims
-        flist = [ sedfile.replace(".fits", "_%06i.fits"%seed) for seed in range(first, last) ]
+        flist = [ sedfile.replace("_SEED.fits", "_%06i.fits"%seed) for seed in range(first, last) ]
         outfile = args.outfile
-        summaryfile = outfile.replace('.fits', '_summary.fits')
-        write_full = True
-        write_summary = True
+        summaryfile = args.summaryfile
 
         outtable = fill_output_table(flist, "SED", CollectSEDResults.collist, nbins=12)
 
-        if write_full:
+        if outfile not in [None, 'none', 'None']:
             outtable.write(outfile)
 
-        if write_summary:
+        if summaryfile not in [None, 'none', 'None']:
             summary = summarize_sed_results(outtable)
             summary.write(summaryfile)
-        return outtable, summary
+
 
 class CollectLimits(Link):
     """Small class wrap an analysis script.
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
-    default_options = dict(limit_file=(None, 'Template limit file name', str),
-                           nsims=(20, 'Number of realizations to simulate', int),
-                           seed=(0, 'Seed to use for first realization', int),
-                           outfile=(None, 'Path to output file', str),
-                           dry_run=(False, 'Print but do not run commands', bool))
+    default_options = dict(limitfile=defaults.generic['limitfile'],
+                           specconfig=defaults.common['specconfig'],
+                           outfile=defaults.generic['outfile'],
+                           summaryfile=defaults.generic['summaryfile'],
+                           nsims=defaults.sims['nsims'],
+                           seed=defaults.sims['seed'],
+                           dry_run=defaults.common['dry_run'])
 
     def __init__(self, **kwargs):
         """C'tor
@@ -245,28 +247,234 @@ class CollectLimits(Link):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
 
-        limitfile = args.limit_file
+        limitfile = args.limitfile
         first = args.seed
         last = first + args.nsims
-        flist = [ limitfile.replace("limits.fits", "%06i_limits.fits"%seed) for seed in range(first, last) ]
+        flist = [ limitfile.replace("_SEED.fits", "_%06i.fits"%seed) for seed in range(first, last) ]
+
+        spec_config = load_yaml(args.specconfig)
+        channels = spec_config['channels']
 
         outfile = args.outfile
-        summaryfile = outfile.replace('.fits', '_summary.fits')
-        write_full = True
-        write_summary = True
+        summaryfile = args.summaryfile
 
-        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt',
-                    'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
         hdus = channels + ['MASSES']
 
         out_tables, out_names = vstack_tables(flist, hdus) 
-        if write_full:
+
+        if outfile not in [None, 'none', 'None']:
             fits_utils.write_tables_to_fits(outfile, out_tables, namelist=out_names)
 
-        if write_summary:
+        if summaryfile not in [None, 'none', 'None']:
             summary_tables = [summarize_limits_results(ot) for ot in out_tables[0:-1]]
             summary_tables.append( Table(out_tables[-1][0])  )
             fits_utils.write_tables_to_fits(summaryfile, summary_tables, namelist=out_names)
+
+
+
+class ConfigMaker_CollectSED(ConfigMaker):
+    """Small class to generate configurations for this script
+
+    This adds the following arguments:
+    """
+    default_options = dict(ttype=defaults.common['ttype'],
+                           targetlist=defaults.common['targetlist'],
+                           sim=defaults.sims['sim'],
+                           nsims=defaults.sims['nsims'],
+                           seed=defaults.sims['seed'],
+                           write_full=defaults.collect['write_full'],
+                           write_summary=defaults.collect['write_summary'],
+                           dry_run=defaults.common['dry_run'])
+
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        ConfigMaker.__init__(self, link,
+                             options=kwargs.get('options',
+                                                ConfigMaker_CollectSED.default_options.copy()))
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+
+        ttype = args['ttype']
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args, require_sim_name=True)
+        if targets_yaml is None:
+            return job_configs
+
+        write_full = args['write_full']
+
+        targets = load_yaml(targets_yaml)
+        for target_name, profile_list in targets.items():
+            for profile in profile_list:
+                full_key = "%s:%s:%s" % (target_name, profile, sim)
+                name_keys = dict(target_type=ttype, 
+                                 target_name=target_name,
+                                 sim_name=sim,
+                                 profile=profile,
+                                 fullpath=True)
+                sed_file = NAME_FACTORY.sim_sedfile(**name_keys)
+                first = args['seed']
+                last = first + args['nsims'] - 1
+                outfile = sed_file.replace('_SEED.fits','_collected_%06i_%06i.fits'%(first, last))
+                logfile = make_nfs_path(outfile.replace('.fits', '.log'))
+                if not write_full:
+                    outfile = None
+                summaryfile = sed_file.replace('_SEED.fits','_summary_%06i_%06i.fits'%(first, last))
+                job_config = dict(sed_file=sed_file,
+                                  outfile=outfile,
+                                  summaryfile=summaryfile,
+                                  logfile=logfile,
+                                  nsims=args['nsims'],
+                                  seed=args['seed'],
+                                  dry_run=args['dry_run'])
+                job_configs[full_key] = job_config
+
+        return job_configs
+
+
+
+class ConfigMaker_CollectLimits(ConfigMaker):
+    """Small class to generate configurations for this script
+
+    This adds the following arguments:
+    """
+    default_options = dict(ttype=defaults.common['ttype'],
+                           targetlist=defaults.common['targetlist'],
+                           specconifg=defaults.common['specconfig'],
+                           jprior=defaults.common['jprior'],
+                           sim=defaults.sims['sim'],
+                           nsims=defaults.sims['nsims'],
+                           seed=defaults.sims['seed'],
+                           write_full=defaults.collect['write_full'],
+                           dry_run=defaults.common['dry_run'])
+
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        ConfigMaker.__init__(self, link,
+                             options=kwargs.get('options',
+                                                ConfigMaker_CollectLimits.default_options.copy()))
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+
+        ttype = args['ttype']
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args, require_sim_name=True)
+        if targets_yaml is None:
+            return job_configs
+
+        specconfig = NAME_FACTORY.resolve_specconfig(args)
+
+        j_prior = args.get('jprior', 'none')
+        if j_prior in [None, 'None', 'none']:
+            j_prior = 'None'
+        write_full = args.get('write_full', False)
+
+        targets = load_yaml(targets_yaml)
+        for target_name, profile_list in targets.items():
+            for profile in profile_list:
+                full_key = "%s:%s:%s" % (target_name, profile, sim)
+                name_keys = dict(target_type=ttype, 
+                                 target_name=target_name,
+                                 sim_name=sim,
+                                 profile=profile,
+                                 jprior=j_prior, 
+                                 fullpath=True)
+                limitfile = NAME_FACTORY.sim_dmlimitsfile(**name_keys)
+                first = args['seed']
+                last = first + args['nsims'] - 1
+                outfile = limitfile.replace('_SEED.fits','_collected_%06i_%06i.fits'%(first, last))
+                logfile = make_nfs_path(outfile.replace('.fits', '.log'))
+                if not write_full:
+                    outfile = None
+                summaryfile = limitfile.replace('_SEED.fits','_summary_%06i_%06i.fits'%(first, last))
+                job_config = dict(limitfile=limitfile,
+                                  specconfig=specconfig,
+                                  jprior=j_prior, 
+                                  outfile=outfile,
+                                  summaryfile=summaryfile,
+                                  logfile=logfile,
+                                  nsims=args['nsims'],
+                                  seed=args['seed'],
+                                  dry_run=args['dry_run'])
+                job_configs[full_key] = job_config
+
+        return job_configs
+
+
+class ConfigMaker_CollectStackedLimits(ConfigMaker):
+    """Small class to generate configurations for this script
+
+    This adds the following arguments:
+    """
+    default_options = dict(ttype=defaults.common['ttype'],
+                           rosterlist=defaults.common['targetlist'],
+                           jprior=defaults.common['jprior'],
+                           sim=defaults.sims['sim'],
+                           nsims=defaults.sims['nsims'],
+                           seed=defaults.sims['seed'],
+                           write_full=defaults.collect['write_full'],
+                           write_summary=defaults.collect['write_summary'],
+                           dry_run=defaults.common['dry_run'])
+
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        ConfigMaker.__init__(self, link,
+                             options=kwargs.get('options',
+                                                ConfigMaker_CollectLimits.default_options.copy()))
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+
+        ttype = args['ttype']
+        (roster_yaml, sim) = NAME_FACTORY.resolve_rosterfile(args, require_sim_name=True)
+        if roster_yaml is None:
+            return job_configs
+
+        specconfig = NAME_FACTORY.resolve_specconfig(args)
+
+        j_prior = args.get('jprior', 'None')
+        if j_prior in [None, 'None', 'none']:
+            j_prior = 'None'
+
+        write_full = args['write_full']
+
+        roster_dict = load_yaml(roster_yaml)
+        for roster_name in roster_dict.keys():
+            full_key = "%s:%s:%s" % (roster_name, sim, j_prior)
+            name_keys = dict(target_type=ttype, 
+                             roster_name=roster_name,
+                             sim_name=sim,
+                             jprior=jprior, 
+                             fullpath=True)
+
+            limitfile = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
+            first = args['seed']
+            last = first + args['nsims'] - 1
+            outfile = limitfile.replace('_SEED.fits','_collected_%06i_%06i.fits'%(first, last))
+            logfile = make_nfs_path(outfile.replace('.fits', '.log'))
+            if not write_full:
+                outfile = None
+            summaryfile = limitfile.replace('_SEED.fits','_summary_%06i_%06i.fits'%(first, last))
+            job_config = dict(limitfile=limitfile,
+                              specconfig=specconfig,
+                              jprior=jprior, 
+                              outfile=outfile,
+                              summaryfile=summaryfile,
+                              logfile=logfile,
+                              nsims=args['nsims'],
+                              seed=args['seed'],
+                              dry_run=args['dry_run'])
+            job_configs[full_key] = job_config
+
+        return job_configs
 
 
 def create_link_collect_sed(**kwargs):
@@ -327,6 +535,28 @@ def create_sg_collect_limits(**kwargs):
     return sg
 
 
+def create_sg_collect_stacked_limits(**kwargs):
+    """Build and return a ScatterGather object that can invoke this script"""
+    collect_limits = CollectLimits(**kwargs)
+    link = collect_limits
+
+    appname = kwargs.pop('appname', 'dmpipe-collect-stacked-limits-sg')
+
+    batch_args = get_lsf_default_args()    
+    batch_interface = LSF_Interface(**batch_args)
+
+    usage = "%s [options]" % (appname)
+    description = "Collect limtis for lots of simulations"
+
+    config_maker = ConfigMaker_CollectStackedLimits(link)
+    sg = build_sg_from_link(link, config_maker,
+                            interface=batch_interface,
+                            usage=usage,
+                            description=description,
+                            appname=appname,
+                            **kwargs)
+    return sg
+
 
 
 def main_collect_sed_single():
@@ -339,16 +569,19 @@ def main_collect_limits_single():
     collect_limits = CollectLimits()
     return collect_limits.run_analysis(sys.argv[1:])
 
-
 def main_collect_sed_batch():
     """ Entry point for command line use for dispatching batch jobs """
     lsf_sg = create_sg_collect_sed()
     lsf_sg(sys.argv)
 
-
 def main_collect_limits_batch():
     """ Entry point for command line use for dispatching batch jobs """
     lsf_sg = create_sg_collect_limits()
+    lsf_sg(sys.argv)
+
+def main_collect_stacked_limits_batch():
+    """ Entry point for command line use for dispatching batch jobs """
+    lsf_sg = create_sg_collect_stacked_limits()
     lsf_sg(sys.argv)
 
 

@@ -24,6 +24,7 @@ from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
 from fermipy.jobs.lsf_impl import make_nfs_path, get_lsf_default_args, LSF_Interface
 
 from dmpipe.name_policy import NameFactory
+from dmpipe import defaults
 
 init_matplotlib_backend('Agg')
 
@@ -41,11 +42,11 @@ class TargetSim(Link):
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
-    default_options = dict(config=('config.yaml', 'Name of config script', str),
-                           sim=(None, 'Name of simulation configuration file', str),
-                           nsims=(20, 'Number of realizations to simulate', int),
-                           seed=(0, 'Seed to use for first realization', int),
-                           dry_run=(False, 'Print but do not run commands', bool))
+    default_options = dict(config=defaults.common['config'],
+                           sim=defaults.sims['sim'],
+                           nsims=defaults.sims['nsims'],
+                           seed=defaults.sims['seed'],
+                           dry_run=defaults.common['dry_run'])
 
     def __init__(self, **kwargs):
         """C'tor
@@ -58,13 +59,20 @@ class TargetSim(Link):
                       options=TargetSim.default_options.copy(),
                       **kwargs)
 
-    def run_simulation(self, gta, injected_source, test_source, seed, outfile):
+    def run_simulation(self, gta, injected_source, test_source, seed, outfile, mcube_file=None):
         """Simulate a realization of this analysis"""
         gta.load_roi('fit_baseline')
         gta.set_random_seed(seed)
         if injected_source:            
             gta.add_source(injected_source['name'], injected_source['source_model'])
-            print (gta.like)
+            if mcube_file is not None:
+                gta.write_model_map(mcube_file)
+                mc_spec_dict = dict(true_counts=gta.model_counts_spectrum(injected_source['name']),
+                                    energies=gta.energies,
+                                    model=injected_source['source_model'])
+                mcspec_file = os.path.join(gta.workdir, "mcspec_%s.yaml"%mcube_file)
+                utils.write_yaml(mc_spec_dict, mcspec_file)
+
         gta.simulate_roi()
         if injected_source:
             gta.delete_source(injected_source['name'])
@@ -91,23 +99,33 @@ class TargetSim(Link):
         gta = GTAnalysis(args.config, logging={'verbosity': 3},
                          fileio={'workdir_regex': '\.xml$|\.npy$'})
 
-        profilefile = args.config.replace('config.yaml','profile_default.yaml')
+        workdir = os.path.dirname(args.config)
+        profilefile = os.path.join(workdir, 'profile_default.yaml')
+        simfile = os.path.join(workdir, 'sim_%s.yaml'%args.sim)
         profile = utils.load_yaml(profilefile)
-
-        sim_config = utils.load_yaml(args.sim)
+        sim_config = utils.load_yaml(simfile)
         
         injected_source = sim_config.get('injected_source', None)
         if injected_source is not None:
             injected_source['source_model']['norm'] = dict(value=profile['j_integ'])
             injected_source['source_model']['ra'] = gta.config['selection']['ra']
             injected_source['source_model']['dec'] = gta.config['selection']['dec']
+            mcube_file = args.sim
+        else:
+            mcube_file = None
+
         test_source = sim_config['test_source']
         
         first = args.seed
         last = first + args.nsims
+
         for i in range(first, last):
             sedfile = "sed_%s_%06i.fits"%(test_source['name'], i)
-            self.run_simulation(gta, injected_source, test_source, i, sedfile)
+            if i == first:
+                mcube_out = mcube_file
+            else:
+                mcube_out = None
+            self.run_simulation(gta, injected_source, test_source, i, sedfile, mcube_out)
 
 
 class ConfigMaker_TargetSim(ConfigMaker):
@@ -115,11 +133,13 @@ class ConfigMaker_TargetSim(ConfigMaker):
 
     This adds the following arguments:
     """
-    default_options = dict(targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
-                           sim=(None, 'Name of simulation configuration file', str),
-                           nsims=(20, 'Number of realizations to simulate', int),
-                           seed=(0, 'Seed to use for first realization', int),
-                           topdir=(None, 'Top level directory', str))
+    default_options = dict(ttype=defaults.common['ttype'],
+                           targetlist=defaults.common['targetlist'],
+                           config=defaults.common['config'],
+                           sim=defaults.sims['sim'], 
+                           nsims=defaults.sims['nsims'], 
+                           seed=defaults.sims['seed'],
+                           dry_run=defaults.common['dry_run'])
 
     def __init__(self, link, **kwargs):
         """C'tor
@@ -133,28 +153,29 @@ class ConfigMaker_TargetSim(ConfigMaker):
         """
         job_configs = {}
 
-        topdir = args['topdir']
-        sim = args['sim']
-        targets_yaml = os.path.join("%s_sim"%topdir, "sim_%s"%sim, args['targetlist'])
-        config_yaml = 'config.yaml'
+        ttype = args['ttype']
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
+        if targets_yaml is None:
+            return job_configs
 
-        try:
-            targets = load_yaml(targets_yaml)
-        except IOError:
-            targets = {}
+        config_yaml = 'config.yaml'
+        config_override = args.get('config')
+        if config_override is not None and config_override != 'none':
+            config_yaml = config_override
+
+        targets = load_yaml(targets_yaml)
 
         for target_name in targets.keys():
-            name_keys = dict(target_type=topdir,
+            name_keys = dict(target_type=ttype,
                              target_name=target_name,
                              sim_name=sim,
                              fullpath=True)
             simdir = NAME_FACTORY.sim_targetdir(**name_keys)
-            simyamlfile = os.path.join(simdir, 'sim_%s.yaml'%sim)
-            config_path = os.path.join(simdir, 'config.yaml')
+            config_path = os.path.join(simdir, config_yaml)
             logfile = make_nfs_path(os.path.join(simdir, "%s_%s.log"%(self.link.linkname, target_name)))
             job_config = dict(config=config_path, 
                               logfile=logfile,
-                              sim=simyamlfile,
+                              sim=sim,
                               nsims=args['nsims'],
                               seed=args['seed'])
             job_configs[target_name] = job_config
@@ -176,7 +197,7 @@ def create_sg_roi_sim(**kwargs):
     roi_analysis = TargetSim(**kwargs)
     link = roi_analysis
 
-    appname = kwargs.pop('appname', 'dmpipe-simulated-roi-sg')
+    appname = kwargs.pop('appname', 'dmpipe-simulate-roi-sg')
 
     batch_args = get_lsf_default_args()    
     batch_interface = LSF_Interface(**batch_args)
