@@ -29,8 +29,12 @@ from fermipy.jobs.lsf_impl import make_nfs_path, get_lsf_default_args, LSF_Inter
 from fermipy.spectrum import DMFitFunction
 
 from dmpipe.name_policy import NameFactory
+from dmpipe import defaults
 
 NAME_FACTORY = NameFactory(basedir='.')
+
+REF_J = 1.0e19
+REF_SIGV = 1.0e-26
 
 class DMCastroData(castro.CastroData_Base):
     """ This class wraps the data needed to make a "Castro" plot,
@@ -38,8 +42,8 @@ class DMCastroData(castro.CastroData_Base):
     series of DM masses
     """
 
-    def __init__(self, norm_vals, nll_vals, norm_value, channel, masses, astro_value,
-                 astro_prior=None, prior_applied=True):
+    def __init__(self, norm_vals, nll_vals, norm_value, channel, masses, astro_value, 
+                 astro_prior=None, prior_applied=True, ref_j=REF_J, ref_sigmav=REF_SIGV):
         """ C'tor
 
         Parameters
@@ -69,6 +73,12 @@ class DMCastroData(castro.CastroData_Base):
 
         prior_applied : bool
            If true, then the prior has already been applied
+
+        ref_j : float
+           Reference value for J-factor
+        
+        ref_sigmav : float
+           Reference value for sigma
         """
         self._masses = masses
         self._norm_value = norm_value
@@ -77,6 +87,13 @@ class DMCastroData(castro.CastroData_Base):
         self._astro_value = astro_value
         self._astro_prior = astro_prior
         self._prior_applied = prior_applied
+        self._ref_j = ref_j
+        self._ref_sigmav = ref_sigmav
+
+        test_norm = self._ref_j / self._astro_value
+        if np.fabs(test_norm - self._norm_value) > 0.01:
+            sys.stderr.write("WARNING, normalization value does not match expected value: %.2E %.2E\n"%(self._norm_value, test_norm))
+
         if isinstance(channel, str):
             self._channel = DMFitFunction.channel_rev_map[channel]
         else:
@@ -151,8 +168,18 @@ class DMCastroData(castro.CastroData_Base):
         """ The string specifying the decay channel """
         return self._channel
 
+    @property
+    def ref_j(self):
+        """ Reference value for J """
+        return self._ref_j
+
+    @property
+    def ref_sigmav(self):
+        """ Reference value for <sigmav> """
+        return self._ref_sigmav   
+
     @staticmethod
-    def create_from_stack(components, nystep=200, ylims=(1e-30, 1e-20), weights=None):
+    def create_from_stack(components, nystep=200, ylims=(1e-30, 1e-20), weights=None, ref_j=REF_J, ref_sigmav=REF_SIGV):
         """ Create a DMCastroData object by stacking a series of DMCastroData objects
         """
         if len(components) == 0:
@@ -161,12 +188,15 @@ class DMCastroData(castro.CastroData_Base):
         norm_vals, nll_vals = castro.CastroData_Base.stack_nll(
             shape, components, ylims, weights)
         return DMCastroData(norm_vals, nll_vals, 1.0,
-                            components[0].channel, components[0].masses, astro_value=None)
+                            components[0].channel, components[0].masses, astro_value=None, ref_j=REF_J, ref_sigmav=REF_SIGV)
 
     @staticmethod
     def create_from_tables(tab_s, tab_m):
         """ Create a DMCastroData object from likelihood scan and mass tables
         """
+        ref_j = np.squeeze(np.array(tab_s['REF_J']))
+        ref_sigmav = np.squeeze(np.array(tab_s['REF_SIGMAV']))
+        
         norm = np.squeeze(np.array(tab_s['NORM']))
         norm_vals = np.squeeze(np.array(tab_s['NORM_SCAN'])) * norm
         nll_vals = -np.squeeze(np.array(tab_s['DLOGLIKE_SCAN']))
@@ -194,7 +224,7 @@ class DMCastroData(castro.CastroData_Base):
             prior_applied = True
 
         return DMCastroData(norm_vals, nll_vals, norm, channel,
-                            masses, astro_value, prior, prior_applied)
+                            masses, astro_value, prior, prior_applied, ref_j=ref_j, ref_sigmav=ref_sigmav)
 
     @staticmethod
     def create_from_fitsfile(filepath, channel):
@@ -227,12 +257,16 @@ class DMCastroData(castro.CastroData_Base):
                          shape=shape)
 
         col_astro_val = Column(name="ASTRO_VALUE", dtype=float)
+        col_ref_j = Column(name="REF_J", dtype=float)
+        col_ref_sigmav = Column(name="REF_SIGMAV", dtype=float)
 
-        collist = [col_norm, col_normv, col_dll, col_astro_val]
+        collist = [col_norm, col_normv, col_dll, col_astro_val, col_ref_j, col_ref_sigmav]
         valdict = {"NORM": self._norm_value,
-                   "NORM_SCAN": self._norm_vals / self._norm_value,
+                   "NORM_SCAN": self._norm_vals * self._norm_value,
                    "DLOGLIKE_SCAN": -1 * self._nll_vals,
-                   "ASTRO_VALUE": self.astro_value}
+                   "ASTRO_VALUE": self.astro_value,
+                   "REF_J":self.ref_j,
+                   "REF_SIGMAV":self.ref_sigmav}
 
         if self._astro_prior is not None:
             col_prior_type = Column(name="PRIOR_TYPE", dtype="S16")
@@ -267,9 +301,13 @@ class DMCastroData(castro.CastroData_Base):
         """
         col_norm = Column(name="NORM", dtype=float)
         col_astro_val = Column(name="ASTRO_VALUE", dtype=float)
-        collist = [col_norm, col_astro_val]
+        col_ref_j = Column(name="REF_J", dtype=float)
+        col_ref_sigmav = Column(name="REF_SIGMAV", dtype=float)
+        collist = [col_norm, col_astro_val, col_ref_j, col_ref_sigmav]
         valdict = {"NORM": self._norm_value,
-                   "ASTRO_VALUE": self.astro_value}
+                   "ASTRO_VALUE": self.astro_value,
+                   "REF_J":self.ref_j,
+                   "REF_SIGMAV":self.ref_sigmav}
         
         for k,v in limit_dict.items():
             collist.append( Column(name=k, dtype=float, shape=v.shape) )
@@ -313,6 +351,25 @@ class DMSpecTable(object):
         self._e_table = e_table
         self._s_table = s_table
         self._ref_vals = ref_vals
+        self._channel_map, self._channel_names = DMSpecTable.make_channel_map(s_table)
+
+
+    @staticmethod
+    def make_channel_map(s_table):
+        """ Construct a map from channel number to list of table rows """
+        data = s_table['ref_chan']
+        o = {}
+        for i,d in enumerate(data):
+            if o.has_key(d):
+                o[d].append(i)
+            else:
+                o[d] = [i]
+        l = []
+        for k in sorted(o.keys()):            
+            nm = DMFitFunction.channel_shortname_mapping[k]
+            l.append(nm)
+        return o, l
+    
 
     @staticmethod
     def make_ebounds_table(emin, emax, eref):
@@ -365,6 +422,16 @@ class DMSpecTable(object):
     def ref_vals(self):
         """ Return the spectral reference values """
         return self._ref_vals
+
+    @property
+    def channel_map(self):
+        """ Return the channel to index mapping """
+        return self._channel_map
+
+    @property
+    def channel_names(self):
+        """ Return the channel to index mapping """
+        return self._channel_names
 
     def spectrum(self, chan, mass, spec_type):
         """ Return the spectrum for a particular channel an mass
@@ -435,20 +502,20 @@ class DMSpecTable(object):
         Parameters
         ----------
         emin : `~numpy.ndarray`
-            Low bin edges.
+        Low bin edges.
         emax : `~numpy.ndarray`
-            High bin edges.
+        High bin edges.
         channels : list
-            List of channel names.
+        List of channel names.
         masses : `~numpy.ndarray`
-            Mass points at which to evaluate the spectrum.
+        Mass points at which to evaluate the spectrum.
         """
         ebin_edges = np.concatenate((emin, emax[-1:]))
         evals = np.sqrt(ebin_edges[:-1] * ebin_edges[1:])
         ichans = DMFitFunction.channel_name_mapping.keys()
 
-        init_params = np.array([1e-26, 100.])
-        dmf = DMFitFunction(init_params, jfactor=1E20)
+        init_params = np.array([REF_SIGV, 100.])
+        dmf = DMFitFunction(init_params, jfactor=REF_J)
 
         nebins = len(ebin_edges) - 1
         nchan = len(ichans)
@@ -458,9 +525,6 @@ class DMSpecTable(object):
         eflux = np.ndarray((nrow, nebins))
         masses_out = np.ndarray((nrow))
         channels = np.ndarray((nrow), int)
-
-        ref_J = 1.0e19
-        ref_sigv = 1.0e-26
 
         for i, ichan in enumerate(ichans):
             dmf.set_channel(ichan)
@@ -477,8 +541,8 @@ class DMSpecTable(object):
                      "mass": masses_out,
                      "chan": channels}
 
-        ref_vals = {"ref_J": ref_J,
-                    "ref_sigv": ref_sigv}
+        ref_vals = {"ref_J": REF_J,
+                    "ref_sigv": REF_SIGV}
 
         return cls.create_from_data(ebin_edges[0:-1], ebin_edges[1:],
                                     evals, spec_dict, ref_vals)
@@ -549,11 +613,11 @@ class DMSpecTable(object):
         elif isinstance(jfactor, float):
             # Rescale the normalization values
             j_ref = jfactor
-            norm_factor = jfactor / ref_norm
+            norm_factor = ref_norm / jfactor
         elif isinstance(jfactor, dict):
             j_ref = ref_norm
             jfactor['j_ref'] = j_ref
-            norm_factor = jfactor.get('j_value') / ref_norm
+            norm_factor =  ref_norm / jfactor.get('j_value')
             j_prior = stats_utils.create_prior_functor(jfactor)
         else:
             sys.stderr.write("Did not recoginize J factor %s %s\n"%(jfactor, type(jfactor)))
@@ -587,7 +651,7 @@ class DMSpecTable(object):
 
         norm_vals *= (ref_sigmav)
         dm_castro = DMCastroData(norm_vals, dll_vals, norm_factor,
-                                 channel, masses, j_ref, j_prior)
+                                 channel, masses, j_ref, j_prior, ref_j=ref_norm, ref_sigmav=ref_sigmav)
         return dm_castro
 
     def convert_tscube(self, tscube, channel, norm_type):
@@ -674,15 +738,16 @@ class DMSpecTable(object):
 class DMCastroConvertor(Link):
     """Small class to convert CastroData to a DMCastroData"""
 
-    default_options = dict(spec=('dm_spectra.fits', 'Spectra table', str),
-                           sed_file=(None, 'Path to file with target SED', str),
-                           profile_yaml=(None, 'Path to yaml file with target profile', str),
-                           jprior=(None, 'Type of Prior on J-factor', str),
-                           outfile=(None, 'Path to output file', str),
-                           nsims=(-1, 'Number of realizations to simulate', int),
-                           seed=(0, 'Seed to use for first realization', int),
-                           dry_run=(False, 'Print but do not run commands', bool),
-                           clobber=(False, 'Overwrite existing files', bool))
+    default_options = dict(specfile=defaults.common['specfile'],
+                           sed_file=defaults.common['sed_file'],
+                           profile_file=defaults.common['profile_file'],
+                           jprior=defaults.common['jprior'],
+                           outfile=defaults.generic['outfile'],
+                           limitfile=defaults.generic['limitfile'],
+                           nsims=defaults.common['nsims'],  # Note that this defaults to -1
+                           seed=defaults.sims['seed'],
+                           dry_run=defaults.common['dry_run'],
+                           clobber=defaults.common['clobber'])
 
     def __init__(self, **kwargs):
         """C'tor
@@ -705,9 +770,7 @@ class DMCastroConvertor(Link):
 
         mass_table = None
 
-        print ("J Value", j_val)
         for chan in channels:
-            print ("Channel %s: " % chan)
             chan_idx = DMFitFunction.channel_rev_map[chan]
             try:
                 dm_castro = spec_table.convert_castro_data(sed, chan_idx, norm_type, j_val)
@@ -734,7 +797,6 @@ class DMCastroConvertor(Link):
         n_list = []
  
         for castro, chan in zip(dm_castro_list, channels):
-            print ("Channel %s: " % chan)
             chan_idx = DMFitFunction.channel_rev_map[chan]
             norm = castro.norm_value
             mles = norm*castro.mles()
@@ -753,7 +815,7 @@ class DMCastroConvertor(Link):
         return l_list, t_list, n_list
 
     
-    def convert_sed(self, spec_table, sed_file, norm_type, channels, j_factor, outfile, clobber):
+    def convert_sed(self, spec_table, sed_file, norm_type, channels, j_factor, outfile, limitfile, clobber):
         """Convert a single SED to DM"""
         sed = CastroData.create_from_sedfile(sed_file, norm_type)
         c_list, t_list, n_list = DMCastroConvertor.convert_sed_to_dm(spec_table, sed, channels, norm_type, j_factor)
@@ -761,13 +823,12 @@ class DMCastroConvertor(Link):
         do_limits = True
         write_castro = True
 
-        if write_castro:
+        if outfile not in [None, 'none', 'None']:
             fits_utils.write_tables_to_fits(outfile, t_list, clobber=clobber, namelist=n_list)
 
-        if do_limits:
+        if limitfile not in [None, 'none', 'None']:
             mass_table = t_list[-1]
-            c_list_lim, t_list_lim, n_list_lim = DMCastroConvertor.extract_dm_limits(c_list, channels, [0.65, 0.95], mass_table)
-            limitfile = outfile.replace('.fits', '_limits.fits')
+            c_list_lim, t_list_lim, n_list_lim = DMCastroConvertor.extract_dm_limits(c_list, channels, [0.68, 0.95], mass_table)
             fits_utils.write_tables_to_fits(limitfile, t_list_lim, clobber=clobber, namelist=n_list_lim)
         
 
@@ -775,12 +836,14 @@ class DMCastroConvertor(Link):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
 
-        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt',
-                    'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
         norm_type = 'eflux'
+        channels = None
+        
+        spec_table = DMSpecTable.create_from_fits(args.specfile)
+        profile = load_yaml(args.profile_file)
 
-        spec_table = DMSpecTable.create_from_fits(args.spec)
-        profile = load_yaml(args.profile_yaml)
+        if channels is None:
+            channels = spec_table.channel_names
 
         j_value = profile.get('j_integ')
         j_sigma = profile.get('j_sigma', None)
@@ -801,20 +864,27 @@ class DMCastroConvertor(Link):
         for seed in seedlist:
             sedfile = args.sed_file
             outfile = args.outfile
+            limitfile = args.limitfile
             if seed is not None:
-                sedfile = sedfile.replace('.fits','_%06i.fits'%seed)
-                outfile = outfile.replace('.fits','_%06i.fits'%seed)
-            self.convert_sed(spec_table, sedfile, norm_type, channels, j_factor, outfile, args.clobber)
+                sedfile = sedfile.replace('_SEED.fits','_%06i.fits'%seed)
+                if outfile not in [None, 'none', 'None']:
+                    outfile = outfile.replace('_SEED.fits','_%06i.fits'%seed)
+                if limitfile not in [None, 'none', 'None']:
+                    limitfile = limitfile.replace('_SEED.fits','_%06i.fits'%seed)
+                
+            self.convert_sed(spec_table, sedfile, norm_type, channels, j_factor, outfile, limitfile, args.clobber)
         
 
 
 class DMSpecTableBuilder(Link):
     """ Version of the DM spectral tables in tabular form
     """
-    default_options = dict(config=(None, 'Name of config script', str),
-                           specfile=(None, 'Name of output file', str),
-                           clobber=(False, 'Overwrite existing files', bool),
-                           dry_run=(False, 'Print but do not run commands', bool))
+    default_options = dict(ttype=defaults.common['ttype'],
+                           config=defaults.common['config'],
+                           specconfig=defaults.common['specconfig'],
+                           specfile=defaults.common['specfile'],
+                           dry_run=defaults.common['dry_run'],
+                           clobber=defaults.common['clobber'])
 
     def __init__(self, **kwargs):
         """ C'tor to build this object from energy binning and spectral values tables.
@@ -831,23 +901,57 @@ class DMSpecTableBuilder(Link):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
 
-        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt',
-                    'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
-        masses = np.logspace(1, 6, 21)
+        if args.ttype is not None:
+            name_keys = dict(target_type=args.ttype,
+                             fullpath=True)
+            config_file = NAME_FACTORY.ttypeconfig(**name_keys)
+            spec_config = NAME_FACTORY.specconfig(**name_keys)
+            spec_file = NAME_FACTORY.specfile(**name_keys)
+        else:
+            config_file = None
+            spec_config = None
+            spec_file = None
 
-        dm_spec_table = DMSpecTable.create_from_config(args.config, channels, masses)
-        dm_spec_table.write_fits(args.specfile, args.clobber)
+        if args.config not in [None, 'none', 'None']:
+            config_file = args.config_file
+        if args.specconfig not in [None, 'none', 'None']:
+            spec_config = args.specconfig
+        if args.specfile not in [None, 'none', 'None']:
+            spec_file = args.specfile
+            
+        if config_file is None:
+            sys.stderr.write('No input configuration file is specified')
+            return -1
+
+        if spec_config is None:
+            sys.stderr.write('No input spectra configurate file is specified')
+            return -1
+
+        if spec_file is None:
+            sys.stderr.write('No output spectra file is specified')
+            return -1
+        
+        spec_config = load_yaml(spec_config)
+        channels = spec_config['channels']
+        masses = np.logspace(np.log10(spec_config['masses']['mass_min']),
+                             np.log10(spec_config['masses']['mass_max']),
+                             spec_config['masses']['mass_nstep'])
+
+        dm_spec_table = DMSpecTable.create_from_config(config_file, channels, masses)
+        dm_spec_table.write_fits(spec_file, args.clobber)
 
 
 class DMCastroStacker(Link):
     """Small class to convert stack DMCastroData """
-    default_options = dict(topdir=(None, 'Name of top-level directory', str),
-                           jprior=(None, 'Type of Prior on J-factor', str),
-                           rosterlist=('roster_list.yaml', 'Yaml file with list of rosters', str),
-                           nsims=(-1, 'Number of realizations to simulate', int),
-                           seed=(0, 'Seed to use for first realization', int),
-                           clobber=(False, 'Overwrite output file', bool),
-                           dry_run=(False, 'Print but do not run commands', bool))
+    default_options = dict(ttype=defaults.common['ttype'],
+                           specconfig=defaults.common['specconfig'], 
+                           rosterlist=defaults.common['rosterlist'],
+                           jprior=defaults.common['jprior'],
+                           sim=defaults.sims['sim'],
+                           nsims=defaults.sims['nsims'],
+                           seed=defaults.sims['seed'],
+                           dry_run=defaults.common['dry_run'],
+                           clobber=defaults.common['clobber'])
 
     def __init__(self, **kwargs):
         """ C'tor to build this object from energy binning and spectral values tables.
@@ -861,7 +965,7 @@ class DMCastroStacker(Link):
                       **kwargs)
 
     @staticmethod
-    def stack_roster(roster_name, rost, topdir, channels, jprior_key, seed):
+    def stack_roster(roster_name, rost, ttype, channels, jprior_key, sim, seed):
         """ Stack all of the DMCastroData in a roster
         """
         component_dict = {}
@@ -871,16 +975,21 @@ class DMCastroStacker(Link):
 
         for target_key in rost:
             tokens = target_key.split(':')
-            name_keys = dict(target_type=topdir,
+            name_keys = dict(target_type=ttype,
                              target_name=tokens[0],
                              profile=tokens[1],
                              fullpath=True,
+                             sim_name=sim,
+                             seed="%06i"%seed,
                              jprior=jprior_key)
 
-            target_dir = NAME_FACTORY.targetdir(**name_keys)
-            dmlike_path = NAME_FACTORY.dmlikefile(**name_keys)
-            if seed is not None:
-                dmlike_path = dmlike_path.replace('.fits','_%06i.fits'%seed)
+            if sim not in [None, 'none', 'None']:
+                target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
+                dmlike_path = NAME_FACTORY.sim_dmlikefile(**name_keys)
+            else:
+                target_dir = NAME_FACTORY.targetdir(**name_keys)
+                dmlike_path = NAME_FACTORY.dmlikefile(**name_keys)
+
             tab_m = Table.read(dmlike_path, hdu="MASSES")
 
             for chan in channels:
@@ -894,31 +1003,36 @@ class DMCastroStacker(Link):
         for chan, comps in component_dict.items():
             if len(comps) == 0:
                 continue
-            stacked = DMCastroData.create_from_stack(comps)
+            stacked = DMCastroData.create_from_stack(comps, ref_j=REF_J, ref_sigmav=REF_SIGV)
             out_dict[chan] = stacked
 
         return out_dict
 
     @staticmethod
-    def write_stacked(topdir, roster_name, stacked_dict, jprior_key, seed, clobber):
+    def write_stacked(ttype, roster_name, stacked_dict, jprior_key, sim, seed, clobber):
         """ Write the stacked DMCastroData object to a FITS file
         """
-        name_keys = dict(target_type=topdir,
+        name_keys = dict(target_type=ttype,
                          target_name="stacked",
                          fullpath=True,
                          roster_name=roster_name,
+                         sim_name=sim,
+                         seed="%06i"%seed,
                          jprior=jprior_key)
+             
+        if sim not in [None, 'none', 'None']:
+            outdir = NAME_FACTORY.sim_targetdir(**name_keys)
+            outpath = NAME_FACTORY.sim_resultsfile(**name_keys)
+        else:
+            outdir = NAME_FACTORY.targetdir(**name_keys)
+            outpath = NAME_FACTORY.resultsfile(**name_keys)
 
-        outdir = NAME_FACTORY.targetdir(**name_keys)
         try:
             os.makedirs(outdir)
         except OSError:
             pass
-        outpath = NAME_FACTORY.resultsfile(**name_keys)
-        limitfile = outpath.replace('.fits', '_limits.fits')
-        if seed is not None:
-            outpath = outpath.replace('.fits', '_%06i.fits'%seed)
-            limitfile = limitfile.replace('.fits','_%06i.fits'%seed)
+        
+        limitfile = outpath.replace('results', 'limits')
         print("Writing stacked results %s" % outpath)
         channels = stacked_dict.keys()
         t_list = []
@@ -954,28 +1068,55 @@ class DMCastroStacker(Link):
 
 
     @staticmethod
-    def stack_rosters(roster_dict, topdir, channels, jprior_key, seed, clobber):
+    def stack_rosters(roster_dict, ttype, channels, jprior_key, sim, seed, clobber):
         """ Stack all of the DMCastroData in a dictionary of rosters
         """
         for roster_name, rost in roster_dict.items():
-            stacked_dict = DMCastroStacker.stack_roster(roster_name, rost, topdir, channels, jprior_key, seed)
-            DMCastroStacker.write_stacked(topdir, roster_name, stacked_dict, jprior_key, seed, clobber)
+            stacked_dict = DMCastroStacker.stack_roster(roster_name, rost, ttype, channels, jprior_key, sim, seed)
+            DMCastroStacker.write_stacked(ttype, roster_name, stacked_dict, jprior_key, sim, seed, clobber)
 
 
     def run_analysis(self, argv):
         """Run this analysis"""
-        channels = ['ee', 'mumu', 'tautau', 'bb', 'tt',
-                    'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
         args = self._parser.parse_args(argv)
-        roster_dict = load_yaml(os.path.join(args.topdir, args.rosterlist))
-        
-        if args.nsims < 0:
-            seedlist = [None]
+
+        if args.ttype is None:
+            sys.stderr.write('Target type must be specified')
+            return -1
+
+        name_keys = dict(target_type=args.ttype,
+                         rosterlist='roster_list.yaml',
+                         sim_name=args.sim,
+                         fullpath=True)
+
+        spec_config = NAME_FACTORY.specconfig(**name_keys)
+        if args.specconfig not in [None, 'none', 'None']:
+            spec_config = args.specconfig
+
+        spec_config = load_yaml(spec_config)
+        channels = spec_config['channels']
+
+        if args.sim not in [None, 'none', 'None']:
+            roster_file = NAME_FACTORY.sim_rosterfile(**name_keys)
+            sim_name = args.sim
+            is_sim = True
         else:
+            roster_file = NAME_FACTORY.rosterfile(**name_keys)
+            is_sim = False
+            sim_name = None
+
+        if args.rosterlist not in [None, 'none', 'None']:
+            roster_file = args.rosterlist
+
+        roster_dict = load_yaml(roster_file)
+        
+        if is_sim:
             seedlist = range(args.seed, args.seed+args.nsims)
+        else:
+            seedlist = [0]
         
         for seed in seedlist:
-            DMCastroStacker.stack_rosters(roster_dict, args.topdir, channels, args.jprior, seed, args.clobber)
+            DMCastroStacker.stack_rosters(roster_dict, args.ttype, channels, args.jprior, sim_name, seed, args.clobber)
 
 
 class ConfigMaker_CastroConvertor(ConfigMaker):
@@ -983,13 +1124,14 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
 
     This adds the following arguments:
     """
-    default_options = dict(specfile=('dm_spectra.fits', 'Spectra table', str),
-                           topdir=(None, 'Top level directory', str),
-                           targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
-                           jprior=(None, 'Type of Prior on J-factor', str),
-                           nsims=(-1, 'Number of realizations to simulate', int),
-                           seed=(0, 'Seed to use for first realization', int),
-                           clobber=(False, 'Overwrite existing files', bool))
+    default_options = dict(ttype=defaults.common['ttype'],
+                           specfile=defaults.common['specfile'],
+                           targetlist=defaults.common['targetlist'],
+                           jprior=defaults.common['jprior'],
+                           sim=defaults.sims['sim'], 
+                           nsims=defaults.sims['nsims'], 
+                           seed=defaults.sims['seed'],
+                           clobber=defaults.common['clobber'])
 
     def __init__(self, link, **kwargs):
         """C'tor
@@ -1002,45 +1144,64 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
         """Hook to build job configurations
         """
         job_configs = {}
+        
+        ttype = args['ttype']
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
+        if targets_yaml is None:
+            return job_configs
 
-        topdir = args['topdir']
-        targets_yaml_path = os.path.join(topdir, args['targetlist'])
+        specfile = NAME_FACTORY.resolve_specfile(args)
 
-        try:
-            targets = load_yaml(targets_yaml_path)
-        except IOError:
-            targets = {}
+        targets = load_yaml(targets_yaml)
 
         jprior = args['jprior']
-        spec = args['specfile']
         dry_run = args['dry_run']
         clobber = args['clobber']
-        nsims = args['nsims']
-        seed = args['seed']
-        logdir = os.path.abspath(topdir).replace('gpfs', 'nfs')
 
+        if sim not in [None, 'none', 'None']:
+            is_sim = True
+            nsims = args['nsims']
+            seed = args['seed']
+        else:
+            is_sim = False
+            nsims = -1
+            seed = -1
+            
         for target_name, profile_list in targets.items():
-            target_dir = os.path.join(topdir, target_name)
             for profile in profile_list:
-                full_key = "%s:%s" % (target_name, profile)
-                name_keys = dict(target_type=topdir, 
+                full_key = "%s:%s:%s" % (target_name, profile, jprior)
+                name_keys = dict(target_type=ttype, 
                                  target_name=target_name,
                                  profile=profile,
-                                 jprior=jprior)
-                sed_file = NAME_FACTORY.sedfile(**name_keys)
-                profile_yaml = NAME_FACTORY.profilefile(**name_keys)
-                outfile = NAME_FACTORY.dmlikefile(**name_keys)
+                                 jprior=jprior, 
+                                 fullpath=True)
+
+                if is_sim:
+                    name_keys['sim_name'] = sim
+                    sed_file = NAME_FACTORY.sim_sedfile(**name_keys)
+                    profile_yaml = NAME_FACTORY.sim_profilefile(**name_keys)
+                    outfile = NAME_FACTORY.sim_dmlikefile(**name_keys)
+                    limitfile = NAME_FACTORY.sim_dmlimitsfile(**name_keys)
+                    full_key += ":%s"%sim
+                else:
+                    sed_file = NAME_FACTORY.sedfile(**name_keys)
+                    profile_yaml = NAME_FACTORY.profilefile(**name_keys)
+                    outfile = NAME_FACTORY.dmlikefile(**name_keys)
+                    limitfile = NAME_FACTORY.dmlimitsfile(**name_keys)
+
                 logfile = make_nfs_path(outfile.replace('.fits', '.log'))
-                job_config = dict(spec=spec,
+                job_config = dict(specfile=specfile,
                                   sed_file=sed_file,
-                                  profile_yaml=profile_yaml,
+                                  profile_file=profile_yaml,
                                   jprior=jprior,
                                   outfile=outfile,
+                                  limitfile=limitfile,
                                   logfile=logfile,
                                   nsims=nsims,
                                   seed=seed,                                  
                                   dry_run=dry_run,
                                   clobber=clobber)
+
                 job_configs[full_key] = job_config
 
         return job_configs
