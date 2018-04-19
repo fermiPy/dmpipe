@@ -12,7 +12,75 @@ from fermipy import stats_utils
 from fermipy import sed_plotting
 
 from dmpipe.dm_spectral import DMSpecTable
+from fermipy.spectrum import DMFitFunction
 
+
+def plot_dm_spectra_by_channel(dm_spec_table, mass=100, spec_type='eflux', ylims=(1e-12, 1e-8)):
+    """ Make a plot of the DM spectra.
+
+    dm_spec_table : Object with the spectral table
+    mass       : Mass of the DM particle 
+    ylims      : y-axis limits
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib
+
+    chan_names = dm_spec_table.channel_names
+    chan_ids = dm_spec_table.channel_map.keys()
+    chan_idx_list = dm_spec_table.channel_map.values()
+    energies = dm_spec_table.ebin_refs()
+
+    fig = plt.figure()
+    axis = fig.add_subplot(111)
+    axis.set_xscale('log')
+    axis.set_yscale('log')
+    axis.set_xlim((energies[0], energies[-1]))
+    axis.set_ylim(ylims)
+    axis.set_xlabel(r'Energy [MeV]')
+    axis.set_ylabel(r'Energy Flux [MeV s$^{-1}$ cm$^{-2}$]')
+
+    for chan, chan_id, idx_list in zip(chan_names, chan_ids, chan_idx_list):
+        chan_masses = dm_spec_table.masses(chan_id).data
+        mass_idx = np.abs(chan_masses - mass).argmin()
+        table_idx = idx_list[mass_idx]
+        spectrum = dm_spec_table._s_table[table_idx]["ref_%s" % spec_type]
+        axis.plot(energies, spectrum, label=chan)
+
+    leg = axis.legend(loc="best", ncol=2, fontsize=10)
+    return fig, axis, leg
+        
+
+def plot_dm_spectra_by_mass(dm_spec_table, chan='bb', spec_type='eflux', ylims=(1e-12, 1e-6)):
+    """ Make a plot of the DM spectra.
+
+    dm_spec_table : Object with the spectral table
+    mass       : Mass of the DM particle 
+    ylims      : y-axis limits
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib
+
+    chan_id = DMFitFunction.channel_rev_map[chan]
+    chan_idx_list = dm_spec_table.channel_map[chan_id]
+    energies = dm_spec_table.ebin_refs()
+
+    fig = plt.figure()
+    axis = fig.add_subplot(111)
+    axis.set_xscale('log')
+    axis.set_yscale('log')
+    axis.set_xlim((energies[0], energies[-1]))
+    axis.set_ylim(ylims)
+    axis.set_xlabel(r'Energy [MeV]')
+    axis.set_ylabel(r'Energy Flux [MeV s$^{-1}$ cm$^{-2}$]')
+
+    masses = dm_spec_table.masses(chan_id)
+    for table_idx, mass in zip(chan_idx_list, masses):
+        spectrum = dm_spec_table._s_table[table_idx]["ref_%s" % spec_type]        
+        axis.plot(energies, spectrum, label="%.1F GeV"%mass)
+
+    leg = axis.legend(loc="best", ncol=2, fontsize=10)
+    return fig, axis, leg
+        
 
 def plot_dm_castro(castro_dm, ylims=(1e-28, 1e-22), nstep=100, zlims=None):
     """ Make a color plot (1castro plot) of the delta log-likelihood as a function of
@@ -211,6 +279,13 @@ def plot_expected_limit_bands(axis, bands):
     axis.fill_between(masses, bands['q02'], bands['q97'], color='yellow')
     axis.fill_between(masses, bands['q16'], bands['q84'], color='green')
     axis.plot(masses, bands['median'], color='gray')
+
+
+def plot_mc_truth(axis, mc_model):
+    """ Plot the expected limit bands """
+    sigmav = mc_model['sigmav']['value']
+    mass = mc_model['mass']['value']
+    axis.scatter([mass], [sigmav])
 
 
 def plot_limits(sdict, xlims, ylims, alpha=0.05):
