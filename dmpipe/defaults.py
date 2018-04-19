@@ -22,9 +22,14 @@ common = {
     'specfile': (None, 'Path to DM spectrum file.', str),
     'sed_file': (None, 'Path to SED file.', str),
     'profile_file': (None, 'Path to yaml file with target profile', str),
-    'jprior': (None, 'Type of Prior on J-factor', str),
+    'profiles' : ([], 'List of profiles to analysis', list),
+    'jprior': (None, 'Types of Prior on J-factor', str),
+    'jpriors': ([], 'Types of Prior on J-factor', list),
     'nsims': (-1, 'Number of simulations to run.', int),
+    'channels': ([], 'DM annihilation channels', list),
     'chan': ('bb', 'DM annihilation channel', str),
+    'mass': (100, 'DM particle mass', float),
+    'spec_type' : ('eflux', 'Type of flux to consider', str),
     'dry_run' : (False, 'Print commands but do not run them.', bool),
     'clobber' : (False, 'Overwrite existing files.', bool),
     }
@@ -33,7 +38,9 @@ sims = {
     'sim': (None, 'Name of the simulation scenario.', str),
     'nsims': (20, 'Number of simulations to run.', int),
     'seed': (0, 'Seed number for first simulation.', int),
-    }
+    'skydirs': (None, 'Yaml file with blank sky directions.', str),
+    'rand_config': (None, 'Path to config file for genaration random sky dirs', str),
+   }
 
 collect = {
     'bands': (None, 'Name of file with expected limit bands.', str),

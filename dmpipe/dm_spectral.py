@@ -90,7 +90,10 @@ class DMCastroData(castro.CastroData_Base):
         self._ref_j = ref_j
         self._ref_sigmav = ref_sigmav
 
-        test_norm = self._ref_j / self._astro_value
+        if self._astro_value is not None:
+            test_norm = self._ref_j / self._astro_value
+        else:
+            test_norm = self._norm_value
         if np.fabs(test_norm - self._norm_value) > 0.01:
             sys.stderr.write("WARNING, normalization value does not match expected value: %.2E %.2E\n"%(self._norm_value, test_norm))
 
@@ -155,7 +158,7 @@ class DMCastroData(castro.CastroData_Base):
         See '~fermipy.stats_utils.create_prior_functor' for recognized types.
         """
         if self._astro_prior is None:
-            return "None"
+            return "none"
         return self.astro_prior.funcname
 
     @property
@@ -606,19 +609,22 @@ class DMSpecTable(object):
         ref_norm = self._ref_vals["ref_J"]
 
         j_prior = None
-        if jfactor is None:
+        if jfactor in [None, 'none', 'None']:
             # Just use the reference values
-            j_ref = ref_norm
+            j_value = ref_norm
             norm_factor = 1.
         elif isinstance(jfactor, float):
             # Rescale the normalization values
-            j_ref = jfactor
+            j_value = jfactor
             norm_factor = ref_norm / jfactor
-        elif isinstance(jfactor, dict):
-            j_ref = ref_norm
-            jfactor['j_ref'] = j_ref
-            norm_factor =  ref_norm / jfactor.get('j_value')
-            j_prior = stats_utils.create_prior_functor(jfactor)
+        elif isinstance(jfactor, dict):               
+            jfactor['j_ref'] = ref_norm
+            j_value = jfactor.get('j_value')
+            norm_factor =  ref_norm / j_value
+            if jfactor.get('functype', None) in [None, 'none', 'None']:
+                j_prior = None
+            else:
+                j_prior = stats_utils.create_prior_functor(jfactor)
         else:
             sys.stderr.write("Did not recoginize J factor %s %s\n"%(jfactor, type(jfactor)))
 
@@ -631,6 +637,7 @@ class DMSpecTable(object):
         dll_vals = np.ndarray((nmass, n_scan_pt))
         mle_vals = np.ndarray((nmass))
 
+        mass_mask = np.ones((nmass), bool)
         # for i, mass in enumerate(masses):
         for i in range(nmass):
             max_ratio = 1. / ((spec_vals[i] / norm_limits).max())
@@ -643,15 +650,26 @@ class DMSpecTable(object):
             mle_vals[i] = norm_vals[i][dll_vals[i].argmin()]
             mle_ll = dll_vals[i].min()
             dll_vals[i] -= mle_ll
+            
+            msk = np.isfinite(dll_vals[i])
+            if not msk.any():
+                print ("Skipping mass %0.2e for channel %s"%(masses[i], channel))
+                mass_mask[i] = False
+                continue
 
-            if j_prior is not None:
-                lnlfn = castro.LnLFn(norm_vals[i], dll_vals[i], 'dummy')
-                lnlfn_prior = stats_utils.LnLFn_norm_prior(lnlfn, j_prior)
-                dll_vals[i, 0:] = lnlfn_prior(norm_vals[i])
+            if j_prior not in [None, 'none', 'None']:
+                try:
+                    lnlfn = castro.LnLFn(norm_vals[i], dll_vals[i], 'dummy')
+                    lnlfn_prior = stats_utils.LnLFn_norm_prior(lnlfn, j_prior)
+                    dll_vals[i, 0:] = lnlfn_prior(norm_vals[i])
+                except ValueError:
+                    print ("Skipping mass %0.2e for channel %s"%(masses[i], channel))
+                    mass_mask[i] = False
+                    dll_vals[i, 0:] = np.nan* np.ones((n_scan_pt))
 
         norm_vals *= (ref_sigmav)
-        dm_castro = DMCastroData(norm_vals, dll_vals, norm_factor,
-                                 channel, masses, j_ref, j_prior, ref_j=ref_norm, ref_sigmav=ref_sigmav)
+        dm_castro = DMCastroData(norm_vals[mass_mask], dll_vals[mass_mask], norm_factor,
+                                 channel, masses[mass_mask], j_value, j_prior, ref_j=ref_norm, ref_sigmav=ref_sigmav)
         return dm_castro
 
     def convert_tscube(self, tscube, channel, norm_type):
@@ -772,15 +790,15 @@ class DMCastroConvertor(Link):
 
         for chan in channels:
             chan_idx = DMFitFunction.channel_rev_map[chan]
-            try:
-                dm_castro = spec_table.convert_castro_data(sed, chan_idx, norm_type, j_val)
-                tab_castro = dm_castro.build_scandata_table()
+            #try:
+            dm_castro = spec_table.convert_castro_data(sed, chan_idx, norm_type, j_val)
+            tab_castro = dm_castro.build_scandata_table()
 
-                if mass_table is None:
-                    mass_table = dm_castro.build_mass_table()
-            except IndexError:
-                print ("Skipping channel %s" % chan)
-                continue
+            if mass_table is None:
+                mass_table = dm_castro.build_mass_table()
+            #except IndexError, msg:
+            #    raise IndexError("Skipping channel %s" % msg)
+            #    continue
             c_list.append(dm_castro)
             t_list.append(tab_castro)
             n_list.append(chan)
@@ -943,7 +961,7 @@ class DMSpecTableBuilder(Link):
 
 class DMCastroStacker(Link):
     """Small class to convert stack DMCastroData """
-    default_options = dict(ttype=defaults.common['ttype'],
+    default_options = dict(ttype=defaults.common['ttype'], 
                            specconfig=defaults.common['specconfig'], 
                            rosterlist=defaults.common['rosterlist'],
                            jprior=defaults.common['jprior'],
@@ -1115,8 +1133,12 @@ class DMCastroStacker(Link):
         else:
             seedlist = [0]
         
-        for seed in seedlist:
-            DMCastroStacker.stack_rosters(roster_dict, args.ttype, channels, args.jprior, sim_name, seed, args.clobber)
+        jprior = args.jprior
+        if jprior in [None, 'none', 'None']:
+            jprior = 'none';
+
+        for seed in seedlist:            
+            DMCastroStacker.stack_rosters(roster_dict, args.ttype, channels, jprior, sim_name, seed, args.clobber)
 
 
 class ConfigMaker_CastroConvertor(ConfigMaker):
@@ -1127,7 +1149,7 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
     default_options = dict(ttype=defaults.common['ttype'],
                            specfile=defaults.common['specfile'],
                            targetlist=defaults.common['targetlist'],
-                           jprior=defaults.common['jprior'],
+                           jpriors=defaults.common['jpriors'],
                            sim=defaults.sims['sim'], 
                            nsims=defaults.sims['nsims'], 
                            seed=defaults.sims['seed'],
@@ -1154,7 +1176,7 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
 
         targets = load_yaml(targets_yaml)
 
-        jprior = args['jprior']
+        jpriors = args['jpriors']
         dry_run = args['dry_run']
         clobber = args['clobber']
 
@@ -1166,45 +1188,117 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
             is_sim = False
             nsims = -1
             seed = -1
-            
+
         for target_name, profile_list in targets.items():
             for profile in profile_list:
-                full_key = "%s:%s:%s" % (target_name, profile, jprior)
-                name_keys = dict(target_type=ttype, 
-                                 target_name=target_name,
-                                 profile=profile,
-                                 jprior=jprior, 
-                                 fullpath=True)
+                for jprior in jpriors:
+                    full_key = "%s:%s:%s" % (target_name, profile, jprior)
+                    name_keys = dict(target_type=ttype, 
+                                     target_name=target_name,
+                                     profile=profile,
+                                     jprior=jprior, 
+                                     fullpath=True)
+                    if is_sim:
+                        name_keys['sim_name'] = sim
+                        sed_file = NAME_FACTORY.sim_sedfile(**name_keys)
+                        profile_yaml = NAME_FACTORY.sim_profilefile(**name_keys)
+                        outfile = NAME_FACTORY.sim_dmlikefile(**name_keys)
+                        limitfile = NAME_FACTORY.sim_dmlimitsfile(**name_keys)
+                        full_key += ":%s"%sim
+                    else:
+                        sed_file = NAME_FACTORY.sedfile(**name_keys)
+                        profile_yaml = NAME_FACTORY.profilefile(**name_keys)
+                        outfile = NAME_FACTORY.dmlikefile(**name_keys)
+                        limitfile = NAME_FACTORY.dmlimitsfile(**name_keys)
 
-                if is_sim:
-                    name_keys['sim_name'] = sim
-                    sed_file = NAME_FACTORY.sim_sedfile(**name_keys)
-                    profile_yaml = NAME_FACTORY.sim_profilefile(**name_keys)
-                    outfile = NAME_FACTORY.sim_dmlikefile(**name_keys)
-                    limitfile = NAME_FACTORY.sim_dmlimitsfile(**name_keys)
-                    full_key += ":%s"%sim
-                else:
-                    sed_file = NAME_FACTORY.sedfile(**name_keys)
-                    profile_yaml = NAME_FACTORY.profilefile(**name_keys)
-                    outfile = NAME_FACTORY.dmlikefile(**name_keys)
-                    limitfile = NAME_FACTORY.dmlimitsfile(**name_keys)
+                    logfile = make_nfs_path(outfile.replace('.fits', '.log'))
+                    job_config = dict(specfile=specfile,
+                                      sed_file=sed_file,
+                                      profile_file=profile_yaml,
+                                      jprior=jprior,
+                                      outfile=outfile,
+                                      limitfile=limitfile,
+                                      logfile=logfile,
+                                      nsims=nsims,
+                                      seed=seed,                                  
+                                      dry_run=dry_run,
+                                      clobber=clobber)
 
-                logfile = make_nfs_path(outfile.replace('.fits', '.log'))
-                job_config = dict(specfile=specfile,
-                                  sed_file=sed_file,
-                                  profile_file=profile_yaml,
-                                  jprior=jprior,
-                                  outfile=outfile,
-                                  limitfile=limitfile,
-                                  logfile=logfile,
-                                  nsims=nsims,
-                                  seed=seed,                                  
-                                  dry_run=dry_run,
-                                  clobber=clobber)
-
-                job_configs[full_key] = job_config
+                    job_configs[full_key] = job_config
 
         return job_configs
+
+
+class ConfigMaker_CastroStacker(ConfigMaker):
+    """Small class to generate configurations for this script
+
+    This adds the following arguments:
+    """
+    default_options = dict(ttype=defaults.common['ttype'],
+                           specconfig=defaults.common['specfile'],
+                           rosterlist=defaults.common['rosterlist'],
+                           jpriors=defaults.common['jpriors'],
+                           sim=defaults.sims['sim'], 
+                           nsims=defaults.sims['nsims'], 
+                           seed=defaults.sims['seed'],
+                           clobber=defaults.common['clobber'])
+
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        ConfigMaker.__init__(self, link,
+                             options=kwargs.get('options',
+                                                ConfigMaker_CastroStacker.default_options.copy()))
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+        
+        jpriors = args['jpriors']
+        dry_run = args['dry_run']
+        clobber = args['clobber']
+        sim = args['sim']
+        
+        if sim not in [None, 'none', 'None']:
+            is_sim = True
+            nsims = args['nsims']
+            seed = args['seed']
+        else:
+            is_sim = False
+            nsims = -1
+            seed = -1
+
+        for jprior in jpriors:
+            full_key = "%s:%s" % (jprior, sim)
+            name_keys = dict(target_type=args['ttype'],
+                             target_name='stacked',
+                             jprior=jprior,
+                             sim_name=sim,
+                             fullpath=True)
+            if is_sim:
+                target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
+            else:
+                target_dir = NAME_FACTORY.targetdir(**name_keys)
+                
+            logfile = os.path.join(target_dir, 'stack_%s_%s.log'%(jprior, sim))
+            job_config = dict(ttype=args['ttype'],
+                              specconfig=args['specconfig'],
+                              rosterlist=args['rosterlist'],
+                              jprior=jprior,
+                              sim=sim,
+                              logfile=logfile,
+                              nsims=nsims,
+                              seed=seed,                                  
+                              dry_run=dry_run,
+                              clobber=clobber)
+
+            job_configs[full_key] = job_config
+
+        return job_configs
+
+
+
 
 
 def create_link_castro_convertor(**kwargs):
@@ -1220,7 +1314,7 @@ def create_link_spec_table_builder(**kwargs):
 
 
 def create_link_stack_likelihood(**kwargs):
-    """Build and return a `Link` object that can invoke DMSpecTableBuilder"""
+    """Build and return a `Link` object that can invoke DMCastroStacker"""
     castro_stacker = DMCastroStacker(**kwargs)
     return castro_stacker
 
@@ -1247,6 +1341,28 @@ def create_sg_castro_convertor(**kwargs):
                                 **kwargs)
     return lsf_sg
 
+def create_sg_stack_likelihood(**kwargs):
+    """Build and return a ScatterGather object that can invoke this script"""
+    appname = kwargs.pop('appname', 'dmpipe-stack-likelihood-sg')
+    link = create_link_stack_likelihood(**kwargs)
+    linkname = kwargs.pop('linkname', link.linkname)
+
+    batch_args = get_lsf_default_args()    
+    batch_args['lsf_args']['W'] = 500
+    batch_interface = LSF_Interface(**batch_args)
+
+    usage = "%s [options]" % (appname)
+    description = "Convert stack DM castro objects"
+
+    config_maker = ConfigMaker_CastroStacker(link)
+    lsf_sg = build_sg_from_link(link, config_maker,
+                                interface=batch_interface,
+                                usage=usage,
+                                description=description,
+                                appname=appname,
+                                **kwargs)
+    return lsf_sg
+
 
 def main_spec_table():
     """Entry point for command line use for single job """
@@ -1254,11 +1370,15 @@ def main_spec_table():
     spec_table_builder.run_analysis(sys.argv[1:])
 
 
-def main_stack_likelihood():
+def main_stack_likelihood_single():
     """Entry point for command line use for single job """
     castro_stacker = DMCastroStacker()
     castro_stacker.run_analysis(sys.argv[1:])
 
+def main_stack_likelihood_batch():
+    """Entry point for command line use for dispatching batch jobs """
+    lsf_sg = create_sg_stack_likelihood()
+    lsf_sg(sys.argv)
 
 def main_convert_single():
     """Entry point for command line use for single job """

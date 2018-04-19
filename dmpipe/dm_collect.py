@@ -343,7 +343,7 @@ class ConfigMaker_CollectLimits(ConfigMaker):
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            specconifg=defaults.common['specconfig'],
-                           jprior=defaults.common['jprior'],
+                           jpriors=defaults.common['jpriors'],
                            sim=defaults.sims['sim'],
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
@@ -369,39 +369,41 @@ class ConfigMaker_CollectLimits(ConfigMaker):
 
         specconfig = NAME_FACTORY.resolve_specconfig(args)
 
-        j_prior = args.get('jprior', 'none')
-        if j_prior in [None, 'None', 'none']:
-            j_prior = 'None'
+        jpriors = args['jpriors']
+
         write_full = args.get('write_full', False)
 
         targets = load_yaml(targets_yaml)
         for target_name, profile_list in targets.items():
             for profile in profile_list:
-                full_key = "%s:%s:%s" % (target_name, profile, sim)
-                name_keys = dict(target_type=ttype, 
-                                 target_name=target_name,
-                                 sim_name=sim,
-                                 profile=profile,
-                                 jprior=j_prior, 
-                                 fullpath=True)
-                limitfile = NAME_FACTORY.sim_dmlimitsfile(**name_keys)
-                first = args['seed']
-                last = first + args['nsims'] - 1
-                outfile = limitfile.replace('_SEED.fits','_collected_%06i_%06i.fits'%(first, last))
-                logfile = make_nfs_path(outfile.replace('.fits', '.log'))
-                if not write_full:
-                    outfile = None
-                summaryfile = limitfile.replace('_SEED.fits','_summary_%06i_%06i.fits'%(first, last))
-                job_config = dict(limitfile=limitfile,
-                                  specconfig=specconfig,
-                                  jprior=j_prior, 
-                                  outfile=outfile,
-                                  summaryfile=summaryfile,
-                                  logfile=logfile,
-                                  nsims=args['nsims'],
-                                  seed=args['seed'],
-                                  dry_run=args['dry_run'])
-                job_configs[full_key] = job_config
+                for jprior in jpriors:
+                    if jprior in [None, 'none', 'None']:
+                        jprior = 'none'
+                    full_key = "%s:%s:%s:%s" % (target_name, profile, sim, jprior)
+                    name_keys = dict(target_type=ttype, 
+                                     target_name=target_name,
+                                     sim_name=sim,
+                                     profile=profile,
+                                     jprior=jprior, 
+                                     fullpath=True)
+                    limitfile = NAME_FACTORY.sim_dmlimitsfile(**name_keys)
+                    first = args['seed']
+                    last = first + args['nsims'] - 1
+                    outfile = limitfile.replace('_SEED.fits','_collected_%06i_%06i.fits'%(first, last))
+                    logfile = make_nfs_path(outfile.replace('.fits', '.log'))
+                    if not write_full:
+                        outfile = None
+                    summaryfile = limitfile.replace('_SEED.fits','_summary_%06i_%06i.fits'%(first, last))
+                    job_config = dict(limitfile=limitfile,
+                                      specconfig=specconfig,
+                                      jprior=jprior, 
+                                      outfile=outfile,
+                                      summaryfile=summaryfile,
+                                      logfile=logfile,
+                                      nsims=args['nsims'],
+                                      seed=args['seed'],
+                                      dry_run=args['dry_run'])
+                    job_configs[full_key] = job_config
 
         return job_configs
 
@@ -413,7 +415,7 @@ class ConfigMaker_CollectStackedLimits(ConfigMaker):
     """
     default_options = dict(ttype=defaults.common['ttype'],
                            rosterlist=defaults.common['targetlist'],
-                           jprior=defaults.common['jprior'],
+                           jpriors=defaults.common['jpriors'],
                            sim=defaults.sims['sim'],
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
@@ -440,39 +442,40 @@ class ConfigMaker_CollectStackedLimits(ConfigMaker):
 
         specconfig = NAME_FACTORY.resolve_specconfig(args)
 
-        j_prior = args.get('jprior', 'None')
-        if j_prior in [None, 'None', 'none']:
-            j_prior = 'None'
+        jpriors = args['jpriors']
 
         write_full = args['write_full']
 
         roster_dict = load_yaml(roster_yaml)
         for roster_name in roster_dict.keys():
-            full_key = "%s:%s:%s" % (roster_name, sim, j_prior)
-            name_keys = dict(target_type=ttype, 
-                             roster_name=roster_name,
-                             sim_name=sim,
-                             jprior=jprior, 
-                             fullpath=True)
+            for jprior in jpriors:
+                if jprior in [None, 'none', 'None']:
+                    jprior = 'none'
+                full_key = "%s:%s:%s" % (roster_name, sim, jprior)
+                name_keys = dict(target_type=ttype, 
+                                 roster_name=roster_name,
+                                 sim_name=sim,
+                                 jprior=jprior, 
+                                 fullpath=True)
 
-            limitfile = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
-            first = args['seed']
-            last = first + args['nsims'] - 1
-            outfile = limitfile.replace('_SEED.fits','_collected_%06i_%06i.fits'%(first, last))
-            logfile = make_nfs_path(outfile.replace('.fits', '.log'))
-            if not write_full:
-                outfile = None
-            summaryfile = limitfile.replace('_SEED.fits','_summary_%06i_%06i.fits'%(first, last))
-            job_config = dict(limitfile=limitfile,
-                              specconfig=specconfig,
-                              jprior=jprior, 
-                              outfile=outfile,
-                              summaryfile=summaryfile,
-                              logfile=logfile,
-                              nsims=args['nsims'],
-                              seed=args['seed'],
-                              dry_run=args['dry_run'])
-            job_configs[full_key] = job_config
+                limitfile = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
+                first = args['seed']
+                last = first + args['nsims'] - 1
+                outfile = limitfile.replace('_SEED.fits','_collected_%06i_%06i.fits'%(first, last))
+                logfile = make_nfs_path(outfile.replace('.fits', '.log'))
+                if not write_full:
+                    outfile = None
+                summaryfile = limitfile.replace('_SEED.fits','_summary_%06i_%06i.fits'%(first, last))
+                job_config = dict(limitfile=limitfile,
+                                  specconfig=specconfig,
+                                  jprior=jprior, 
+                                  outfile=outfile,
+                                  summaryfile=summaryfile,
+                                  logfile=logfile,
+                                  nsims=args['nsims'],
+                                  seed=args['seed'],
+                                  dry_run=args['dry_run'])
+                job_configs[full_key] = job_config
 
         return job_configs
 
