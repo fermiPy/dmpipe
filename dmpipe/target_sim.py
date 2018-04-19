@@ -13,6 +13,10 @@ import sys
 import argparse
 import numpy as np
 
+from astropy import units as u
+from astropy.coordinates import SkyCoord, ICRS, Galactic
+from gammapy.maps import WcsGeom
+
 from fermipy.utils import load_yaml, write_yaml, init_matplotlib_backend
 
 from fermipy.castro import CastroData
@@ -35,6 +39,104 @@ except ImportError:
     HAVE_ST = False
 
 NAME_FACTORY = NameFactory(basedir=('.'))
+
+class RandomSkyDirGenerator(Link):
+    """Small class to generate random sky directions inside an ROI
+
+    This is useful for parallelizing analysis using the fermipy.jobs module.
+    """
+    default_options = dict(config=defaults.common['config'],
+                           rand_config=defaults.sims['rand_config'],
+                           outfile=defaults.generic['outfile'],
+                           dry_run=defaults.common['dry_run'])
+
+    def __init__(self, **kwargs): 
+        """C'tor
+        """
+        parser = argparse.ArgumentParser(usage="dmpipe-random-dir-gen [options]",
+                                         description="Generate random sky directions in an ROI")
+        Link.__init__(self, kwargs.pop('linkname', 'random-skydirs'),
+                      parser=parser,
+                      appname='dmpipe-random-dir-gen',
+                      options=RandomSkyDirGenerator.default_options.copy(),
+                      **kwargs)
+
+    @staticmethod
+    def make_wcsgeom_from_config(config):    
+        binning = config['binning']
+        binsz = binning['binsz']
+        coordsys = binning.get('coordsys', 'GAL')
+        roiwidth = binning['roiwidth']
+        proj = binning.get('proj', 'AIT')
+        ra = config['selection']['ra']
+        dec = config['selection']['dec']
+        npix = int(np.round(roiwidth / binsz))
+        skydir = SkyCoord(ra * u.deg, dec * u.deg)
+        
+        wcsgeom = WcsGeom.create(npix=npix, binsz=binsz,
+                                 proj=proj, coordsys=coordsys,
+                                 skydir=skydir)
+        return wcsgeom
+      
+    @staticmethod
+    def build_skydir_dict(wcsgeom, rand_config):    
+        """Build a dictionary of random directions"""
+        step_x = rand_config['step_x']
+        step_y = rand_config['step_y']
+        max_x = rand_config['max_x']
+        max_y = rand_config['max_y']
+        seed = rand_config['seed']
+        nsims = rand_config['nsims']
+        
+        cdelt = wcsgeom.wcs.wcs.cdelt
+        pixstep_x = step_x / cdelt[0]
+        pixstep_y = -1. * step_y / cdelt[1]
+        pixmax_x = max_x / cdelt[0]
+        pixmax_y = max_y / cdelt[0]
+        
+        nstep_x = int(np.ceil( 2.*pixmax_x / pixstep_x)) + 1
+        nstep_y = int(np.ceil( 2.*pixmax_y / pixstep_y)) + 1
+
+        print (nstep_x, nstep_y)
+
+        center = np.array(wcsgeom._center_pix)
+
+        grid = np.meshgrid(np.linspace(-1*pixmax_x, pixmax_x, nstep_x),
+                           np.linspace(-1*pixmax_y, pixmax_y, nstep_y))
+        grid[0] += center[0]
+        grid[1] += center[1]
+
+        test_grid = wcsgeom.pix_to_coord(grid)     
+        glat_vals = test_grid[0].flat
+        glon_vals = test_grid[1].flat
+        conv_vals = SkyCoord(glat_vals * u.deg, glon_vals * u.deg, frame=Galactic).transform_to(ICRS)
+
+        ra_vals = conv_vals.ra.deg[seed:nsims]
+        dec_vals = conv_vals.dec.deg[seed:nsims]
+
+        o_dict = {}
+        for i, (ra, dec) in enumerate(zip(ra_vals, dec_vals)):
+            key = i+seed
+            o_dict[key] = dict(ra=ra, dec=dec)
+        return o_dict
+
+
+    def run_analysis(self, argv):
+        """Run this analysis"""
+        args = self._parser.parse_args(argv)
+
+        if args.config in [None, 'none', 'None']:
+            raise ValueError("Config yaml file must be specified")
+        if args.rand_config in [None, 'none', 'None']:
+            raise ValueError("Random direction config yaml file must be specified")
+        config = load_yaml(args.config)
+        rand_config = load_yaml(args.rand_config)
+
+        wcsgeom = RandomSkyDirGenerator.make_wcsgeom_from_config(config)
+        dir_dict = RandomSkyDirGenerator.build_skydir_dict(wcsgeom, rand_config)
+
+        if args.outfile not in [None, 'none', 'None']:
+            write_yaml(dir_dict, args.outfile)
 
 
 class TargetSim(Link):
@@ -128,6 +230,61 @@ class TargetSim(Link):
             self.run_simulation(gta, injected_source, test_source, i, sedfile, mcube_out)
 
 
+class ConfigMaker_RandomDirGen(ConfigMaker):
+    """Small class to generate configurations for this script
+
+    This adds the following arguments:
+    """
+    default_options = dict(ttype=defaults.common['ttype'],
+                           targetlist=defaults.common['targetlist'],
+                           config=defaults.common['config'],
+                           rand_config=defaults.sims['rand_config'], 
+                           dry_run=defaults.common['dry_run'])
+
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        ConfigMaker.__init__(self, link,
+                             options=kwargs.get('options',
+                                                ConfigMaker_RandomDirGen.default_options.copy()))
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+
+        ttype = args['ttype']
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
+        if targets_yaml is None:
+            return job_configs
+
+        config_yaml = 'config.yaml'
+        config_override = args.get('config')
+        if config_override is not None and config_override != 'none':
+            config_yaml = config_override
+
+        targets = load_yaml(targets_yaml)
+
+        for target_name in targets.keys():
+            name_keys = dict(target_type=ttype,
+                             target_name=target_name,
+                             sim_name='random',
+                             fullpath=True)
+            simdir = NAME_FACTORY.sim_targetdir(**name_keys)
+            config_path = os.path.join(simdir, config_yaml)
+            outfile = os.path.join(simdir, 'skydirs.yaml')
+            logfile = make_nfs_path(outfile.replace('yaml', 'log'))
+            job_config = dict(config=config_path, 
+                              rand_config=args['rand_config'],
+                              outfile=outfile,
+                              logfile=logfile,
+                              dry_run=args['dry_run'])
+            job_configs[target_name] = job_config
+
+        return job_configs
+
+
+
 class ConfigMaker_TargetSim(ConfigMaker):
     """Small class to generate configurations for this script
 
@@ -183,12 +340,38 @@ class ConfigMaker_TargetSim(ConfigMaker):
         return job_configs
 
 
-
+def create_link_random_dir_gen(**kwargs):
+    """Build and return a `Link` object that can invoke RandomSkyDirGenerator"""
+    random_dir_gen = RandomSkyDirGenerator(**kwargs)
+    return random_dir_gen
 
 def create_link_roi_sim(**kwargs):
     """Build and return a `Link` object that can invoke TargetAnalysis"""
     target_analysis = TargetSim(**kwargs)
     return target_analysis
+
+
+def create_sg_random_dir_gen(**kwargs):
+    """Build and return a ScatterGather object that can invoke this script"""
+    random_dir_gen = RandomSkyDirGenerator(**kwargs)
+    link = random_dir_gen
+
+    appname = kwargs.pop('appname', 'dmpipe-random-dir-gen-sg')
+
+    batch_args = get_lsf_default_args()    
+    batch_interface = LSF_Interface(**batch_args)
+
+    usage = "%s [options]" % (appname)
+    description = "Create random directions for a set of ROIs"
+
+    config_maker = ConfigMaker_RandomDirGen(link)
+    sg = build_sg_from_link(link, config_maker,
+                            interface=batch_interface,
+                            usage=usage,
+                            description=description,
+                            appname=appname,
+                            **kwargs)
+    return sg
 
 
 
@@ -215,12 +398,21 @@ def create_sg_roi_sim(**kwargs):
     return sg
 
 
+def main_random_dir_gen():
+    """ Entry point for analysis of a single ROI """
+    random_dir_gen = RandomSkyDirGenerator()
+    random_dir_gen.run_analysis(sys.argv[1:])
+
 def main_roi_single():
     """ Entry point for analysis of a single ROI """
     target_analysis = TargetSim()
     target_analysis.run_analysis(sys.argv[1:])
 
-
+def main_random_dir_gen_batch():
+    """ Entry point for analysis of a single ROI """
+    lsf_sg = create_sg_random_dir_gen()
+    lsf_sg(sys.argv)
+ 
 def main_roi_batch():
     """ Entry point for command line use for dispatching batch jobs """
     lsf_sg = create_sg_roi_sim()

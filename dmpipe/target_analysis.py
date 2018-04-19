@@ -284,8 +284,9 @@ class SEDAnalysis(Link):
     """
     default_options = dict(config=defaults.common['config'],
                            dry_run=defaults.common['dry_run'],
+                           skydirs=defaults.sims['skydirs'],
                            profiles=([], 'Profiles to build SED for', list))
-
+                           
     def __init__(self, **kwargs):
         """C'tor
         """
@@ -296,7 +297,7 @@ class SEDAnalysis(Link):
                       appname='dmpipe-analyze-sed',
                       options=SEDAnalysis.default_options.copy(),
                       **kwargs)
-
+                           
     @staticmethod
     def _build_profile_dict(basedir, profile_name):
         """
@@ -317,6 +318,11 @@ class SEDAnalysis(Link):
         if not HAVE_ST:
             raise RuntimeError("Trying to run fermipy analysis, but don't have ST")
 
+        if args.skydirs in [None, 'none', 'None']:
+            skydir_dict = None
+        else:
+            skydir_dict = load_yaml(args.skydirs)
+
         gta = GTAnalysis(args.config,
                          logging={'verbosity': 3},
                          fileio={'workdir_regex': '\.xml$|\.npy$'})
@@ -331,27 +337,39 @@ class SEDAnalysis(Link):
         ylims = [1e-8, 1e-5]
 
         for profile in args.profiles:
-            pkey, pdict = SEDAnalysis._build_profile_dict(basedir, profile)
-            outfile="sed_%s.fits" % pkey
-            outplot="sed_%s.png" % pkey
-            # test_case need to be a dict with spectrum and morphology
-            gta.add_source(pkey, pdict)
-            # refit the ROI
-            gta.fit()
-            # build the SED
-            gta.sed(pkey, outfile=outfile)       
-            # plot the SED
-            # FIXME, make this optional
-            if False:
-                castro_data = CastroData.create_from_sedfile(os.path.join(basedir, outfile))
-                plot = plotCastro(castro_data, ylims)
-                plot[0].savefig(outplot)    
-            # remove the source
-            gta.delete_source(pkey)
-            # put the ROI back to how it was
-            gta.load_xml('fit_baseline')
+            if skydir_dict is None:
+                skydir_keys = [None]
+            else:
+                skydir_keys = sorted(skydir_dict.keys())
 
-            
+            for skydir_key in skydir_keys:                
+                if skydir_key is None:
+                    pkey, pdict = SEDAnalysis._build_profile_dict(basedir, profile)
+                else:                    
+                    skydir_val = skydir_dict[skydir_key]
+                    pkey, pdict = SEDAnalysis._build_profile_dict(basedir, profile)
+                    pdict['ra'] = skydir_val['ra']
+                    pdict['dec'] = skydir_val['dec']
+                    pkey += "_%06i"%skydir_key
+
+                outfile="sed_%s.fits" % pkey
+                outplot="sed_%s.png" % pkey
+                # test_case need to be a dict with spectrum and morphology
+                gta.add_source(pkey, pdict)
+                # refit the ROI
+                gta.fit()
+                # build the SED
+                gta.sed(pkey, outfile=outfile)       
+                # plot the SED
+                # FIXME, make this optional
+                if False:
+                    castro_data = CastroData.create_from_sedfile(os.path.join(basedir, outfile))
+                    plot = plotCastro(castro_data, ylims)
+                    plot[0].savefig(outplot)    
+                # remove the source
+                gta.delete_source(pkey)
+                # put the ROI back to how it was
+                gta.load_xml('fit_baseline')
 
         return gta
 
@@ -412,6 +430,7 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            config=defaults.common['config'],
+                           skydirs=defaults.sims['skydirs'],
                            dry_run=defaults.common['dry_run'])
 
     def __init__(self, link, **kwargs):
@@ -433,16 +452,28 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
 
         targets = load_yaml(targets_yaml)
         config_yaml = 'config.yaml'
+
+        if args['skydirs'] not in [None, 'none', 'None']:
+            skydirs = args['skydirs']
+        else:
+            skydirs = None
  
         for target_name, target_list in targets.items():
             name_keys = dict(target_type=ttype,
                              target_name=target_name,
+                             sim_name='random',
                              fullpath=True)
-            target_dir = NAME_FACTORY.targetdir(**name_keys)
+            if skydirs is None:
+                target_dir = NAME_FACTORY.targetdir(**name_keys)
+                skydir_path = None
+            else:
+                target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
+                skydir_path = os.path.join(target_dir, skydirs)                                          
             config_path = os.path.join(target_dir, config_yaml)
             logfile =  make_nfs_path(os.path.join(target_dir, "%s_%s.log"%(self.link.linkname, target_name)))
             job_config = dict(config=config_path,
                               profiles=target_list,
+                              skydirs=skydir_path,
                               logfile=logfile)
             job_configs[target_name] = job_config
 
