@@ -296,7 +296,7 @@ class AnalyzeSED(Link):
         """C'tor
         """
         linkname, init_dict = self._init_dict(**kwargs)
-        super*(AnalyzeSED, self).__init__(linkname, **init_dict)
+        super(AnalyzeSED, self).__init__(linkname, **init_dict)
                           
     @staticmethod
     def _build_profile_dict(basedir, profile_name):

@@ -133,8 +133,8 @@ class RandomDirGen(Link):
         config = load_yaml(args.config)
         rand_config = load_yaml(args.rand_config)
 
-        wcsgeom = RandomSkyDirGenerator.make_wcsgeom_from_config(config)
-        dir_dict = RandomSkyDirGenerator.build_skydir_dict(wcsgeom, rand_config)
+        wcsgeom = self.make_wcsgeom_from_config(config)
+        dir_dict = self.build_skydir_dict(wcsgeom, rand_config)
 
         if is_not_null(args.outfile):
             write_yaml(dir_dict, args.outfile)
