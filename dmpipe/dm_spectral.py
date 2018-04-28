@@ -22,9 +22,10 @@ from fermipy import skymap
 from fermipy.castro import CastroData
 
 from fermipy.utils import load_yaml
-from fermipy.jobs.chain import Link
+from fermipy.jobs.utils import is_null, is_not_null
+from fermipy.jobs.link import Link
 from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
-from fermipy.jobs.lsf_impl import make_nfs_path, get_lsf_default_args, LSF_Interface
+from fermipy.jobs.slac_impl import make_nfs_path, get_slac_default_args, Slac_Interface
 
 from fermipy.spectrum import DMFitFunction
 
@@ -609,7 +610,7 @@ class DMSpecTable(object):
         ref_norm = self._ref_vals["ref_J"]
 
         j_prior = None
-        if jfactor in [None, 'none', 'None']:
+        if is_null(jfactor):
             # Just use the reference values
             j_value = ref_norm
             norm_factor = 1.
@@ -621,7 +622,8 @@ class DMSpecTable(object):
             jfactor['j_ref'] = ref_norm
             j_value = jfactor.get('j_value')
             norm_factor =  ref_norm / j_value
-            if jfactor.get('functype', None) in [None, 'none', 'None']:
+            j_functype = jfactor.get('functype', None) 
+            if is_null(j_functype):
                 j_prior = None
             else:
                 j_prior = stats_utils.create_prior_functor(jfactor)
@@ -657,7 +659,7 @@ class DMSpecTable(object):
                 mass_mask[i] = False
                 continue
 
-            if j_prior not in [None, 'none', 'None']:
+            if is_not_null(j_prior):
                 try:
                     lnlfn = castro.LnLFn(norm_vals[i], dll_vals[i], 'dummy')
                     lnlfn_prior = stats_utils.LnLFn_norm_prior(lnlfn, j_prior)
@@ -753,8 +755,12 @@ class DMSpecTable(object):
         return dm_table, mass_table, dm_ts_cube, dm_ul_cube, dm_mle_cube
 
 
-class DMCastroConvertor(Link):
+class ConvertCastro(Link):
     """Small class to convert CastroData to a DMCastroData"""
+    appname = 'dmpipe-convert-castro'
+    linkname_default = 'convert-castro'
+    usage = '%s [options]' %(appname)
+    description = "Convert SED to DMCastroData"    
 
     default_options = dict(specfile=defaults.common['specfile'],
                            sed_file=defaults.common['sed_file'],
@@ -770,14 +776,8 @@ class DMCastroConvertor(Link):
     def __init__(self, **kwargs):
         """C'tor
         """
-        parser = argparse.ArgumentParser(usage="dmpipe-convert-castro [options]",
-                                         description="Convert SED to DMCastroData")
-        Link.__init__(self, kwargs.pop('linkname', 'convert-castro'),
-                      parser=parser,
-                      appname=kwargs.pop('appname', 'dmpipe-convert-castro'),
-                      options=DMCastroConvertor.default_options.copy(),
-                      file_args=dict(),
-                      **kwargs)
+        linkname, init_dict = self._init_dict(**kwargs)
+        super(ConvertCastro, self).__init__(linkname, **init_dict)
 
     @staticmethod
     def convert_sed_to_dm(spec_table, sed, channels, norm_type, j_val):
@@ -836,17 +836,17 @@ class DMCastroConvertor(Link):
     def convert_sed(self, spec_table, sed_file, norm_type, channels, j_factor, outfile, limitfile, clobber):
         """Convert a single SED to DM"""
         sed = CastroData.create_from_sedfile(sed_file, norm_type)
-        c_list, t_list, n_list = DMCastroConvertor.convert_sed_to_dm(spec_table, sed, channels, norm_type, j_factor)
+        c_list, t_list, n_list = ConvertCastro.convert_sed_to_dm(spec_table, sed, channels, norm_type, j_factor)
 
         do_limits = True
         write_castro = True
 
-        if outfile not in [None, 'none', 'None']:
+        if is_not_null(outfile):
             fits_utils.write_tables_to_fits(outfile, t_list, clobber=clobber, namelist=n_list)
 
-        if limitfile not in [None, 'none', 'None']:
+        if is_not_null(limitfile):
             mass_table = t_list[-1]
-            c_list_lim, t_list_lim, n_list_lim = DMCastroConvertor.extract_dm_limits(c_list, channels, [0.68, 0.95], mass_table)
+            c_list_lim, t_list_lim, n_list_lim = ConvertCastro.extract_dm_limits(c_list, channels, [0.68, 0.95], mass_table)
             fits_utils.write_tables_to_fits(limitfile, t_list_lim, clobber=clobber, namelist=n_list_lim)
         
 
@@ -865,7 +865,7 @@ class DMCastroConvertor(Link):
 
         j_value = profile.get('j_integ')
         j_sigma = profile.get('j_sigma', None)
-        if args.jprior is None or args.jprior == 'None' or j_sigma is None or j_sigma == 0.0:
+        if is_null(args.jprior) or is_null(j_sigma) or j_sigma == 0.0:
             j_factor = j_value
             j_prior_key = 'none'
         else:
@@ -885,18 +885,23 @@ class DMCastroConvertor(Link):
             limitfile = args.limitfile
             if seed is not None:
                 sedfile = sedfile.replace('_SEED.fits','_%06i.fits'%seed)
-                if outfile not in [None, 'none', 'None']:
+                if is_not_null(outfile):
                     outfile = outfile.replace('_SEED.fits','_%06i.fits'%seed)
-                if limitfile not in [None, 'none', 'None']:
+                if is_not_null(limitfile):
                     limitfile = limitfile.replace('_SEED.fits','_%06i.fits'%seed)
                 
             self.convert_sed(spec_table, sedfile, norm_type, channels, j_factor, outfile, limitfile, args.clobber)
         
 
 
-class DMSpecTableBuilder(Link):
+class SpecTable(Link):
     """ Version of the DM spectral tables in tabular form
     """
+    appname = 'dmpipe-spec-table'
+    linkname_default = 'spec-table'
+    usage = '%s [options]' %(appname)
+    description = "Build a table with the spectra for DM signals"
+
     default_options = dict(ttype=defaults.common['ttype'],
                            config=defaults.common['config'],
                            specconfig=defaults.common['specconfig'],
@@ -907,13 +912,8 @@ class DMSpecTableBuilder(Link):
     def __init__(self, **kwargs):
         """ C'tor to build this object from energy binning and spectral values tables.
         """
-        parser = argparse.ArgumentParser(usage="dmpipe-spec-table [options]",
-                                         description="Build a table with the spectra")
-        Link.__init__(self, kwargs.pop('linkname', 'spec-table'),
-                      parser=parser,
-                      appname=kwargs.pop('appname', 'dmpipe-spec-table'),
-                      options=DMSpecTableBuilder.default_options.copy(),
-                      **kwargs)
+        linkname, init_dict = self._init_dict(**kwargs)
+        super(SpecTable, self).__init__(linkname, **init_dict)
 
     def run_analysis(self, argv):
         """Run this analysis"""
@@ -930,11 +930,11 @@ class DMSpecTableBuilder(Link):
             spec_config = None
             spec_file = None
 
-        if args.config not in [None, 'none', 'None']:
+        if is_not_null(args.config):
             config_file = args.config_file
-        if args.specconfig not in [None, 'none', 'None']:
+        if is_not_null(args.specconfig):
             spec_config = args.specconfig
-        if args.specfile not in [None, 'none', 'None']:
+        if is_not_null(args.specfile):
             spec_file = args.specfile
             
         if config_file is None:
@@ -959,8 +959,13 @@ class DMSpecTableBuilder(Link):
         dm_spec_table.write_fits(spec_file, args.clobber)
 
 
-class DMCastroStacker(Link):
+class StackLikelihood(Link):
     """Small class to convert stack DMCastroData """
+    appname = 'dmpipe-stack-likelihood'
+    linkname_default = 'stack-likelihood'
+    usage = '%s [options]' %(appname)
+    description = "Stack the likelihood from a set of targets"
+
     default_options = dict(ttype=defaults.common['ttype'], 
                            specconfig=defaults.common['specconfig'], 
                            rosterlist=defaults.common['rosterlist'],
@@ -974,13 +979,8 @@ class DMCastroStacker(Link):
     def __init__(self, **kwargs):
         """ C'tor to build this object from energy binning and spectral values tables.
         """
-        parser = argparse.ArgumentParser(usage="dmpipe-stack-likelihood [options]",
-                                         description="Stack the likelihood from targets")
-        Link.__init__(self, kwargs.pop('linkname', 'stack-likelihood'),
-                      parser=parser,
-                      appname='dmpipe-stack-likelihood',
-                      options=DMCastroStacker.default_options.copy(),
-                      **kwargs)
+        linkname, init_dict = self._init_dict(**kwargs)
+        super(StackLikelihood, self).__init__(linkname, **init_dict)
 
     @staticmethod
     def stack_roster(roster_name, rost, ttype, channels, jprior_key, sim, seed):
@@ -1001,7 +1001,7 @@ class DMCastroStacker(Link):
                              seed="%06i"%seed,
                              jprior=jprior_key)
 
-            if sim not in [None, 'none', 'None']:
+            if is_not_null(sim):
                 target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
                 dmlike_path = NAME_FACTORY.sim_dmlikefile(**name_keys)
             else:
@@ -1038,7 +1038,7 @@ class DMCastroStacker(Link):
                          seed="%06i"%seed,
                          jprior=jprior_key)
              
-        if sim not in [None, 'none', 'None']:
+        if is_not_null(sim):
             outdir = NAME_FACTORY.sim_targetdir(**name_keys)
             outpath = NAME_FACTORY.sim_resultsfile(**name_keys)
         else:
@@ -1090,8 +1090,8 @@ class DMCastroStacker(Link):
         """ Stack all of the DMCastroData in a dictionary of rosters
         """
         for roster_name, rost in roster_dict.items():
-            stacked_dict = DMCastroStacker.stack_roster(roster_name, rost, ttype, channels, jprior_key, sim, seed)
-            DMCastroStacker.write_stacked(ttype, roster_name, stacked_dict, jprior_key, sim, seed, clobber)
+            stacked_dict = StackLikelihood.stack_roster(roster_name, rost, ttype, channels, jprior_key, sim, seed)
+            StackLikelihood.write_stacked(ttype, roster_name, stacked_dict, jprior_key, sim, seed, clobber)
 
 
     def run_analysis(self, argv):
@@ -1108,13 +1108,13 @@ class DMCastroStacker(Link):
                          fullpath=True)
 
         spec_config = NAME_FACTORY.specconfig(**name_keys)
-        if args.specconfig not in [None, 'none', 'None']:
+        if is_not_null(args.specconfig):
             spec_config = args.specconfig
 
         spec_config = load_yaml(spec_config)
         channels = spec_config['channels']
 
-        if args.sim not in [None, 'none', 'None']:
+        if is_not_null(args.sim):
             roster_file = NAME_FACTORY.sim_rosterfile(**name_keys)
             sim_name = args.sim
             is_sim = True
@@ -1123,7 +1123,7 @@ class DMCastroStacker(Link):
             is_sim = False
             sim_name = None
 
-        if args.rosterlist not in [None, 'none', 'None']:
+        if is_not_null(args.rosterlist):
             roster_file = args.rosterlist
 
         roster_dict = load_yaml(roster_file)
@@ -1134,18 +1134,26 @@ class DMCastroStacker(Link):
             seedlist = [0]
         
         jprior = args.jprior
-        if jprior in [None, 'none', 'None']:
+        if is_null(jprior):
             jprior = 'none';
 
         for seed in seedlist:            
-            DMCastroStacker.stack_rosters(roster_dict, args.ttype, channels, jprior, sim_name, seed, args.clobber)
+            StackLikelihood.stack_rosters(roster_dict, args.ttype, channels, jprior, sim_name, seed, args.clobber)
 
 
-class ConfigMaker_CastroConvertor(ConfigMaker):
+class ConvertCastro_SG(ConfigMaker):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
     """
+    appname = 'dmpipe-convert-castro-sg'
+    usage = "%s [options]" % (appname)
+    description = "Run analyses on a series of ROIs"
+    clientclass = ConvertCastro
+
+    batch_args = get_slac_default_args()    
+    batch_interface = Slac_Interface(**batch_args)
+
     default_options = dict(ttype=defaults.common['ttype'],
                            specfile=defaults.common['specfile'],
                            targetlist=defaults.common['targetlist'],
@@ -1158,9 +1166,9 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
     def __init__(self, link, **kwargs):
         """C'tor
         """
-        ConfigMaker.__init__(self, link,
-                             options=kwargs.get('options',
-                                                ConfigMaker_CastroConvertor.default_options.copy()))
+        super(ConvertCastro_SG, self).__init__(link,
+                                               options=kwargs.get('options',
+                                                                  self.default_options.copy()))
 
     def build_job_configs(self, args):
         """Hook to build job configurations
@@ -1180,7 +1188,7 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
         dry_run = args['dry_run']
         clobber = args['clobber']
 
-        if sim not in [None, 'none', 'None']:
+        if is_not_null(sim):
             is_sim = True
             nsims = args['nsims']
             seed = args['seed']
@@ -1229,11 +1237,19 @@ class ConfigMaker_CastroConvertor(ConfigMaker):
         return job_configs
 
 
-class ConfigMaker_CastroStacker(ConfigMaker):
+class StackLikelihood_SG(ConfigMaker):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
     """
+    appname = 'dmpipe-stack-likelihood-sg'
+    usage = "%s [options]" % (appname)
+    description = "Run analyses on a series of ROIs"
+    clientclass = StackLikelihood
+
+    batch_args = get_slac_default_args()    
+    batch_interface = Slac_Interface(**batch_args)
+
     default_options = dict(ttype=defaults.common['ttype'],
                            specconfig=defaults.common['specfile'],
                            rosterlist=defaults.common['rosterlist'],
@@ -1246,9 +1262,9 @@ class ConfigMaker_CastroStacker(ConfigMaker):
     def __init__(self, link, **kwargs):
         """C'tor
         """
-        ConfigMaker.__init__(self, link,
-                             options=kwargs.get('options',
-                                                ConfigMaker_CastroStacker.default_options.copy()))
+        super(StackLikelihood_SG, self).__init__(link,
+                                                 options=kwargs.get('options',
+                                                                    self.default_options.copy()))
 
     def build_job_configs(self, args):
         """Hook to build job configurations
@@ -1260,7 +1276,7 @@ class ConfigMaker_CastroStacker(ConfigMaker):
         clobber = args['clobber']
         sim = args['sim']
         
-        if sim not in [None, 'none', 'None']:
+        if is_not_null(sim):
             is_sim = True
             nsims = args['nsims']
             seed = args['seed']
@@ -1298,99 +1314,9 @@ class ConfigMaker_CastroStacker(ConfigMaker):
         return job_configs
 
 
-
-
-
-def create_link_castro_convertor(**kwargs):
-    """Build and return a `Link` object that can invoke DMCastroConvertor"""
-    castro_convertor = DMCastroConvertor(**kwargs)
-    return castro_convertor
-
-
-def create_link_spec_table_builder(**kwargs):
-    """Build and return a `Link` object that can invoke DMSpecTableBuilder"""
-    spec_table_builder = DMSpecTableBuilder(**kwargs)
-    return spec_table_builder
-
-
-def create_link_stack_likelihood(**kwargs):
-    """Build and return a `Link` object that can invoke DMCastroStacker"""
-    castro_stacker = DMCastroStacker(**kwargs)
-    return castro_stacker
-
-
-def create_sg_castro_convertor(**kwargs):
-    """Build and return a ScatterGather object that can invoke this script"""
-    appname = kwargs.pop('appname', 'dmpipe-convert-castro-sg')
-    link = create_link_castro_convertor(**kwargs)
-    linkname = kwargs.pop('linkname', link.linkname)
-
-    batch_args = get_lsf_default_args()    
-    batch_args['lsf_args']['W'] = 500
-    batch_interface = LSF_Interface(**batch_args)
-
-    usage = "%s [options]" % (appname)
-    description = "Convert SEDs to DMCastroData objects"
-
-    config_maker = ConfigMaker_CastroConvertor(link)
-    lsf_sg = build_sg_from_link(link, config_maker,
-                                interface=batch_interface,
-                                usage=usage,
-                                description=description,
-                                appname=appname,
-                                **kwargs)
-    return lsf_sg
-
-def create_sg_stack_likelihood(**kwargs):
-    """Build and return a ScatterGather object that can invoke this script"""
-    appname = kwargs.pop('appname', 'dmpipe-stack-likelihood-sg')
-    link = create_link_stack_likelihood(**kwargs)
-    linkname = kwargs.pop('linkname', link.linkname)
-
-    batch_args = get_lsf_default_args()    
-    batch_args['lsf_args']['W'] = 500
-    batch_interface = LSF_Interface(**batch_args)
-
-    usage = "%s [options]" % (appname)
-    description = "Convert stack DM castro objects"
-
-    config_maker = ConfigMaker_CastroStacker(link)
-    lsf_sg = build_sg_from_link(link, config_maker,
-                                interface=batch_interface,
-                                usage=usage,
-                                description=description,
-                                appname=appname,
-                                **kwargs)
-    return lsf_sg
-
-
-def main_spec_table():
-    """Entry point for command line use for single job """
-    spec_table_builder = DMSpecTableBuilder()
-    spec_table_builder.run_analysis(sys.argv[1:])
-
-
-def main_stack_likelihood_single():
-    """Entry point for command line use for single job """
-    castro_stacker = DMCastroStacker()
-    castro_stacker.run_analysis(sys.argv[1:])
-
-def main_stack_likelihood_batch():
-    """Entry point for command line use for dispatching batch jobs """
-    lsf_sg = create_sg_stack_likelihood()
-    lsf_sg(sys.argv)
-
-def main_convert_single():
-    """Entry point for command line use for single job """
-    castro_convertor = DMCastroConvertor()
-    castro_convertor.run_analysis(sys.argv[1:])
-
-
-def main_convert_batch():
-    """Entry point for command line use for dispatching batch jobs """
-    lsf_sg = create_sg_castro_convertor()
-    lsf_sg(sys.argv)
-
-
-if __name__ == "__main__":
-    main_convert_batch()
+def register_classes():
+    ConvertCastro.register_class()
+    ConvertCastro_SG.register_class()
+    StackLikelihood.register_class()
+    StackLikelihood_SG.register_class()
+    SpecTable.register_class()

@@ -5,6 +5,7 @@ Handle the naming conventions for DM pipeline analysis
 from __future__ import absolute_import, division, print_function
 
 import yaml
+from fermipy.jobs.utils import is_null, is_not_null
 
 
 class NameFactory(object):
@@ -15,6 +16,9 @@ class NameFactory(object):
 
     # DM spectral file target configruation
     specconfig_format = 'config/dm_spectra_{target_type}.yaml'
+
+    # DM random file target configruation
+    randconfig_format = 'config/random_{target_type}.yaml'
 
     # DM spectral file
     specfile_format = 'dm_spectra_{target_type}.fits'
@@ -110,6 +114,11 @@ class NameFactory(object):
         """ return the name of the input configuration file
         """
         return self._format_from_dict(NameFactory.specconfig_format, **kwargs)
+
+    def randconfig(self, **kwargs):
+        """ return the name of the random direction configuration file
+        """
+        return self._format_from_dict(NameFactory.randconfig_format, **kwargs)    
     
     def specfile(self, **kwargs):
         """ return the name of DM spectral file
@@ -233,12 +242,12 @@ class NameFactory(object):
     def resolve_targetfile(self, args, require_sim_name=False):
         """Get the name of the targetfile based on the job arguments"""
         ttype = args.get('ttype')
-        if ttype in [None, 'none', 'None']:
+        if is_null(ttype):
             sys.stderr.write('Target type must be specified')
             return (None, None)
       
         sim = args.get('sim')
-        if sim in [None, 'none', 'None']:
+        if is_null(sim):
             if require_sim_name:
                 sys.stderr.write('Simulation scenario must be specified')
                 return (None, None)
@@ -255,7 +264,7 @@ class NameFactory(object):
             targetfile = self.sim_targetfile(**name_keys)
 
         targets_override = args.get('targetfile')
-        if targets_override not in [None, 'none', 'None']:
+        if is_not_null(targets_override):
             targetfile = targets_override
         
         return (targetfile, sim)
@@ -263,12 +272,12 @@ class NameFactory(object):
     def resolve_rosterfile(self, args, require_sim_name=False):
         """Get the name of the roster based on the job arguments"""
         ttype = args.get('ttype')
-        if ttype in [None, 'none', 'None']:
+        if is_null(ttype):
             sys.stderr.write('Target type must be specified')
             return (None, None)
       
         sim = args.get('sim')
-        if sim in [None, 'none', 'None']:
+        if is_null(sim):
             if require_sim_name:
                 sys.stderr.write('Simulation scenario must be specified')
                 return (None, None)
@@ -285,7 +294,7 @@ class NameFactory(object):
             rosterfile = self.sim_rosterfile(**name_keys)
 
         roster_override = args.get('rosterfile')
-        if roster_override not in [None, 'none', 'None']:
+        if is_not_null(roster_override):
            rosterfile  = roster_override
         
         return (rosterfile, sim)
@@ -293,27 +302,41 @@ class NameFactory(object):
     def resolve_specfile(self, args, require_sim_name=False):
         """Get the name of the specturm file based on the job arguments"""
         ttype = args.get('ttype')
-        if ttype in [None, 'none', 'None']:
+        if is_null(ttype):
             sys.stderr.write('Target type must be specified')
             return None
         name_keys = dict(target_type=ttype,
                          fullpath=True)
         specfile = self.specfile(**name_keys)
         spec_override = args.get('specfile')
-        if spec_override not in [None, 'none', 'None']:
+        if is_not_null(spec_override):
             specfile = spec_override
         return specfile
 
     def resolve_specconfig(self, args):
         """Get the name of the specturm file based on the job arguments"""
         ttype = args.get('ttype')
-        if ttype in [None, 'none', 'None']:
+        if is_null(ttype):
             sys.stderr.write('Target type must be specified')
             return None
         name_keys = dict(target_type=ttype,
                          fullpath=True)
         specconfig = self.specconfig(**name_keys)
         spec_override = args.get('specconfig')
-        if spec_override not in [None, 'none', 'None']:
+        if is_not_null(spec_override):
             specconfig = spec_override
         return specconfig
+
+    def resolve_randconfig(self, args):
+        """Get the name of the specturm file based on the job arguments"""
+        ttype = args.get('ttype')
+        if is_null(ttype):
+            sys.stderr.write('Target type must be specified')
+            return None
+        name_keys = dict(target_type=ttype,
+                         fullpath=True)
+        randconfig = self.randconfig(**name_keys)
+        rand_override = args.get('rand_config')
+        if is_not_null(rand_override):
+            randconfig = rand_override
+        return randconfig

@@ -1,402 +1,578 @@
 #!/usr/bin/env python
 #
 
-"""
-Utilities to plot dark matter analyses
-"""
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 
+"""
+Top level script to make a castro plot in mass / sigmav space
+"""
+from __future__ import absolute_import, division, print_function
+
+import sys
+import os
+import argparse
 import numpy as np
 
-from fermipy import castro
-from fermipy import stats_utils
-from fermipy import sed_plotting
+from astropy.table import Table
 
-from dmpipe.dm_spectral import DMSpecTable
-from fermipy.spectrum import DMFitFunction
+from fermipy.utils import init_matplotlib_backend, load_yaml
+init_matplotlib_backend()
 
+from fermipy.jobs.utils import is_null, is_not_null
+from fermipy.jobs.link import Link
+from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
+from fermipy.jobs.slac_impl import make_nfs_path, get_slac_default_args, Slac_Interface
 
-def plot_dm_spectra_by_channel(dm_spec_table, mass=100, spec_type='eflux', ylims=(1e-12, 1e-8)):
-    """ Make a plot of the DM spectra.
+from fermipy.castro import CastroData
+from fermipy.sed_plotting import plotCastro
 
-    dm_spec_table : Object with the spectral table
-    mass       : Mass of the DM particle 
-    ylims      : y-axis limits
-    """
-    import matplotlib.pyplot as plt
-    import matplotlib
+from dmpipe.dm_spectral import DMCastroData
+from dmpipe.dm_plotting_utils import plot_dm_castro
+from dmpipe.dm_plotting_utils import plot_dm_spectra_by_mass, plot_dm_spectra_by_channel
+from dmpipe.dm_plotting_utils import plot_limits_from_arrays, plot_mc_truth
 
-    chan_names = dm_spec_table.channel_names
-    chan_ids = dm_spec_table.channel_map.keys()
-    chan_idx_list = dm_spec_table.channel_map.values()
-    energies = dm_spec_table.ebin_refs()
+from dmpipe.name_policy import NameFactory
+from dmpipe import defaults
 
-    fig = plt.figure()
-    axis = fig.add_subplot(111)
-    axis.set_xscale('log')
-    axis.set_yscale('log')
-    axis.set_xlim((energies[0], energies[-1]))
-    axis.set_ylim(ylims)
-    axis.set_xlabel(r'Energy [MeV]')
-    axis.set_ylabel(r'Energy Flux [MeV s$^{-1}$ cm$^{-2}$]')
+NAME_FACTORY = NameFactory(basedir='.')
 
-    for chan, chan_id, idx_list in zip(chan_names, chan_ids, chan_idx_list):
-        chan_masses = dm_spec_table.masses(chan_id).data
-        mass_idx = np.abs(chan_masses - mass).argmin()
-        table_idx = idx_list[mass_idx]
-        spectrum = dm_spec_table._s_table[table_idx]["ref_%s" % spec_type]
-        axis.plot(energies, spectrum, label=chan)
-
-    leg = axis.legend(loc="best", ncol=2, fontsize=10)
-    return fig, axis, leg
-        
-
-def plot_dm_spectra_by_mass(dm_spec_table, chan='bb', spec_type='eflux', ylims=(1e-12, 1e-6)):
-    """ Make a plot of the DM spectra.
-
-    dm_spec_table : Object with the spectral table
-    mass       : Mass of the DM particle 
-    ylims      : y-axis limits
-    """
-    import matplotlib.pyplot as plt
-    import matplotlib
-
-    chan_id = DMFitFunction.channel_rev_map[chan]
-    chan_idx_list = dm_spec_table.channel_map[chan_id]
-    energies = dm_spec_table.ebin_refs()
-
-    fig = plt.figure()
-    axis = fig.add_subplot(111)
-    axis.set_xscale('log')
-    axis.set_yscale('log')
-    axis.set_xlim((energies[0], energies[-1]))
-    axis.set_ylim(ylims)
-    axis.set_xlabel(r'Energy [MeV]')
-    axis.set_ylabel(r'Energy Flux [MeV s$^{-1}$ cm$^{-2}$]')
-
-    masses = dm_spec_table.masses(chan_id)
-    for table_idx, mass in zip(chan_idx_list, masses):
-        spectrum = dm_spec_table._s_table[table_idx]["ref_%s" % spec_type]        
-        axis.plot(energies, spectrum, label="%.1F GeV"%mass)
-
-    leg = axis.legend(loc="best", ncol=2, fontsize=10)
-    return fig, axis, leg
-        
-
-def plot_dm_castro(castro_dm, ylims=(1e-28, 1e-22), nstep=100, zlims=None):
-    """ Make a color plot (1castro plot) of the delta log-likelihood as a function of
-    DM particle mass and cross section.
-
-    castro_dm  : A CastroData object, with the log-likelihood v. normalization for each energy bin
-    ylims      : y-axis limits
-    nstep      : Number of y-axis steps to plot for each energy bin
-    zlims      : z-axis limits
-    """
-    mass_label = r"$m_{\chi}$ [GeV]"
-    sigmav_label = r'$\langle \sigma v \rangle$ [$cm^{3} s^{-1}$]'
-    return sed_plotting.plotCastro_base(castro_dm,
-                                        xlims=(castro_dm.masses[0], castro_dm.masses[-1]),
-                                        ylims=ylims,
-                                        xlabel=mass_label,
-                                        ylabel=sigmav_label,
-                                        nstep=nstep,
-                                        zlims=zlims)
+def get_ul_bands(table, prefix):
+    o = dict(q02=np.squeeze(table["%s_q02"%prefix]),
+             q16=np.squeeze(table["%s_q16"%prefix]),
+             q84=np.squeeze(table["%s_q84"%prefix]),
+             q97=np.squeeze(table["%s_q97"%prefix]),
+             median=np.squeeze(table["%s_median"%prefix]))
+    return o
 
 
-def plot_castro_nuiscance(xlims, ylims, zvals, zlims=None):
-    """ Make a castro plot including the effect of the nuisance parameter
-    """
-    import matplotlib.pyplot as plt
-    import matplotlib
-
-    fig = plt.figure()
-    axis = fig.add_subplot(111)
-    axis.set_yscale('log')
-    axis.set_xlim(xlims)
-    axis.set_ylim(ylims)
-    axis.set_xlabel(r'$\delta J / J$')
-    axis.set_ylabel(r'$\langle \sigma v \rangle$ [cm$^3$ s$^{-1}$]')
-    if zlims is None:
-        zmin = 0
-        zmax = 10.
-    else:
-        zmin = zlims[0]
-        zmax = zlims[1]
-
-    image = axis.imshow(zvals, extent=[xlims[0], xlims[-1], ylims[0], ylims[-1]],
-                        origin='lower', aspect='auto', interpolation='nearest',
-                        vmin=zmin, vmax=zmax, cmap=matplotlib.cm.jet_r)
-    return fig, axis, image
-
-
-def plot_nll(nll_dict, xlims=None, nstep=50, ylims=None):
-    """ Plot the -log(L) as a function of sigmav for each object in a dict
-    """
-    import matplotlib.pyplot as plt
-    import matplotlib
-    if xlims is None:
-        xmin = 1e-28
-        xmax = 1e-24
-    else:
-        xmin = xlims[0]
-        xmax = xlims[1]
-
-    xvals = np.logspace(np.log10(xmin), np.log10(xmax), nstep)
-    fig = plt.figure()
-    axis = fig.add_subplot(111)
-
-    axis.set_xlim((xmin, xmax))
-    if ylims is not None:
-        axis.set_ylim((ylims[0], ylims[1]))
-
-    axis.set_xlabel(r'$\langle \sigma v \rangle$ [cm$^3$ s$^{-1}$]')
-    axis.set_ylabel(r'$\Delta \log\mathcal{L}$')
-    axis.set_xscale('log')
-
-    for lab, nll in nll_dict.items():
-        yvals = nll.interp(xvals)
-        yvals -= yvals.min()
-        axis.plot(xvals, yvals, label=lab)
-
-    leg = axis.legend(loc="upper left")
-    return fig, axis, leg
-
-
-def plot_comparison(nll, nstep=25, xlims=None):
-    """ Plot the comparison between differnt version of the -log(L)
-    """
-    import matplotlib.pyplot as plt
-    import matplotlib
-    if xlims is None:
-        xmin = nll._lnlfn.interp.xmin
-        xmax = nll._lnlfn.interp.xmax
-    else:
-        xmin = xlims[0]
-        xmax = xlims[1]
-
-    xvals = np.linspace(xmin, xmax, nstep)
-    yvals_0 = nll.straight_loglike(xvals)
-    yvals_1 = nll.profile_loglike(xvals)
-    yvals_2 = nll.marginal_loglike(xvals)
-
-    ymin = min(yvals_0.min(), yvals_1.min(), yvals_2.min(), 0.)
-    ymax = max(yvals_0.max(), yvals_1.max(), yvals_2.max(), 0.5)
-
-    fig = plt.figure()
-    axis = fig.add_subplot(111)
-
-    axis.set_xlim((xmin, xmax))
-    axis.set_ylim((ymin, ymax))
-
-    axis.set_xlabel(r'$\langle \sigma v \rangle$ [cm$^3$ s$^{-1}$]')
-    axis.set_ylabel(r'$\Delta \log\mathcal{L}$')
-
-    axis.plot(xvals, yvals_0, 'r', label=r'Simple $\log\mathcal{L}$')
-    axis.plot(xvals, yvals_1, 'g', label=r'Profile $\log\mathcal{L}$')
-    #axis.plot(xvals,yvals_2,'b', label=r'Marginal $\log\mathcal{L}$')
-
-    leg = axis.legend(loc="upper left")
-
-    return fig, axis, leg
-
-
-def plot_stacked(sdict, xlims, ibin=0):
-    """ Stack a set of -log(L) curves and plot the stacked curve
-    as well as the individual curves
-    """
-    import matplotlib.pyplot as plt
-    import matplotlib
-    ndict = {}
-
-    for key, val in sdict.items():
-        ndict[key] = val[ibin]
-
-    #mles = np.array([n.mle() for n in ndict.values()])
-
-    fig = plt.figure()
-    axis = fig.add_subplot(111)
-
-    xvals = np.linspace(xlims[0], xlims[-1], 100)
-
-    axis.set_xlim((xvals[0], xvals[-1]))
-    axis.set_xlabel(r'$\langle \sigma v \rangle$ [cm$^3$ s$^{-1}$]')
-    axis.set_ylabel(r'$\Delta \log\mathcal{L}$')
-
-    for key, val in ndict.items():
-        yvals = val.interp(xvals)
-        if key.lower() == "stacked":
-            axis.plot(xvals, yvals, lw=3, label=key)
-        else:
-            yvals -= yvals.min()
-            axis.plot(xvals, yvals, label=key)
-    leg = axis.legend(loc="upper left", fontsize=10, ncol=2)
-    return fig, axis, leg
-
-
-def plot_limits_from_arrays(ldict, xlims, ylims, bands):
-    """ Plot the upper limits as a function of DM particle mass and cross section.
-
-    ldict      : A dictionary of strings pointing to pairs of `np.array` objects,
-                 The keys will be used as labels
-    xlims      : x-axis limits for the plot
-    ylims      : y-axis limits for the plot
-    bands      : Dictionary with the expected limit bands
-    """
-    import matplotlib.pyplot as plt
-    import matplotlib
-
-    fig = plt.figure()
-    axis = fig.add_subplot(111)
-    axis.set_xlabel(r'$m_{\chi}$ [GeV]')
-    axis.set_ylabel(r'$\langle \sigma v \rangle$ [cm$^3$ s$^{-1}$]')
-
-    axis.set_xscale('log')
-    axis.set_yscale('log')
-    axis.set_xlim((xlims[0], xlims[1]))
-    axis.set_ylim((ylims[0], ylims[1]))
-
-    if bands is not None:
-        plot_expected_limit_bands(axis, bands)
-
-    for key, val in ldict.items():
-        print (key, val)
-        xvals = val[0]
-        yvals = val[1]
-        if key.lower() == "stacked":
-            axis.plot(xvals, yvals, lw=3, label=key)
-        else:
-            axis.plot(xvals, yvals, label=key)
-
-    leg = axis.legend(loc="upper left")  # ,fontsize=10,ncol=2)
-    return fig, axis, leg
-
-
-def plot_expected_limit_bands(axis, bands):
-    """ Plot the expected limit bands """
-    masses = bands['MASSES']
-    print (masses.shape, bands['q02'].shape, bands['q16'].shape, 
-           bands['median'].shape, bands['q84'].shape,  bands['q97'].shape)
-
-    axis.fill_between(masses, bands['q02'], bands['q97'], color='yellow')
-    axis.fill_between(masses, bands['q16'], bands['q84'], color='green')
-    axis.plot(masses, bands['median'], color='gray')
-
-
-def plot_mc_truth(axis, mc_model):
-    """ Plot the expected limit bands """
-    sigmav = mc_model['sigmav']['value']
-    mass = mc_model['mass']['value']
-    axis.scatter([mass], [sigmav])
-
-
-def plot_limits(sdict, xlims, ylims, alpha=0.05):
-    """ Plot the upper limits as a function of DM particle mass and cross section.
-
-    sdict      : A dictionary of CastroData objects,
-                 with the log-likelihood v. normalization for each energy bin
-    xlims      : x-axis limits
-    ylims      : y-axis limits
-    alpha      : Confidence level to use in setting limits = 1 - alpha
-    """
+class PlotDMSpectra(Link):
+    """Small class wrap an analysis script.
     
-    ldict = {}
-    for key, val in sdict.items():
-        ldict[key] = (val.masses, val.getLimits(alpha))
-    return plot_limits_from_arrays(ldict[key], xlims, ylims)
-
-
-def compare_limits(sdict, xlims, ylims, alpha=0.05):
-    """ Plot the upper limits as a functino of DM particle mass and cross section.
-
-    sdict      : limits and keys
-    xlims      : x-axis limits
-    ylims      : y-axis limits
-    alpha      : Confidence level to use in setting limits = 1 - alpha
+    This is useful for parallelizing analysis using the fermipy.jobs module.
     """
-    import matplotlib.pyplot as plt
-    import matplotlib
+    appname = 'dmpipe-plot-dm-spectra'
+    linkname_default = 'plot-dm-spectra'
+    usage = '%s [options]' %(appname)
+    description = "Plot the DM spectra stored in pre-computed tables"
 
-    fig = plt.figure()
-    axis = fig.add_subplot(111)
+    default_options = dict(infile=defaults.generic['infile'],
+                           outfile=defaults.generic['outfile'],
+                           chan=defaults.common['chan'],
+                           mass=defaults.common['mass'],
+                           spec_type=defaults.common['spec_type'])
 
-    axis.set_xscale('log')
-    axis.set_yscale('log')
-    axis.set_xlim((xlims[0], xlims[1]))
-    axis.set_ylim((ylims[0], ylims[1]))
+    def __init__(self, **kwargs):
+        """C'tor
+        """
+        linkname, init_dict = self._init_dict(**kwargs)
+        super(PlotDMSpectra, self).__init__(linkname, **init_dict)
+        
+    def run_analysis(self, argv):
+        """Run this analysis"""
+        args = self._parser.parse_args(argv)
+        
+        dm_spec_table = DMSpecTable.create_from_fits(args.infile)
+        dm_plot_by_mass = plot_dm_spectra_by_mass(dm_spec_table, chan=args.chan, spec_type=args.spec_type)
+        dm_plot_by_chan = plot_dm_spectra_by_channel(dm_spec_table, mass=args.mass, spec_type=args.spec_type)
+        
+        if args.outfile:
+            dm_plot_by_mass[0].savefig(args.outfile.replace('.png', '_%s.png'%args.chan))
+            dm_plot_by_chan[0].savefig(args.outfile.replace('.png', '_%1.FGeV.png'%args.mass))
 
-    for key, val in sdict.items():
-        xvals = val.masses
-        yvals = val.getLimits(alpha)
-        axis.plot(xvals, yvals, label=key)
 
-    leg = axis.legend(loc="upper left", fontsize=10, ncol=2)
-    return fig, axis, leg
-
-
-def plot_limit(dm_castro_data, ylims, alpha=0.05):
-    """ Plot the limit curve for a given DMCastroData object
+class PlotCastro(Link):
+    """Small class wrap an analysis script.
+    
+    This is useful for parallelizing analysis using the fermipy.jobs module.
     """
-    import matplotlib.pyplot as plt
-    import matplotlib
-    xbins = dm_castro_data.masses
-    xmin = xbins[0]
-    xmax = xbins[-1]
+    appname = 'dmpipe-plot-castro'
+    linkname_default = 'plot-castro'
+    usage = '%s [options]'%(appname)
+    description = "Plot likelihood v. flux normalization and energy"
 
-    fig = plt.figure()
-    axis = fig.add_subplot(111)
+    default_options = dict(infile=defaults.generic['infile'],
+                           outfile=defaults.generic['outfile'])
 
-    axis.set_xscale('log')
-    axis.set_yscale('log')
-    axis.set_xlim((xmin, xmax))
+    def __init__(self, **kwargs):
+        """C'tor
+        """
+        linkname, init_dict = self._init_dict(**kwargs)
+        super(PlotCastro, self).__init__(linkname, **init_dict)
 
-    if ylims is not None:
-        axis.set_ylim((ylims[0], ylims[1]))
+    def run_analysis(self, argv):
+        """Run this analysis"""
+        args = self._parser.parse_args(argv)
+        castro_data = CastroData.create_from_sedfile(args.infile)
+        ylims = [1e-8, 1e-5]
+        
+        plot = plotCastro(castro_data, ylims)
+        if args.outfile:
+            plot[0].savefig(args.outfile)   
+            return None
+        return plot
+  
 
-    yvals = dm_castro_data.getLimits(alpha)
-    if yvals.shape[0] == xbins.shape[0]:
-        xvals = xbins
-    else:
-        xvals = np.sqrt(xbins[0:-1] * xbins[1:])
-    axis.plot(xvals, yvals)
+class PlotLimits(Link):
+    """Small class wrap an analysis script.
+    
+    This is useful for parallelizing analysis using the fermipy.jobs module.
+    """
+    appname = 'dmpipe-plot-limits'
+    linkname_default = 'plot-limits'
+    usage = '%s [options]'%(appname)
+    description = "Plot DM limits on <sigma v> versus mass" 
 
-    return fig, axis
+    default_options = dict(infile=defaults.generic['infile'],
+                           outfile=defaults.generic['outfile'],
+                           chan=defaults.common['chan'],
+                           bands=defaults.collect['bands'],
+                           sim=defaults.sims['sim'])
+
+    def __init__(self, **kwargs):
+        """C'tor
+        """
+        linkname, init_dict = self._init_dict(**kwargs)
+        super(PlotLimits, self).__init__(linkname, **init_dict)
+
+    def run_analysis(self, argv):
+        """Run this analysis"""
+        args = self._parser.parse_args(argv)
+
+        if is_not_null(args.infile):
+            tab_m = Table.read(args.infile, hdu="MASSES")
+            tab_s = Table.read(args.infile, hdu=args.chan)
+            
+            xvals = tab_m['MASSES'][0]
+            yvals = tab_s['UL_0.95'][0]
+            ldict = dict(limits=(xvals, yvals))
+        else:
+            ldict = {}
+
+        if is_not_null(args.bands):
+            tab_b = Table.read(args.bands, hdu=args.chan)
+            tab_bm = Table.read(args.bands, hdu="MASSES")
+            bands = get_ul_bands(tab_b, 'UL_0.95')
+            bands['MASSES'] = tab_bm['MASSES'][0]
+        else:
+            bands = None
+
+        if is_not_null(args.sim):
+            sim_srcs = load_yaml(args.sim)
+            injected_src = sim_srcs.get('injected_source', None)
+        else:
+            injected_src = None
+
+        xlims=(1e1, 1e4)
+        ylims=(1e-28, 1e-22)
+
+        dm_plot = plot_limits_from_arrays(ldict, xlims, ylims, bands)
+
+        if injected_src is not None:
+            mc_model = injected_src['source_model']
+            plot_mc_truth(dm_plot[1], mc_model)
+
+        if args.outfile:
+            dm_plot[0].savefig(args.outfile)
+            return None
+        return dm_plot
+
+
+class PlotDM(Link):
+    """Small class wrap an analysis script.
+    
+    This is useful for parallelizing analysis using the fermipy.jobs module.
+    """
+    appname = 'dmpipe-plot-dm'
+    linkname_default = 'plot-dm'
+    usage = "%s [options]"%(appname)
+    description = "Plot the likelihood vs <sigma v> and DM particle mass"
+
+    default_options = dict(infile=defaults.generic['infile'],
+                           outfile=defaults.generic['outfile'],
+                           chan=defaults.common['chan'])
+
+    def __init__(self, **kwargs):
+        """C'tor
+        """
+        linkname, init_dict = self._init_dict(**kwargs)
+        super(PlotDM, self).__init__(linkname, **init_dict)
+
+    def run_analysis(self, argv):
+        """Run this analysis"""
+        args = self._parser.parse_args(argv)
+        tab_m = Table.read(args.infile, hdu="MASSES")
+        tab_s = Table.read(args.infile, hdu=args.chan)
+        dm_castro = DMCastroData.create_from_tables(tab_s, tab_m)
+        
+        dm_plot = plot_dm_castro(dm_castro)
+        if args.outfile:
+            dm_plot[0].savefig(args.outfile)
+            return None
+        return dm_plot
+
+
+ 
+class PlotCastro_SG(ConfigMaker):
+    """Small class to generate configurations for this script
+
+    This adds the following arguments:
+    """
+    appname = 'dmpipe-plot-castro-sg'
+    usage = "%s [options]" % (appname)
+    description = "Make castro plots for set of targets"
+    clientclass = PlotCastro
+    
+    batch_args = get_slac_default_args()    
+    batch_args['lsf_args']['W'] = 50
+    batch_interface = Slac_Interface(**batch_args)
+ 
+    default_options = dict(ttype=defaults.common['ttype'],
+                           targetlist=defaults.common['targetlist'],
+                           dry_run=defaults.common['dry_run'])
+
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        super(PlotCastro_SG, self).__init__(link,
+                                            options=kwargs.get('options',
+                                                               self.default_options.copy()))
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+
+        ttype = args['ttype']
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
+        if targets_yaml is None:
+            return job_configs
+
+        targets = load_yaml(targets_yaml)
+
+        for target_name, target_list in targets.items():
+            for targ_prof in target_list:
+                name_keys = dict(target_type=ttype,
+                                 target_name=target_name,
+                                 profile=targ_prof,
+                                 fullpath=True)
+                targ_key = "%s_%s"%(target_name, targ_prof)
+                input_path = NAME_FACTORY.sedfile(**name_keys)
+                output_path = input_path.replace('.fits', '.png')
+                logfile = make_nfs_path(input_path.replace('.fits', '.log'))
+                job_config = dict(infile=input_path,
+                                  outfile=output_path,
+                                  logfile=logfile)
+                job_configs[targ_key] = job_config
+                
+        return job_configs
+
+
+class PlotLimits_SG(ConfigMaker):
+    """Small class to generate configurations for this script
+
+    This adds the following arguments:
+    """
+    appname = 'dmpipe-plot-limits-sg'
+    usage = "%s [options]" % (appname)
+    description = "Make castro plots for set of targets"
+    clientclass = PlotLimits
+    
+    batch_args = get_slac_default_args()    
+    batch_args['lsf_args']['W'] = 50
+    batch_interface = Slac_Interface(**batch_args)
+ 
+    default_options = dict(ttype=defaults.common['ttype'],
+                           targetlist=defaults.common['targetlist'],
+                           bands=defaults.collect['bands'],
+                           channels=defaults.common['channels'],
+                           jpriors=defaults.common['jpriors'],
+                           dry_run=defaults.common['dry_run'])
+
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        super(PlotLimits_SG, self).__init__(link,
+                                            options=kwargs.get('options',
+                                                               self.default_options.copy()))
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+
+        ttype = args['ttype']
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
+        if targets_yaml is None:
+            return job_configs
+
+        jpriors = args['jpriors']
+        channels = args['channels']
+        
+        targets = load_yaml(targets_yaml)
+        for target_name, target_list in targets.items():
+            for targ_prof in target_list:
+                for jprior in jpriors:
+                    name_keys = dict(target_type=ttype,
+                                     target_name=target_name,
+                                     profile=targ_prof,
+                                     jprior=jprior,
+                                     fullpath=True)
+                    input_path = NAME_FACTORY.dmlimitsfile(**name_keys)
+                    for chan in channels:
+                        targ_key = "%s:%s:%s:%s"%(target_name, targ_prof, jprior, chan)
+
+                        output_path = input_path.replace('.fits', '_%s.png'%chan)
+                        logfile = make_nfs_path(output_path.replace('.png', '.log'))
+                        job_config = dict(infile=input_path,
+                                          outfile=output_path,
+                                          jprior=jprior,
+                                          logfile=logfile,
+                                          chan=chan)
+                        job_configs[targ_key] = job_config
+                
+        return job_configs
+
+
+class PlotStackedLimits_SG(ConfigMaker):
+    """Small class to generate configurations for this script
+
+    This adds the following arguments:
+    """
+    appname = 'dmpipe-plot-stacked-limits-sg'
+    usage = "%s [options]" % (appname)
+    description = "Make castro plots for set of targets"
+    clientclass = PlotLimits
+
+    batch_args = get_slac_default_args()    
+    batch_args['lsf_args']['W'] = 50
+    batch_interface = Slac_Interface(**batch_args)
+
+    default_options = dict(ttype=defaults.common['ttype'],
+                           rosterlist=defaults.common['targetlist'],
+                           bands=defaults.collect['bands'],
+                           channels=defaults.common['channels'],
+                           jpriors=defaults.common['jpriors'],
+                           sim=defaults.sims['sim'],
+                           nsims=defaults.sims['nsims'],
+                           seed=defaults.sims['seed'],
+                           dry_run=defaults.common['dry_run'])
+
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        super(PlotStackedLimits_SG, self).__init__(link,
+                                                   options=kwargs.get('options',
+                                                                      self.default_options.copy()))
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+
+        ttype = args['ttype']
+        (roster_yaml, sim) = NAME_FACTORY.resolve_rosterfile(args)
+        if roster_yaml is None:
+            return job_configs
+
+        roster_dict = load_yaml(roster_yaml)
+
+        jpriors = args['jpriors']
+        channels = args['channels']
+
+        for roster_name in roster_dict.keys():
+            for jprior in jpriors:
+                name_keys = dict(target_type=ttype,
+                                 roster_name=roster_name,
+                                 jprior=jprior,
+                                 sim_name=sim,
+                                 fullpath=True)
+                for chan in channels:
+                    targ_key = "%s:%s:%s"%(roster_name, jprior, chan)
+                    if sim is not None:
+                        seedlist = range(args['seed'], args['seed']+args['nsims'])
+                        sim_path = os.path.join('config','sim_%s.yaml'%sim)
+                    else:
+                        seedlist = [None]
+                        sim_path = None
+
+                    for seed in seedlist:
+                        if seed is not None:
+                            name_keys['seed'] = "%06i"%seed                    
+                            input_path = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
+                            full_targ_key = "%s_%06i"%(targ_key, seed)
+                        else:
+                            input_path = NAME_FACTORY.stackedlimitsfile(**name_keys)
+                            full_targ_key = targ_key
+
+                        output_path = input_path.replace('.fits', '_%s.png'%chan)
+                        logfile = make_nfs_path(output_path.replace('.png', '.log'))
+                        job_config = dict(infile=input_path,
+                                          outfile=output_path,
+                                          jprior=jprior,
+                                          logfile=logfile,
+                                          sim=sim_path,
+                                          chan=chan)
+                        job_configs[full_targ_key] = job_config
+                
+        return job_configs
 
 
 
-def test_func():
-    """ Test the functionality of this module """
-    norm_type = "EFLUX"
 
-    spec_table = DMSpecTable.create_from_fits("dm_spec_2.fits")
-    castro_eflux = castro.CastroData.create_from_fits("dsph_castro.fits", norm_type, irow=3)
-    castro_dm = spec_table.convert_castro_data(castro_eflux, 4, norm_type)
+class PlotDM_SG(ConfigMaker):
+    """Small class to generate configurations for this script
 
-    mass_label = r"$m_{\chi}$ [GeV]"
-    sigmav_label = r'$\langle \sigma v \rangle$ [$cm^{3} s^{-1}$]'
-    masses = np.logspace(1, 4, 13)
+    This adds the following arguments:
+    """
+    appname = 'dmpipe-plot-dm-sg'
+    usage = "%s [options]" % (appname)
+    description = "Make castro plots for set of targets"
+    clientclass = PlotDM
 
-    fig2_dm = sed_plotting.plotCastro_base(castro_dm,
-                                           xlims=(masses[0], masses[-1]),
-                                           ylims=(1e-28, 1e-22),
-                                           xlabel=mass_label,
-                                           ylabel=sigmav_label,
-                                           nstep=100)
+    batch_args = get_slac_default_args()    
+    batch_args['lsf_args']['W'] = 50
+    batch_interface = Slac_Interface(**batch_args)
 
-    nll_dm = castro_dm[2]
-    j_prior = stats_utils.create_prior_functor(dict(functype='lgauss', mu=1., sigma=0.15))
-    j_vals = np.linspace(0.7, 1.3, 30)
+    default_options = dict(ttype=defaults.common['ttype'],
+                           targetlist=defaults.common['targetlist'],
+                           channels=defaults.common['channels'],
+                           jpriors=defaults.common['jpriors'],
+                           dry_run=defaults.common['dry_run'])
 
-    in_vals = np.meshgrid(j_vals, nll_dm.interp.x)
-    func = stats_utils.LnLFn_norm_prior(nll_dm, j_prior)
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        super(PlotDM_SG, self).__init__(link,
+                                        options=kwargs.get('options',
+                                                           self.default_options.copy()))
 
-    out_vals = func.loglike(in_vals[0], in_vals[1])
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
 
-    xlims = (j_vals[0], j_vals[-1])
-    ylims = (nll_dm.interp.x[1], nll_dm.interp.x[-1])
+        ttype = args['ttype']
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
+        if targets_yaml is None:
+            return job_configs
 
-    cnn = plot_castro_nuiscance(xlims, ylims, out_vals, zlims=(0., 30.))
-    cll = plot_comparison(func, nstep=100, xlims=(0, 1e-26))
+        targets = load_yaml(targets_yaml)
 
-    return fig2_dm, cnn, cll
+        jpriors = args['jpriors']
+        channels = args['channels']
 
-if __name__ == "__main__":
-    test_func()
+        for target_name, target_list in targets.items():
+            for targ_prof in target_list:
+                for jprior in jpriors:
+                    name_keys = dict(target_type=ttype,
+                                     target_name=target_name,
+                                     profile=targ_prof,
+                                     jprior=jprior,
+                                     fullpath=True)
+                    input_path = NAME_FACTORY.dmlikefile(**name_keys)
+                    for chan in channels:
+                        targ_key = "%s:%s:%s:%s"%(target_name, targ_prof, jprior, chan)
+                        output_path = input_path.replace('.fits', '_%s.png'%chan)
+                        logfile = make_nfs_path(output_path.replace('.png', '.log'))
+                        job_config = dict(infile=input_path,
+                                          outfile=output_path,
+                                          jprior=jprior,
+                                          logfile=logfile,
+                                          chan=chan)
+                        job_configs[targ_key] = job_config
+                
+        return job_configs
+
+
+class PlotStackedDM_SG(ConfigMaker):
+    """Small class to generate configurations for this script
+
+    This adds the following arguments:
+    """
+    appname = 'dmpipe-plot-stacked-dm-sg'
+    usage = "%s [options]" % (appname)
+    description = "Make castro plots for set of targets"
+    clientclass = PlotDM
+
+    batch_args = get_slac_default_args()    
+    batch_args['lsf_args']['W'] = 50
+    batch_interface = Slac_Interface(**batch_args)
+
+    default_options = dict(ttype=defaults.common['ttype'],
+                           rosterlist=defaults.common['targetlist'],
+                           channels=defaults.common['channels'],
+                           jpriors=defaults.common['jpriors'],
+                           sim=defaults.sims['sim'],
+                           nsims=defaults.sims['nsims'],
+                           seed=defaults.sims['seed'],                           
+                           dry_run=defaults.common['dry_run'])
+
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        super(PlotStackedDM_SG, self).__init__(link,
+                                               options=kwargs.get('options',
+                                                                  self.default_options.copy()))
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+        
+        ttype = args['ttype']
+        (roster_yaml, sim) = NAME_FACTORY.resolve_rosterfile(args)
+        if roster_yaml is None:
+            return job_configs
+
+        roster_dict = load_yaml(roster_yaml)
+ 
+        jpriors = args['jpriors']
+        channels = args['channels']
+
+        for roster_name in roster_dict.keys():
+            for jprior in jpriors:
+                name_keys = dict(target_type=ttype,
+                                 roster_name=roster_name,
+                                 jprior=jprior,
+                                 sim_name=sim,
+                                 fullpath=True)
+                
+                for chan in channels:
+                    targ_key = "%s:%s:%s"%(roster_name, jprior, chan)
+                
+                    if sim is not None:
+                        seedlist = range(args['seed'], args['seed']+args['nsims'])
+                    else:
+                        seedlist = [None]
+                        
+                    for seed in seedlist:
+                        if seed is not None:
+                            name_keys['seed'] = "%06i"%seed                    
+                            input_path = NAME_FACTORY.sim_resultsfile(**name_keys)
+                            full_targ_key = "%s_%06i"%(targ_key, seed)
+                        else:
+                            input_path = NAME_FACTORY.resultsfile(**name_keys)
+                            full_targ_key = targ_key
+
+                        output_path = input_path.replace('.fits', '_%s.png'%chan)
+                        logfile = make_nfs_path(output_path.replace('.png', '.log'))
+                        job_config = dict(infile=input_path,
+                                          outfile=output_path,
+                                          jprior=jprior,
+                                          logfile=logfile,
+                                          chan=chan)
+                        job_configs[full_targ_key] = job_config
+                
+        return job_configs
+
+
+def register_classes():
+    PlotDMSpectra.register_class()
+    PlotCastro.register_class()
+    PlotCastro_SG.register_class()
+    PlotLimits.register_class()
+    PlotLimits_SG.register_class()
+    PlotDM.register_class()
+    PlotDM_SG.register_class()
+    PlotStackedDM_SG.register_class()
+    PlotStackedLimits_SG.register_class()

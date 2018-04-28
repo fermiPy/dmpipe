@@ -23,9 +23,10 @@ from fermipy.castro import CastroData
 from fermipy.sed_plotting import plotCastro
 
 from fermipy import utils
-from fermipy.jobs.chain import Link
+from fermipy.jobs.utils import is_null, is_not_null
+from fermipy.jobs.link import Link
 from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
-from fermipy.jobs.lsf_impl import make_nfs_path, get_lsf_default_args, LSF_Interface
+from fermipy.jobs.slac_impl import make_nfs_path, get_slac_default_args, Slac_Interface
 
 from dmpipe.name_policy import NameFactory
 from dmpipe import defaults
@@ -40,11 +41,16 @@ except ImportError:
 
 NAME_FACTORY = NameFactory(basedir=('.'))
 
-class RandomSkyDirGenerator(Link):
+class RandomDirGen(Link):
     """Small class to generate random sky directions inside an ROI
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
+    appname = 'dmpipe-random-dir-gen'
+    linkname_default = 'random-dir-gen'
+    usage = '%s [options]' %(appname)
+    description = "Generate random sky directions in an ROI"
+
     default_options = dict(config=defaults.common['config'],
                            rand_config=defaults.sims['rand_config'],
                            outfile=defaults.generic['outfile'],
@@ -53,13 +59,8 @@ class RandomSkyDirGenerator(Link):
     def __init__(self, **kwargs): 
         """C'tor
         """
-        parser = argparse.ArgumentParser(usage="dmpipe-random-dir-gen [options]",
-                                         description="Generate random sky directions in an ROI")
-        Link.__init__(self, kwargs.pop('linkname', 'random-skydirs'),
-                      parser=parser,
-                      appname='dmpipe-random-dir-gen',
-                      options=RandomSkyDirGenerator.default_options.copy(),
-                      **kwargs)
+        linkname, init_dict = self._init_dict(**kwargs)
+        super(RandomDirGen, self).__init__(linkname, **init_dict)
 
     @staticmethod
     def make_wcsgeom_from_config(config):    
@@ -125,9 +126,9 @@ class RandomSkyDirGenerator(Link):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
 
-        if args.config in [None, 'none', 'None']:
+        if is_null(args.config):
             raise ValueError("Config yaml file must be specified")
-        if args.rand_config in [None, 'none', 'None']:
+        if is_null(args.rand_config):
             raise ValueError("Random direction config yaml file must be specified")
         config = load_yaml(args.config)
         rand_config = load_yaml(args.rand_config)
@@ -135,15 +136,20 @@ class RandomSkyDirGenerator(Link):
         wcsgeom = RandomSkyDirGenerator.make_wcsgeom_from_config(config)
         dir_dict = RandomSkyDirGenerator.build_skydir_dict(wcsgeom, rand_config)
 
-        if args.outfile not in [None, 'none', 'None']:
+        if is_not_null(args.outfile):
             write_yaml(dir_dict, args.outfile)
 
 
-class TargetSim(Link):
+class SimulateROI(Link):
     """Small class wrap an analysis script.
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
+    appname = 'dmpipe-simulate-roi'
+    linkname_default = 'simulate-roi'
+    usage = '%s [options]' %(appname)
+    description = "Run simulated analysis of a single ROI"
+
     default_options = dict(config=defaults.common['config'],
                            sim=defaults.sims['sim'],
                            nsims=defaults.sims['nsims'],
@@ -153,13 +159,8 @@ class TargetSim(Link):
     def __init__(self, **kwargs):
         """C'tor
         """
-        parser = argparse.ArgumentParser(usage="dmpipe-simulate-roi [options]",
-                                         description="Run simulated analysis of a single ROI")
-        Link.__init__(self, kwargs.pop('linkname', 'analyze-roi'),
-                      parser=parser,
-                      appname='dmpipe-simulate-roi',
-                      options=TargetSim.default_options.copy(),
-                      **kwargs)
+        linkname, init_dict = self._init_dict(**kwargs)
+        super(SimulateROI, self).__init__(linkname, **init_dict)
 
     def run_simulation(self, gta, injected_source, test_source, seed, outfile, mcube_file=None):
         """Simulate a realization of this analysis"""
@@ -230,11 +231,19 @@ class TargetSim(Link):
             self.run_simulation(gta, injected_source, test_source, i, sedfile, mcube_out)
 
 
-class ConfigMaker_RandomDirGen(ConfigMaker):
+class RandomDirGen_SG(ConfigMaker):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
     """
+    appname = 'dmpipe-random-dir-gen-sg'
+    usage = "%s [options]" % (appname)
+    description = "Run analyses on a series of ROIs"
+    clientclass = RandomDirGen
+
+    batch_args = get_slac_default_args()    
+    batch_interface = Slac_Interface(**batch_args)
+
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            config=defaults.common['config'],
@@ -244,9 +253,9 @@ class ConfigMaker_RandomDirGen(ConfigMaker):
     def __init__(self, link, **kwargs):
         """C'tor
         """
-        ConfigMaker.__init__(self, link,
-                             options=kwargs.get('options',
-                                                ConfigMaker_RandomDirGen.default_options.copy()))
+        super(RandomDirGen_SG, self).__init__(link,
+                                              options=kwargs.get('options',
+                                                                 self.default_options.copy()))
 
     def build_job_configs(self, args):
         """Hook to build job configurations
@@ -260,8 +269,10 @@ class ConfigMaker_RandomDirGen(ConfigMaker):
 
         config_yaml = 'config.yaml'
         config_override = args.get('config')
-        if config_override is not None and config_override != 'none':
+        if is_not_null(config_override):
             config_yaml = config_override
+
+        rand_yaml = NAME_FACTORY.resolve_randconfig(args)        
 
         targets = load_yaml(targets_yaml)
 
@@ -275,7 +286,7 @@ class ConfigMaker_RandomDirGen(ConfigMaker):
             outfile = os.path.join(simdir, 'skydirs.yaml')
             logfile = make_nfs_path(outfile.replace('yaml', 'log'))
             job_config = dict(config=config_path, 
-                              rand_config=args['rand_config'],
+                              rand_config=rand_yaml,
                               outfile=outfile,
                               logfile=logfile,
                               dry_run=args['dry_run'])
@@ -285,11 +296,19 @@ class ConfigMaker_RandomDirGen(ConfigMaker):
 
 
 
-class ConfigMaker_TargetSim(ConfigMaker):
+class SimulateROI_SG(ConfigMaker):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
     """
+    appname = 'dmpipe-simulate-roi-sg'
+    usage = "%s [options]" % (appname)
+    description = "Run analyses on a series of ROIs"
+    clientclass = SimulateROI
+
+    batch_args = get_slac_default_args()    
+    batch_interface = Slac_Interface(**batch_args)
+
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            config=defaults.common['config'],
@@ -301,10 +320,11 @@ class ConfigMaker_TargetSim(ConfigMaker):
     def __init__(self, link, **kwargs):
         """C'tor
         """
-        ConfigMaker.__init__(self, link,
-                             options=kwargs.get('options',
-                                                ConfigMaker_TargetSim.default_options.copy()))
+        super(SimulateROI_SG, self).__init__(link,
+                                             options=kwargs.get('options',
+                                                                self.default_options.copy()))
 
+ 
     def build_job_configs(self, args):
         """Hook to build job configurations
         """
@@ -317,7 +337,7 @@ class ConfigMaker_TargetSim(ConfigMaker):
 
         config_yaml = 'config.yaml'
         config_override = args.get('config')
-        if config_override is not None and config_override != 'none':
+        if is_not_null(config_override):
             config_yaml = config_override
 
         targets = load_yaml(targets_yaml)
@@ -339,85 +359,8 @@ class ConfigMaker_TargetSim(ConfigMaker):
 
         return job_configs
 
-
-def create_link_random_dir_gen(**kwargs):
-    """Build and return a `Link` object that can invoke RandomSkyDirGenerator"""
-    random_dir_gen = RandomSkyDirGenerator(**kwargs)
-    return random_dir_gen
-
-def create_link_roi_sim(**kwargs):
-    """Build and return a `Link` object that can invoke TargetAnalysis"""
-    target_analysis = TargetSim(**kwargs)
-    return target_analysis
-
-
-def create_sg_random_dir_gen(**kwargs):
-    """Build and return a ScatterGather object that can invoke this script"""
-    random_dir_gen = RandomSkyDirGenerator(**kwargs)
-    link = random_dir_gen
-
-    appname = kwargs.pop('appname', 'dmpipe-random-dir-gen-sg')
-
-    batch_args = get_lsf_default_args()    
-    batch_interface = LSF_Interface(**batch_args)
-
-    usage = "%s [options]" % (appname)
-    description = "Create random directions for a set of ROIs"
-
-    config_maker = ConfigMaker_RandomDirGen(link)
-    sg = build_sg_from_link(link, config_maker,
-                            interface=batch_interface,
-                            usage=usage,
-                            description=description,
-                            appname=appname,
-                            **kwargs)
-    return sg
-
-
-
-def create_sg_roi_sim(**kwargs):
-    """Build and return a ScatterGather object that can invoke this script"""
-    roi_analysis = TargetSim(**kwargs)
-    link = roi_analysis
-
-    appname = kwargs.pop('appname', 'dmpipe-simulate-roi-sg')
-
-    batch_args = get_lsf_default_args()    
-    batch_interface = LSF_Interface(**batch_args)
-
-    usage = "%s [options]" % (appname)
-    description = "Run analyses on a series of ROIs"
-
-    config_maker = ConfigMaker_TargetSim(link)
-    sg = build_sg_from_link(link, config_maker,
-                            interface=batch_interface,
-                            usage=usage,
-                            description=description,
-                            appname=appname,
-                            **kwargs)
-    return sg
-
-
-def main_random_dir_gen():
-    """ Entry point for analysis of a single ROI """
-    random_dir_gen = RandomSkyDirGenerator()
-    random_dir_gen.run_analysis(sys.argv[1:])
-
-def main_roi_single():
-    """ Entry point for analysis of a single ROI """
-    target_analysis = TargetSim()
-    target_analysis.run_analysis(sys.argv[1:])
-
-def main_random_dir_gen_batch():
-    """ Entry point for analysis of a single ROI """
-    lsf_sg = create_sg_random_dir_gen()
-    lsf_sg(sys.argv)
- 
-def main_roi_batch():
-    """ Entry point for command line use for dispatching batch jobs """
-    lsf_sg = create_sg_roi_sim()
-    lsf_sg(sys.argv)
-
-
-if __name__ == "__main__":
-    main_roi_single()
+def register_classes():
+    SimulateROI.register_class()
+    SimulateROI_SG.register_class()
+    RandomDirGen.register_class()
+    RandomDirGen_SG.register_class()

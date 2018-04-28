@@ -22,9 +22,10 @@ from fermipy.utils import load_yaml, write_yaml, init_matplotlib_backend
 from fermipy.castro import CastroData
 from fermipy.sed_plotting import plotCastro
 
-from fermipy.jobs.chain import Link
+from fermipy.jobs.utils import is_null, is_not_null
+from fermipy.jobs.link import Link
 from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
-from fermipy.jobs.lsf_impl import make_nfs_path, get_lsf_default_args, LSF_Interface
+from fermipy.jobs.slac_impl import make_nfs_path, get_slac_default_args, Slac_Interface
 
 from dmpipe.name_policy import NameFactory
 from dmpipe import defaults
@@ -39,11 +40,15 @@ except ImportError:
 
 NAME_FACTORY = NameFactory(basedir=('.'))
 
-class TargetPreparer(Link):
+class PrepareTargets(Link):
     """Small class wrap an analysis script.
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
+    appname = 'dmpipe-prepare-targets'
+    linkname_default = 'prepare-targets'
+    usage = '%s [options]' %(appname)
+    description = "Prepare directories for target analyses"
 
     default_options = dict(ttype=defaults.common['ttype'],
                            roster=defaults.common['roster'],
@@ -56,16 +61,11 @@ class TargetPreparer(Link):
     def __init__(self, **kwargs):
         """C'tor
         """
-        parser = argparse.ArgumentParser(usage="dmpipe-prepare-targets [options]",
-                                         description="Prepare directories for target analyses")
-        Link.__init__(self, kwargs.pop('linkname', 'prepare-targets'),
-                      parser=parser,
-                      appname='dmpipe-prepare-targets',
-                      options=TargetPreparer.default_options.copy(),
-                      **kwargs)
+        linkname, init_dict = self._init_dict(**kwargs)
+        super(PrepareTargets, self).__init__(linkname, **init_dict)
 
-    @staticmethod
-    def copy_analysis_files(orig_dir, dest_dir, files):
+    @classmethod
+    def copy_analysis_files(cls, orig_dir, dest_dir, files):
         """ Copy a list of files from orig_dir to dest_dir"""
         for f in files:
             orig_path = os.path.join(orig_dir, f)
@@ -76,8 +76,8 @@ class TargetPreparer(Link):
                 sys.stderr.write("WARNING: failed to copy %s\n"%orig_path)
 
 
-    @staticmethod
-    def write_target_dirs(ttype, roster_dict, base_config, sim):
+    @classmethod
+    def write_target_dirs(cls, ttype, roster_dict, base_config, sim):
         """ Create and populate directoris for target analysis
         """
         target_dict = {}
@@ -85,7 +85,7 @@ class TargetPreparer(Link):
         target_info_dict = {}
         roster_info_dict = {}
 
-        if sim is None or sim == 'none':
+        if is_null(sim):
             is_sim = False
         else:
             is_sim = True
@@ -145,7 +145,7 @@ class TargetPreparer(Link):
                     target_config['selection']['ra'] = target.ra
                     target_config['selection']['dec'] = target.dec
                     if is_sim:
-                        TargetPreparer.copy_analysis_files(target_dir, sim_target_dir, TargetPreparer.copyfiles)
+                        PrepareTargets.copy_analysis_files(target_dir, sim_target_dir, PrepareTargets.copyfiles)
                         target_config['gtlike']['bexpmap'] = os.path.abspath(os.path.join(target_dir,'bexpmap_00.fits'))
                         target_config['gtlike']['srcmap'] = os.path.abspath(os.path.join(sim_target_dir,'srcmap_00.fits'))
                         target_config['gtlike']['use_external_srcmap'] = True
@@ -183,45 +183,45 @@ class TargetPreparer(Link):
         roster_lib = RosterLibrary()
         roster_dict = {}
 
-        if args.roster is None or args.roster == 'none':
+        if is_null(args.roster):
             sys.stderr.write("You must specify a target roster")
             return -1
         
-        if args.ttype is None or args.ttype == 'none':
+        if is_null(args.ttype):
             sys.stderr.write("You must specify a target type")
             return -1
 
         name_keys = dict(target_type=args.ttype,
                          fullpath=True)
         config_file = NAME_FACTORY.ttypeconfig(**name_keys)
-        if args.config is not None and args.config != 'none':
+        if is_not_null(args.config):
             config_file = args.config
 
         rost = roster_lib.create_roster(args.roster)
         roster_dict[args.roster] = rost
 
         base_config = load_yaml(config_file)
-        TargetPreparer.write_target_dirs(args.ttype, roster_dict, base_config, args.sim)
+        PrepareTargets.write_target_dirs(args.ttype, roster_dict, base_config, args.sim)
 
 
-class TargetAnalysis(Link):
+class AnalyzeROI(Link):
     """Small class wrap an analysis script.
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
+    appname = 'dmpipe-analyze-roi'
+    linkname_default = 'analyze-roi'
+    usage = '%s [options]' %(appname)
+    description = "Run analysis of a single ROI"
+
     default_options = dict(config=defaults.common['config'],
                            dry_run=defaults.common['dry_run'])
 
     def __init__(self, **kwargs):
         """C'tor
         """
-        parser = argparse.ArgumentParser(usage="dmpipe-analyze-roi [options]",
-                                         description="Run analysis of a single ROI")
-        Link.__init__(self, kwargs.pop('linkname', 'analyze-roi'),
-                      parser=parser,
-                      appname='dmpipe-analyze-roi',
-                      options=TargetAnalysis.default_options.copy(),
-                      **kwargs)
+        linkname, init_dict = self._init_dict(**kwargs)
+        super(AnalyzeROI, self).__init__(linkname, **init_dict)
 
     def run_analysis(self, argv):
         """Run this analysis"""
@@ -277,11 +277,16 @@ class TargetAnalysis(Link):
         gta.write_roi('fit_baseline', make_plots=True)
 
 
-class SEDAnalysis(Link):
+class AnalyzeSED(Link):
     """Small class wrap an analysis script.
 
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
+    appname = 'dmpipe-analyze-sed'
+    linkname_default = 'analyze-sed'
+    usage = '%s [options]' %(appname)
+    description = "Extract the SED for a single target"
+
     default_options = dict(config=defaults.common['config'],
                            dry_run=defaults.common['dry_run'],
                            skydirs=defaults.sims['skydirs'],
@@ -290,14 +295,9 @@ class SEDAnalysis(Link):
     def __init__(self, **kwargs):
         """C'tor
         """
-        parser = argparse.ArgumentParser(usage='dmpipe-analyze-sed',
-                                         description="Extract the SED for a single target")
-        Link.__init__(self, kwargs.pop('linkname', 'analyze-sed'),
-                      parser=parser,
-                      appname='dmpipe-analyze-sed',
-                      options=SEDAnalysis.default_options.copy(),
-                      **kwargs)
-                           
+        linkname, init_dict = self._init_dict(**kwargs)
+        super*(AnalyzeSED, self).__init__(linkname, **init_dict)
+                          
     @staticmethod
     def _build_profile_dict(basedir, profile_name):
         """
@@ -318,7 +318,7 @@ class SEDAnalysis(Link):
         if not HAVE_ST:
             raise RuntimeError("Trying to run fermipy analysis, but don't have ST")
 
-        if args.skydirs in [None, 'none', 'None']:
+        if is_null(args.skydirs):
             skydir_dict = None
         else:
             skydir_dict = load_yaml(args.skydirs)
@@ -344,10 +344,10 @@ class SEDAnalysis(Link):
 
             for skydir_key in skydir_keys:                
                 if skydir_key is None:
-                    pkey, pdict = SEDAnalysis._build_profile_dict(basedir, profile)
+                    pkey, pdict = AnalyzeSED._build_profile_dict(basedir, profile)
                 else:                    
                     skydir_val = skydir_dict[skydir_key]
-                    pkey, pdict = SEDAnalysis._build_profile_dict(basedir, profile)
+                    pkey, pdict = AnalyzeSED._build_profile_dict(basedir, profile)
                     pdict['ra'] = skydir_val['ra']
                     pdict['dec'] = skydir_val['dec']
                     pkey += "_%06i"%skydir_key
@@ -374,11 +374,19 @@ class SEDAnalysis(Link):
         return gta
 
 
-class ConfigMaker_TargetAnalysis(ConfigMaker):
+class AnalyzeROI_SG(ConfigMaker):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
     """
+    appname = 'dmpipe-analyze-roi-sg'
+    usage = "%s [options]" % (appname)
+    description = "Run analyses on a series of ROIs"
+    clientclass = AnalyzeROI
+
+    batch_args = get_slac_default_args()    
+    batch_interface = Slac_Interface(**batch_args)
+
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            config=defaults.common['config'],
@@ -387,9 +395,9 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
     def __init__(self, link, **kwargs):
         """C'tor
         """
-        ConfigMaker.__init__(self, link,
-                             options=kwargs.get('options',
-                                                ConfigMaker_TargetAnalysis.default_options.copy()))
+        super(AnalyzeROI_SG, self).__init__(link,
+                                            options=kwargs.get('options',
+                                                               self.default_options.copy()))
 
     def build_job_configs(self, args):
         """Hook to build job configurations
@@ -403,7 +411,7 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
 
         config_yaml = 'config.yaml'
         config_override = args.get('config')
-        if config_override is not None and config_override != 'none':
+        if is_not_null(config_override):
             config_yaml = config_override
 
         targets = load_yaml(targets_yaml)
@@ -422,11 +430,19 @@ class ConfigMaker_TargetAnalysis(ConfigMaker):
         return job_configs
 
 
-class ConfigMaker_SEDAnalysis(ConfigMaker):
+class AnalyzeSED_SG(ConfigMaker):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
     """
+    appname = 'dmpipe-analyze-sed-sg'
+    usage = "%s [options]" % (appname)
+    description = "Run analyses on a series of ROIs"
+    clientclass = AnalyzeSED
+
+    batch_args = get_slac_default_args()    
+    batch_interface = Slac_Interface(**batch_args)
+
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            config=defaults.common['config'],
@@ -436,9 +452,9 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
     def __init__(self, link, **kwargs):
         """C'tor
         """
-        ConfigMaker.__init__(self, link,
-                             options=kwargs.get('options',
-                                                ConfigMaker_SEDAnalysis.default_options.copy()))
+        super(AnalyzeSED_SG, self).__init__(link,
+                                            options=kwargs.get('options',
+                                                               self.default_options.copy()))
 
     def build_job_configs(self, args):
         """Hook to build job configurations
@@ -453,7 +469,7 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
         targets = load_yaml(targets_yaml)
         config_yaml = 'config.yaml'
 
-        if args['skydirs'] not in [None, 'none', 'None']:
+        if is_not_null(args['skydirs']):
             skydirs = args['skydirs']
         else:
             skydirs = None
@@ -479,100 +495,10 @@ class ConfigMaker_SEDAnalysis(ConfigMaker):
 
         return job_configs
 
+def register_classes():
+    AnalyzeROI.register_class()
+    AnalyzeROI_SG.register_class()
+    AnalyzeSED.register_class()
+    AnalyzeSED_SG.register_class()
+    PrepareTargets.register_class()
 
-def create_link_prepare_targets(**kwargs):
-    """Build and return a `Link` object that can invoke TargetPreparer"""
-    target_prep = TargetPreparer(**kwargs)
-    return target_prep
-
-
-def create_link_roi_analysis(**kwargs):
-    """Build and return a `Link` object that can invoke TargetAnalysis"""
-    target_analysis = TargetAnalysis(**kwargs)
-    return target_analysis
-
-
-def create_link_sed_analysis(**kwargs):
-    """Build and return a `Link` object that can invoke SEDAnalysis"""
-    sed_analysis = SEDAnalysis(**kwargs)
-    return sed_analysis
-
-
-def create_sg_roi_analysis(**kwargs):
-    """Build and return a ScatterGather object that can invoke this script"""
-    roi_analysis = TargetAnalysis(**kwargs)
-    link = roi_analysis
-
-    appname = kwargs.pop('appname', 'dmpipe-analyze-roi-sg')
-
-    batch_args = get_lsf_default_args()    
-    batch_interface = LSF_Interface(**batch_args)
-
-    usage = "%s [options]" % (appname)
-    description = "Run analyses on a series of ROIs"
-
-    config_maker = ConfigMaker_TargetAnalysis(link)
-    sg = build_sg_from_link(link, config_maker,
-                            interface=batch_interface,
-                            usage=usage,
-                            description=description,
-                            appname=appname,
-                            **kwargs)
-    return sg
-
-
-def create_sg_sed_analysis(**kwargs):
-    """Build and return a ScatterGather object that can invoke this script"""
-    sed_analysis = SEDAnalysis(**kwargs)
-    link = sed_analysis
-
-    appname = kwargs.pop('appname', 'dmpipe-analyze-sed-sg')
-
-    batch_args = get_lsf_default_args()    
-    batch_interface = LSF_Interface(**batch_args)
-
-    usage = "%s [options]" % (appname)
-    description = "Run analyses on a series of ROIs"
-
-    config_maker = ConfigMaker_SEDAnalysis(link)
-    sg = build_sg_from_link(link, config_maker,
-                            interface=batch_interface,
-                            usage=usage,
-                            description=description,
-                            appname=appname,
-                            **kwargs)
-    return sg
-
-
-def main_prepare_targets():
-    """ Entry point for analysis of a single ROI """
-    target_prep = TargetPreparer()
-    target_prep.run_analysis(sys.argv[1:])
-
-
-def main_roi_single():
-    """ Entry point for analysis of a single ROI """
-    target_analysis = TargetAnalysis()
-    target_analysis.run_analysis(sys.argv[1:])
-
-
-def main_sed_single():
-    """ Entry point for analysis of a single ROI """
-    sed_analysis = SEDAnalysis()
-    sed_analysis.run_analysis(sys.argv[1:])
-
-
-def main_roi_batch():
-    """ Entry point for command line use for dispatching batch jobs """
-    lsf_sg = create_sg_roi_analysis()
-    lsf_sg(sys.argv)
-
-
-def main_sed_batch():
-    """ Entry point for command line use for dispatching batch jobs """
-    lsf_sg = create_sg_sed_analysis()
-    lsf_sg(sys.argv)
-
-
-if __name__ == "__main__":
-    main_sed_batch()
