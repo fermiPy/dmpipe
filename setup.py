@@ -30,6 +30,8 @@ setup(
         'dmpipe-analyze-sed = dmpipe.target_analysis:AnalyzeSED.main',
         'dmpipe-analyze-sed-sg = dmpipe.target_analysis:AnalyzeSED_SG.main',
         'dmpipe-prepare-targets = dmpipe.target_analysis:PrepareTargets.main',
+        'dmpipe-copy-base-roi = dmpipe.target_sim:CopyBaseROI.main',
+        'dmpipe-copy-base-roi-sg = dmpipe.target_sim:CopyBaseROI_SG.main',
         'dmpipe-random-dir-gen = dmpipe.target_sim:RandomDirGen.main',
         'dmpipe-random-dir-gen-sg = dmpipe.target_sim:RandomDirGen_SG.main',
         'dmpipe-simulate-roi = dmpipe.target_sim:SimulateROI.main',

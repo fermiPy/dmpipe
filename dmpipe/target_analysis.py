@@ -53,10 +53,8 @@ class PrepareTargets(Link):
     default_options = dict(ttype=defaults.common['ttype'],
                            roster=defaults.common['roster'],
                            config=defaults.common['config'],
-                           sim=defaults.sims['sim'],
                            dry_run=defaults.common['dry_run'])
 
-    copyfiles = ['srcmap_00.fits', 'fit_baseline.fits', 'fit_baseline.npy', 'fit_baseline_00.xml']
 
     def __init__(self, **kwargs):
         """C'tor
@@ -64,20 +62,9 @@ class PrepareTargets(Link):
         linkname, init_dict = self._init_dict(**kwargs)
         super(PrepareTargets, self).__init__(linkname, **init_dict)
 
-    @classmethod
-    def copy_analysis_files(cls, orig_dir, dest_dir, files):
-        """ Copy a list of files from orig_dir to dest_dir"""
-        for f in files:
-            orig_path = os.path.join(orig_dir, f)
-            dest_path = os.path.join(dest_dir, f)
-            try:
-                copyfile(orig_path, dest_path)
-            except IOError:
-                sys.stderr.write("WARNING: failed to copy %s\n"%orig_path)
-
 
     @classmethod
-    def write_target_dirs(cls, ttype, roster_dict, base_config, sim):
+    def write_target_dirs(cls, ttype, roster_dict, base_config):
         """ Create and populate directoris for target analysis
         """
         target_dict = {}
@@ -85,26 +72,15 @@ class PrepareTargets(Link):
         target_info_dict = {}
         roster_info_dict = {}
 
-        if is_null(sim):
-            is_sim = False
-        else:
-            is_sim = True
-
         try:
-            if is_sim:
-                os.makedirs("%s_sim"%ttype)
-            else:
-                os.makedirs(ttype)
+            os.makedirs(ttype)
         except OSError:
             pass
 
         for roster_name, rost in roster_dict.items():
             tlist = []
             for target_name, target in rost.items():
-                if is_sim:
-                    target_key = "%s:%s:%s" % (target_name, target.version, sim)
-                else:
-                    target_key = "%s:%s" % (target_name, target.version)
+                target_key = "%s:%s" % (target_name, target.version)
                 print("Writing %s" % (target_key))
                 tlist.append(target_key)
                 if target_info_dict.has_key(target_name):
@@ -118,14 +94,8 @@ class PrepareTargets(Link):
                                  fullpath=True)
                 
                 target_dir = NAME_FACTORY.targetdir(**name_keys)
-                if is_sim:                    
-                    profile_path = NAME_FACTORY.sim_profilefile(**name_keys)
-                    sim_target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
-                    target_config_path = os.path.join(sim_target_dir, 'config.yaml')
-                else:
-                    profile_path = NAME_FACTORY.profilefile(**name_keys)
-                    sim_target_dir = None
-                    target_config_path = os.path.join(target_dir, 'config.yaml')
+                profile_path = NAME_FACTORY.profilefile(**name_keys)
+                target_config_path = os.path.join(target_dir, 'config.yaml')
 
                 jmap_path = profile_path.replace('.yaml', 'fits')
 
@@ -135,24 +105,12 @@ class PrepareTargets(Link):
                 else:
                     # Make the config for this target
                     try:
-                        if is_sim:
-                            os.makedirs(sim_target_dir)
-                        else:
-                            os.makedirs(target_dir)
+                        os.makedirs(target_dir)
                     except OSError:
                         pass
                     target_config = base_config.copy()
                     target_config['selection']['ra'] = target.ra
-                    target_config['selection']['dec'] = target.dec
-                    if is_sim:
-                        PrepareTargets.copy_analysis_files(target_dir, sim_target_dir, PrepareTargets.copyfiles)
-                        target_config['gtlike']['bexpmap'] = os.path.abspath(os.path.join(target_dir,'bexpmap_00.fits'))
-                        target_config['gtlike']['srcmap'] = os.path.abspath(os.path.join(sim_target_dir,'srcmap_00.fits'))
-                        target_config['gtlike']['use_external_srcmap'] = True
-                        sim_orig_file = os.path.join('config', 'sim_%s.yaml'%sim)
-                        sim_dest_file = os.path.join(sim_target_dir, 'sim_%s.yaml'%sim)
-                        copyfile(sim_orig_file, sim_dest_file)
-
+                    target_config['selection']['dec'] = target.dec                    
                     target_dict[target_name] = target_config
                     write_yaml(target_config, target_config_path)
 
@@ -166,12 +124,8 @@ class PrepareTargets(Link):
 
             roster_info_dict[roster_name] = tlist
 
-        if is_sim:
-            roster_file = os.path.join("%s_sim"%ttype, "sim_%s"%sim, 'roster_list.yaml')
-            target_file = os.path.join("%s_sim"%ttype, "sim_%s"%sim, 'target_list.yaml')
-        else:
-            roster_file = os.path.join(ttype, 'roster_list.yaml')
-            target_file = os.path.join(ttype, 'target_list.yaml')
+        roster_file = os.path.join(ttype, 'roster_list.yaml')
+        target_file = os.path.join(ttype, 'target_list.yaml')
 
         write_yaml(roster_info_dict, roster_file)
         write_yaml(target_info_dict, target_file)
@@ -201,7 +155,7 @@ class PrepareTargets(Link):
         roster_dict[args.roster] = rost
 
         base_config = load_yaml(config_file)
-        PrepareTargets.write_target_dirs(args.ttype, roster_dict, base_config, args.sim)
+        self.write_target_dirs(args.ttype, roster_dict, base_config)
 
 
 class AnalyzeROI(Link):

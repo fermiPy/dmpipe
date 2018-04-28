@@ -94,16 +94,6 @@ class PipelineData(Chain):
         data_plotting = config_dict.get('data_plotting')
         plot_channels_default = config_dict.get('plot_channels', [])
         
-        insert_app_config(o_dict, link_prefix+'spec-table',
-                          'dmpipe-spec-table',
-                          ttype=ttype, 
-                          config=config_template,
-                          specfile=specfile)
-        insert_app_config(o_dict, link_prefix+'prepare-targets',
-                          'dmpipe-prepare-targets',
-                          ttype=ttype, 
-                          roster=roster,
-                          config=config_template)
         insert_app_config(o_dict, link_prefix+'analyze-roi',
                           'dmpipe-analyze-roi-sg',
                           ttype=ttype, 
@@ -234,11 +224,12 @@ class PipelineSim(Chain):
         sim_plotting = config_dict.get('sim_plotting')
         plot_channels_default = config_dict.get('plot_channels', [])
         
-        insert_app_config(o_dict, link_prefix+'prepare-targets',
-                          'dmpipe-prepare-targets',
+        insert_app_config(o_dict, link_prefix+'copy-base-roi',
+                          'dmpipe-copy-base-roi-sg',
                           ttype=ttype, 
+                          targetlist=targetlist,
+                          rosterlist=rosterlist,
                           sim=sim_name,
-                          roster=roster,
                           config=config_template)
         insert_app_config(o_dict, link_prefix+'simulate-roi',
                           'dmpipe-simulate-roi-sg',
@@ -367,11 +358,12 @@ class PipelineRandom(Chain):
         rand_plotting = config_dict.get('rand_plotting')
         plot_channels_default = config_dict.get('plot_channels', [])
     
-        insert_app_config(o_dict, link_prefix+'prepare-targets',
-                          'dmpipe-prepare-targets',
+        insert_app_config(o_dict, link_prefix+'copy-base-roi',
+                          'dmpipe-copy-base-roi-sg',
                           ttype=ttype, 
-                          sim='random',
-                          roster=roster,
+                          targetlist=targetlist,
+                          rosterlist=rosterlist,
+                          sim=sim_name,
                           config=config_template)
         insert_app_config(o_dict, link_prefix+'random-dir-gen',
                           'dmpipe-random-dir-gen-sg',
@@ -477,7 +469,22 @@ class Pipeline(Chain):
         config_yaml = input_dict['config']
         o_dict = OrderedDict()
         config_dict = load_yaml(config_yaml)
+        ttype = config_dict.get('ttype')    
+        config_template = config_dict.get('config_template')
+        roster = config_dict.get('roster')
         dry_run = input_dict.get('dry_run', False)
+ 
+        insert_app_config(o_dict, 'spec-table',
+                          'dmpipe-spec-table',
+                          ttype=ttype, 
+                          config=config_template,
+                          specfile=specfile)
+
+        insert_app_config(o_dict, 'prepare-targets',
+                          'dmpipe-prepare-targets',
+                          ttype=ttype, 
+                          roster=roster,
+                          config=config_template)
 
         insert_app_config(o_dict, 'data',
                           'dmpipe-pipeline-data',

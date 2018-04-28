@@ -15,6 +15,7 @@ generic = {
 common = {
     'ttype': (None, 'Type of target being analyzed.', str),
     'roster': (None, 'Name of a dmsky target roster.', str),
+    'target': (None, 'Name of analysis target.', str),
     'targetlist': (None, 'Path to the target list.', str),
     'rosterlist': (None, 'Path to the roster list.', str),
     'config': (None, 'Path to fermipy config file.', str),
