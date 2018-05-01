@@ -764,7 +764,7 @@ class ConvertCastro(Link):
 
     default_options = dict(specfile=defaults.common['specfile'],
                            sed_file=defaults.common['sed_file'],
-                           profile_file=defaults.common['profile_file'],
+                           j_value_file=defaults.common['j_value_file'],
                            jprior=defaults.common['jprior'],
                            outfile=defaults.generic['outfile'],
                            limitfile=defaults.generic['limitfile'],
@@ -858,7 +858,7 @@ class ConvertCastro(Link):
         channels = None
         
         spec_table = DMSpecTable.create_from_fits(args.specfile)
-        profile = load_yaml(args.profile_file)
+        profile = load_yaml(args.j_value_file)
 
         if channels is None:
             channels = spec_table.channel_names
@@ -1209,20 +1209,20 @@ class ConvertCastro_SG(ConfigMaker):
                     if is_sim:
                         name_keys['sim_name'] = sim
                         sed_file = NAME_FACTORY.sim_sedfile(**name_keys)
-                        profile_yaml = NAME_FACTORY.sim_profilefile(**name_keys)
+                        j_value_yaml = NAME_FACTORY.sim_j_valuefile(**name_keys)
                         outfile = NAME_FACTORY.sim_dmlikefile(**name_keys)
                         limitfile = NAME_FACTORY.sim_dmlimitsfile(**name_keys)
                         full_key += ":%s"%sim
                     else:
                         sed_file = NAME_FACTORY.sedfile(**name_keys)
-                        profile_yaml = NAME_FACTORY.profilefile(**name_keys)
+                        j_value_yaml = NAME_FACTORY.j_valuefile(**name_keys)
                         outfile = NAME_FACTORY.dmlikefile(**name_keys)
                         limitfile = NAME_FACTORY.dmlimitsfile(**name_keys)
 
                     logfile = make_nfs_path(outfile.replace('.fits', '.log'))
                     job_config = dict(specfile=specfile,
                                       sed_file=sed_file,
-                                      profile_file=profile_yaml,
+                                      j_value_file=j_value_yaml,
                                       jprior=jprior,
                                       outfile=outfile,
                                       limitfile=limitfile,

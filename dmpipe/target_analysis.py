@@ -51,8 +51,9 @@ class PrepareTargets(Link):
     description = "Prepare directories for target analyses"
 
     default_options = dict(ttype=defaults.common['ttype'],
-                           roster=defaults.common['roster'],
+                           rosters=defaults.common['rosters'],
                            config=defaults.common['config'],
+                           sims=defaults.sims['sims'],
                            dry_run=defaults.common['dry_run'])
 
 
@@ -64,7 +65,7 @@ class PrepareTargets(Link):
 
 
     @classmethod
-    def write_target_dirs(cls, ttype, roster_dict, base_config):
+    def write_target_dirs(cls, ttype, roster_dict, base_config, sims):
         """ Create and populate directoris for target analysis
         """
         target_dict = {}
@@ -80,25 +81,24 @@ class PrepareTargets(Link):
         for roster_name, rost in roster_dict.items():
             tlist = []
             for target_name, target in rost.items():
-                target_key = "%s:%s" % (target_name, target.version)
+                
+                if target.ver_key is None:
+                    target_verkey = target.version
+                else:
+                    target_verkey = target.ver_key
+                target_key = "%s:%s" % (target_name, target_verkey)
                 print("Writing %s" % (target_key))
                 tlist.append(target_key)
-                if target_info_dict.has_key(target_name):
-                    target_info_dict[target_name].append(target.version)
-                else:
-                    target_info_dict[target_name] = [target.version]
                 name_keys = dict(target_type=ttype,
                                  target_name=target_name,
-                                 profile=target.version,
-                                 sim_name=sim,
+                                 profile=target_verkey,
                                  fullpath=True)
                 
                 target_dir = NAME_FACTORY.targetdir(**name_keys)
                 profile_path = NAME_FACTORY.profilefile(**name_keys)
+                j_val_path = profile_path.replace('profile_','j_val_')
                 target_config_path = os.path.join(target_dir, 'config.yaml')
-
-                jmap_path = profile_path.replace('.yaml', 'fits')
-
+  
                 if target_dict.has_key(target_name):
                     # Already made the config for this target
                     target_config = target_dict[target_name]
@@ -114,13 +114,33 @@ class PrepareTargets(Link):
                     target_dict[target_name] = target_config
                     write_yaml(target_config, target_config_path)
 
-                profile_data = target.profile.copy()
-                #target.write_jmap_wcs(jmap_path, clobber=True)
-                profile_data['j_integ'] = target.j_integ
-                profile_data['j_sigma'] = target.j_sigma
-                profile_data['j_map_file'] = jmap_path
+                if target_info_dict.has_key(target_name):
+                    target_info_dict[target_name].append(target_verkey)
+                else:
+                    target_info_dict[target_name] = [target_verkey]
+         
+                source_model = dict(SpectrumType='PowerLaw',
+                                    RA=target.ra,
+                                    DEC=target.dec)
+                                                    
+                if target.proftype in [None, 'point', 'Point']:                                        
+                    source_model.update(dict(SpatialModel='PointSource'))
+                else:
+                    target.j_rad_file = profile_path.replace('.yaml', '.dat')
+                    target.write_j_rad_file()
+                    source_model.update(dict(SpatialModel='DiffuseSource',
+                                             SpatialType='RadialProfile',
+                                             radialprofile=target.j_rad_file))
+                    
+                profile_dict = dict(name = target_verkey,
+                                    source_model=source_model)
+                write_yaml(profile_dict, profile_path)
 
-                write_yaml(profile_data, profile_path)
+                j_profile_data = target.profile.copy()
+                j_profile_data['j_integ'] = target.j_integ
+                j_profile_data['j_sigma'] = target.j_sigma
+
+                write_yaml(j_profile_data, j_val_path)
 
             roster_info_dict[roster_name] = tlist
 
@@ -130,6 +150,17 @@ class PrepareTargets(Link):
         write_yaml(roster_info_dict, roster_file)
         write_yaml(target_info_dict, target_file)
 
+        print ('sims',sims)
+        for sim in sims:
+            sim_dir = os.path.join("%s_sim"%ttype, "sim_%s"%sim)
+            sim_roster_file = os.path.join(sim_dir, 'roster_list.yaml')
+            sim_target_file = os.path.join(sim_dir, 'target_list.yaml')
+            try:
+                os.makedirs(sim_dir)
+            except OSError:
+                pass
+            copyfile(roster_file, sim_roster_file)
+            copyfile(target_file, sim_target_file)
 
     def run_analysis(self, argv):
         """Run this analysis"""
@@ -137,13 +168,18 @@ class PrepareTargets(Link):
         roster_lib = RosterLibrary()
         roster_dict = {}
 
-        if is_null(args.roster):
-            sys.stderr.write("You must specify a target roster")
+        if len(args.rosters) == 0:
+            sys.stderr.write("You must specify at least one target roster")
             return -1
         
         if is_null(args.ttype):
             sys.stderr.write("You must specify a target type")
             return -1
+
+        if is_null(args.sims):
+            sims = []
+        else:
+            sims = args.sims
 
         name_keys = dict(target_type=args.ttype,
                          fullpath=True)
@@ -151,12 +187,13 @@ class PrepareTargets(Link):
         if is_not_null(args.config):
             config_file = args.config
 
-        rost = roster_lib.create_roster(args.roster)
-        roster_dict[args.roster] = rost
+        for roster in args.rosters:
+            rost = roster_lib.create_roster(roster)
+            roster_dict[roster] = rost
 
         base_config = load_yaml(config_file)
-        self.write_target_dirs(args.ttype, roster_dict, base_config)
-
+        self.write_target_dirs(args.ttype, roster_dict, base_config, sims)
+        
 
 class AnalyzeROI(Link):
     """Small class wrap an analysis script.
@@ -257,12 +294,11 @@ class AnalyzeSED(Link):
         """
         """
         profile_path = os.path.join(basedir, "profile_%s.yaml" % profile_name)
-        #FIXME, use the profile_config to build the profile_dict
-        #profile_config = load_yaml(profile_path)
-
-        profile_dict = {}
-        profile_dict['SpatialModel'] = 'PointSource'
-        profile_dict['SpectrumType'] = 'PowerLaw'
+        profile_config = load_yaml(profile_path)
+        if profile_name != profile_config['name']:
+            sys.stderr.write('Warning, profile name (%s) != name in %s (%s)\n'%(profile_name, profile_config['name'], profile_path))
+            
+        profile_dict = profile_config['source_model']
         return profile_name, profile_dict
 
     def run_analysis(self, argv):

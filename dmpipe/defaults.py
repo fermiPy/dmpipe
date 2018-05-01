@@ -15,6 +15,7 @@ generic = {
 common = {
     'ttype': (None, 'Type of target being analyzed.', str),
     'roster': (None, 'Name of a dmsky target roster.', str),
+    'rosters': ([], 'Name of a dmsky target roster.', list),
     'target': (None, 'Name of analysis target.', str),
     'targetlist': (None, 'Path to the target list.', str),
     'rosterlist': (None, 'Path to the roster list.', str),
@@ -23,7 +24,8 @@ common = {
     'specfile': (None, 'Path to DM spectrum file.', str),
     'sed_file': (None, 'Path to SED file.', str),
     'profile_file': (None, 'Path to yaml file with target profile', str),
-    'profiles' : ([], 'List of profiles to analysis', list),
+    'j_value_file': (None, 'Path to yaml file with target j_value', str),
+    'profiles' : ([], 'List of profiles to analyze', list),
     'jprior': (None, 'Types of Prior on J-factor', str),
     'jpriors': ([], 'Types of Prior on J-factor', list),
     'nsims': (-1, 'Number of simulations to run.', int),
@@ -37,6 +39,7 @@ common = {
 
 sims = {
     'sim': (None, 'Name of the simulation scenario.', str),
+    'sims': ([], 'Names of the simulation scenario.', list),
     'nsims': (20, 'Number of simulations to run.', int),
     'seed': (0, 'Seed number for first simulation.', int),
     'skydirs': (None, 'Yaml file with blank sky directions.', str),

@@ -65,7 +65,7 @@ class CopyBaseROI(Link):
         """C'tor
         """
         linkname, init_dict = self._init_dict(**kwargs)
-        super(CopyBaseRoi, self).__init__(linkname, **init_dict)
+        super(CopyBaseROI, self).__init__(linkname, **init_dict)
 
     @classmethod
     def copy_analysis_files(cls, orig_dir, dest_dir, files):
@@ -91,13 +91,13 @@ class CopyBaseROI(Link):
 
         orig_config_path = os.path.join(orig_dir, 'config.yaml')
         dest_config_path = os.path.join(dest_dir, 'config.yaml')
-        self.copy_analysis_files(orig_dir, dest_dir, self.copyfiles)
+        cls.copy_analysis_files(orig_dir, dest_dir, cls.copyfiles)
 
         dest_config = load_yaml(orig_config_path).copy()
         dest_config['gtlike']['bexpmap'] = os.path.abspath(os.path.join(orig_dir,'bexpmap_00.fits'))
         dest_config['gtlike']['srcmap'] = os.path.abspath(os.path.join(dest_dir,'srcmap_00.fits'))
         dest_config['gtlike']['use_external_srcmap'] = True
-        write_yaml(target_config, dest_config_path)
+        write_yaml(dest_config, dest_config_path)
 
         sim_orig_file = os.path.join('config', 'sim_%s.yaml'%sim)
         sim_dest_file = os.path.join(dest_dir, 'sim_%s.yaml'%sim)
@@ -106,9 +106,17 @@ class CopyBaseROI(Link):
         for profile in profiles:
             orig_profile_path = os.path.join(orig_dir, 'profile_%s.yaml'%profile)
             dest_profile_path = os.path.join(dest_dir, 'profile_%s.yaml'%profile)
-            jmap_path = dest_profile_path.replace('.yaml', 'fits')
-            dest_profile = oad_yaml(orig_profile_path).copy()
-            dest_profile['j_map_file'] = jmap_path
+            orig_j_profile_path = orig_profile_path.replace('.yaml', '.dat')
+            dest_j_profile_path = dest_profile_path.replace('.yaml', '.dat')
+            orig_j_value_path = os.path.join(orig_dir, 'j_val_%s.yaml'%profile)
+            dest_j_value_path = os.path.join(orig_dir, 'j_val_%s.yaml'%profile)
+            copyfile(orig_j_value_path, dest_j_value_path)
+            dest_profile = load_yaml(orig_profile_path).copy()
+            try:
+                copyfile(orig_j_profile_path, dest_j_profile_path)
+                dest_profile['j_map_file'] = jmap_path
+            except OSError:
+                pass
             write_yaml(dest_profile, dest_profile_path)
 
 
@@ -143,7 +151,7 @@ class CopyBaseROI_SG(ConfigMaker):
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            rosterlist=defaults.common['rosterlist'],
-                           sim=defaults.sim['sim'],
+                           sim=defaults.sims['sim'],
                            dry_run=defaults.common['dry_run'])
 
     def __init__(self, link, **kwargs):
@@ -158,26 +166,21 @@ class CopyBaseROI_SG(ConfigMaker):
         """
         job_configs = {}
 
-        orig_args = args.copy()
-        orig_args.pop('sim')
-        (data_targets_yaml, dummy) = NAME_FACTORY.resolve_targetfile(orig_args)
-        (data_roster_yaml, dummy) = NAME_FACTORY.resolve_rosterfile(orig_args)
-
         ttype = args['ttype']
         dry_run = args['dry_run']
         (sim_targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
-        (sim_roster_yaml, sim) = NAME_FACTORY.resolve_rosterfile(args)
-             
-        copyfile(data_targets_yaml, sim_targets_yaml)
-        copyfile(data_roster_yaml, sim_roster_yaml)
-
-        targets = load_yaml(targets_yaml)
+        targets = load_yaml(sim_targets_yaml)
 
         for target_name, target_list in targets.items():
+            targetdir = NAME_FACTORY.sim_targetdir(target_type=ttype,
+                                                   target_name=target_name,
+                                                   sim_name=sim)
+            logfile = os.path.join(targetdir, 'copy_base_dir.log')
             job_config = dict(ttype=ttype,
                               target=target_name,
                               profiles=target_list,
                               sim=sim, 
+                              logfile=logfile,
                               dry_run=dry_run)
             job_configs[target_name] = job_config
 
@@ -293,6 +296,7 @@ class SimulateROI(Link):
     description = "Run simulated analysis of a single ROI"
 
     default_options = dict(config=defaults.common['config'],
+                           profiles=defaults.common['profiles'],
                            sim=defaults.sims['sim'],
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
@@ -304,7 +308,7 @@ class SimulateROI(Link):
         linkname, init_dict = self._init_dict(**kwargs)
         super(SimulateROI, self).__init__(linkname, **init_dict)
 
-    def run_simulation(self, gta, injected_source, test_source, seed, outfile, mcube_file=None):
+    def run_simulation(self, gta, injected_source, test_sources, seed, mcube_file=None):
         """Simulate a realization of this analysis"""
         gta.load_roi('fit_baseline')
         gta.set_random_seed(seed)
@@ -327,11 +331,17 @@ class SimulateROI(Link):
         gta.optimize()
         gta.free_sources(skydir=gta.roi.skydir, distance=1.0, pars='norm')
         gta.fit()
-        gta.add_source(test_source['name'], test_source['source_model'])
-        gta.sed(test_source['name'], outfile=outfile)     
-        # Set things back to how they were
-        gta.delete_source(test_source['name'])    
-        return outfile
+        gta.write_roi('sim_baseline')
+        for test_source in test_sources:
+            test_source_name = test_source['name']            
+            sedfile = "sed_%s_%06i.fits"%(test_source_name, i)
+            gta.add_source(test_source_name, test_source['source_model'])
+            gta.fit()
+            gta.sed(test_source_name, outfile=outfile)     
+            # Set things back to how they were
+            gta.delete_source(test_source_name)
+            gta.load_xml('sim_baseline')
+       
         
 
     def run_analysis(self, argv):
@@ -345,9 +355,7 @@ class SimulateROI(Link):
                          fileio={'workdir_regex': '\.xml$|\.npy$'})
 
         workdir = os.path.dirname(args.config)
-        profilefile = os.path.join(workdir, 'profile_default.yaml')
         simfile = os.path.join(workdir, 'sim_%s.yaml'%args.sim)
-        profile = utils.load_yaml(profilefile)
         sim_config = utils.load_yaml(simfile)
         
         injected_source = sim_config.get('injected_source', None)
@@ -359,18 +367,25 @@ class SimulateROI(Link):
         else:
             mcube_file = None
 
-        test_source = sim_config['test_source']
-        
+        test_source_override = sim_config['test_source']
+     
+        test_sources = []
+        for profile in profiles:
+            profile_path = os.path.join(workdir, 'profile_%s.yaml'%profile)
+            test_source = load_yaml(profile_path)
+            test_source['source_model'].update(test_source_override)
+            test_sources.append(test_source)
+
         first = args.seed
         last = first + args.nsims
 
         for i in range(first, last):
-            sedfile = "sed_%s_%06i.fits"%(test_source['name'], i)
+            
             if i == first:
                 mcube_out = mcube_file
             else:
                 mcube_out = None
-            self.run_simulation(gta, injected_source, test_source, i, sedfile, mcube_out)
+            self.run_simulation(gta, injected_source, test_sources, i, mcube_out)
 
 
 class RandomDirGen_SG(ConfigMaker):
@@ -484,7 +499,7 @@ class SimulateROI_SG(ConfigMaker):
 
         targets = load_yaml(targets_yaml)
 
-        for target_name in targets.keys():
+        for target_name, target_list in targets.items():
             name_keys = dict(target_type=ttype,
                              target_name=target_name,
                              sim_name=sim,
@@ -495,6 +510,7 @@ class SimulateROI_SG(ConfigMaker):
             job_config = dict(config=config_path, 
                               logfile=logfile,
                               sim=sim,
+                              profiles=target_list,
                               nsims=args['nsims'],
                               seed=args['seed'])
             job_configs[target_name] = job_config

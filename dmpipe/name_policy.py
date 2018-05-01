@@ -49,6 +49,12 @@ class NameFactory(object):
     # Information about a particular target profile
     sim_profilefile_format = '{target_type}_sim/sim_{sim_name}/{target_name}/profile_{profile}.yaml'
 
+    # Information about a particular target j factor
+    j_valuefile_format = '{target_type}/{target_name}/j_val_{profile}.yaml'
+
+    # Information about a particular target j factor
+    sim_j_valuefile_format = '{target_type}_sim/sim_{sim_name}/{target_name}/j_val_{profile}.yaml'
+
     # SED file for a particular target
     sedfile_format = '{target_type}/{target_name}/sed_{profile}.fits'
 
@@ -164,6 +170,16 @@ class NameFactory(object):
         """ return the name of the yaml file with information about a partiuclar profile
         """
         return self._format_from_dict(NameFactory.sim_profilefile_format, **kwargs)
+
+    def j_valuefile(self, **kwargs):
+        """ return the name of the yaml file with information about a partiuclar target j factor
+        """
+        return self._format_from_dict(NameFactory.j_valuefile_format, **kwargs)
+
+    def sim_j_valuefile(self, **kwargs):
+        """ return the name of the yaml file with information about a partiuclar target j factor
+        """
+        return self._format_from_dict(NameFactory.sim_j_valuefile_format, **kwargs)
 
     def sedfile(self, **kwargs):
         """ return the name for the SED file for a particular target

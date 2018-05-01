@@ -12,7 +12,7 @@ import argparse
 
 from collections import OrderedDict
 
-from fermipy.jobs.job_archive import JobArchive
+from fermipy.jobs.job_archive import JobArchive, JobStatus, JobDetails
 from fermipy.jobs.slac_impl import check_log
 from fermipy.jobs.link import Link
 from fermipy.jobs.chain import Chain, insert_app_config, purge_dict
@@ -86,7 +86,6 @@ class PipelineData(Chain):
         config_template = config_dict.get('config_template')
         config_localpath = config_dict.get('config_localpath')
         specfile = config_dict.get('specfile')
-        roster = config_dict.get('roster')
         rosterlist = config_dict.get('rosterlist')
         targetlist = config_dict.get('targetlist')
         jpriors = config_dict.get('jpriors')
@@ -211,7 +210,6 @@ class PipelineSim(Chain):
         config_template = config_dict.get('config_template')
         config_localpath = config_dict.get('config_localpath')
         specfile = config_dict.get('specfile')
-        roster = config_dict.get('roster')
         rosterlist = config_dict.get('rosterlist')
         targetlist = config_dict.get('targetlist')
         jpriors = config_dict.get('jpriors')
@@ -344,7 +342,6 @@ class PipelineRandom(Chain):
         config_template = config_dict.get('config_template')
         config_localpath = config_dict.get('config_localpath')
         specfile = config_dict.get('specfile')
-        roster = config_dict.get('roster')
         rosterlist = config_dict.get('rosterlist')
         targetlist = config_dict.get('targetlist')
         jpriors = config_dict.get('jpriors')
@@ -363,7 +360,7 @@ class PipelineRandom(Chain):
                           ttype=ttype, 
                           targetlist=targetlist,
                           rosterlist=rosterlist,
-                          sim=sim_name,
+                          sim='random',
                           config=config_template)
         insert_app_config(o_dict, link_prefix+'random-dir-gen',
                           'dmpipe-random-dir-gen-sg',
@@ -456,12 +453,51 @@ class Pipeline(Chain):
         """
         linkname, init_dict = self._init_dict(**kwargs)
         super(Pipeline, self).__init__(linkname, **init_dict)
+        self._preconfigured = False
 
-    def _register_link_classes(self):    
+    def _register_link_classes(self): 
+        from dmpipe.target_analysis import PrepareTargets
+        from dmpipe.dm_spectral import SpecTable
+        PrepareTargets.register_class()
+        SpecTable.register_class()
         PipelineData.register_class()
         PipelineSim.register_class()
         PipelineRandom.register_class()
   
+    def preconfigure(self, config_yaml):
+        """ """
+        o_dict = OrderedDict()
+        config_dict = load_yaml(config_yaml)
+        ttype = config_dict.get('ttype')    
+        config_template = config_dict.get('config_template')
+        rosters = config_dict.get('rosters')
+        sims = config_dict.get('sims', {})
+        sim_names = []
+        sim_names += sims.keys()
+        if config_dict.has_key('random'):
+            sim_names += ['random']
+
+        insert_app_config(o_dict, 'prepare-targets',
+                          'dmpipe-prepare-targets',
+                          ttype=ttype, 
+                          rosters=rosters,
+                          sims=sim_names,
+                          config=config_template)
+        self._arg_dict = o_dict
+        self._load_arguments()
+        link = self['prepare-targets']
+        
+        key = JobDetails.make_fullkey(link.full_linkname)
+        if len(link.jobs) == 0:
+            raise ValueError("No Jobs")
+        link_status = link.check_job_status(key)
+        if link_status == JobStatus.done:
+            return
+        elif link_status == JobStatus.failed:
+            link.clean_jobs()
+        link.run_with_log()        
+
+
     def _map_arguments(self, input_dict):
         """Map from the top-level arguments to the arguments provided to
         the indiviudal links """
@@ -471,20 +507,27 @@ class Pipeline(Chain):
         config_dict = load_yaml(config_yaml)
         ttype = config_dict.get('ttype')    
         config_template = config_dict.get('config_template')
-        roster = config_dict.get('roster')
+        rosters = config_dict.get('rosters')
+        specfile = config_dict.get('specfile')
+        sims = config_dict.get('sims', {})
+        sim_names = []
+        sim_names += sims.keys()
+        if config_dict.has_key('random'):
+            sim_names += ['random']
         dry_run = input_dict.get('dry_run', False)
- 
+
+        insert_app_config(o_dict, 'prepare-targets',
+                          'dmpipe-prepare-targets',
+                          ttype=ttype,
+                          rosters=rosters,
+                          sims=sim_names,
+                          config=config_template)
+        
         insert_app_config(o_dict, 'spec-table',
                           'dmpipe-spec-table',
                           ttype=ttype, 
                           config=config_template,
                           specfile=specfile)
-
-        insert_app_config(o_dict, 'prepare-targets',
-                          'dmpipe-prepare-targets',
-                          ttype=ttype, 
-                          roster=roster,
-                          config=config_template)
 
         insert_app_config(o_dict, 'data',
                           'dmpipe-pipeline-data',
@@ -493,7 +536,6 @@ class Pipeline(Chain):
                           config=config_yaml,
                           dry_run=dry_run)
         
-        sims = config_dict.get('sims', {})
         for sim in sims.keys():
             linkname = 'sim_%s'%sim
             insert_app_config(o_dict, linkname,
