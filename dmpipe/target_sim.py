@@ -109,13 +109,13 @@ class CopyBaseROI(Link):
             orig_j_profile_path = orig_profile_path.replace('.yaml', '.dat')
             dest_j_profile_path = dest_profile_path.replace('.yaml', '.dat')
             orig_j_value_path = os.path.join(orig_dir, 'j_val_%s.yaml'%profile)
-            dest_j_value_path = os.path.join(orig_dir, 'j_val_%s.yaml'%profile)
+            dest_j_value_path = os.path.join(dest_dir, 'j_val_%s.yaml'%profile)
             copyfile(orig_j_value_path, dest_j_value_path)
             dest_profile = load_yaml(orig_profile_path).copy()
             try:
                 copyfile(orig_j_profile_path, dest_j_profile_path)
-                dest_profile['j_map_file'] = jmap_path
-            except OSError:
+                dest_profile['radialprofile'] = dest_j_profile_path
+            except IOError:
                 pass
             write_yaml(dest_profile, dest_profile_path)
 
