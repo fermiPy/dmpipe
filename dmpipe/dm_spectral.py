@@ -25,7 +25,7 @@ from fermipy.utils import load_yaml
 from fermipy.jobs.utils import is_null, is_not_null
 from fermipy.jobs.link import Link
 from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
-from fermipy.jobs.slac_impl import make_nfs_path, get_slac_default_args, Slac_Interface
+from fermipy.jobs.slac_impl import make_nfs_path
 
 from fermipy.spectrum import DMFitFunction
 
@@ -1151,8 +1151,7 @@ class ConvertCastro_SG(ConfigMaker):
     description = "Run analyses on a series of ROIs"
     clientclass = ConvertCastro
 
-    batch_args = get_slac_default_args()    
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 600
 
     default_options = dict(ttype=defaults.common['ttype'],
                            specfile=defaults.common['specfile'],
@@ -1247,8 +1246,7 @@ class StackLikelihood_SG(ConfigMaker):
     description = "Run analyses on a series of ROIs"
     clientclass = StackLikelihood
 
-    batch_args = get_slac_default_args()    
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 120
 
     default_options = dict(ttype=defaults.common['ttype'],
                            specconfig=defaults.common['specfile'],

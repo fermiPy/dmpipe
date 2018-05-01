@@ -27,7 +27,7 @@ from fermipy import utils
 from fermipy.jobs.utils import is_null, is_not_null
 from fermipy.jobs.link import Link
 from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
-from fermipy.jobs.slac_impl import make_nfs_path, get_slac_default_args, Slac_Interface
+from fermipy.jobs.slac_impl import make_nfs_path
 
 from dmpipe.name_policy import NameFactory
 from dmpipe import defaults
@@ -145,8 +145,7 @@ class CopyBaseROI_SG(ConfigMaker):
     description = "Run analyses on a series of ROIs"
     clientclass = CopyBaseROI
 
-    batch_args = get_slac_default_args()    
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 60
 
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
@@ -334,10 +333,10 @@ class SimulateROI(Link):
         gta.write_roi('sim_baseline')
         for test_source in test_sources:
             test_source_name = test_source['name']            
-            sedfile = "sed_%s_%06i.fits"%(test_source_name, i)
+            sedfile = "sed_%s_%06i.fits"%(test_source_name, seed)
             gta.add_source(test_source_name, test_source['source_model'])
             gta.fit()
-            gta.sed(test_source_name, outfile=outfile)     
+            gta.sed(test_source_name, outfile=sedfile)     
             # Set things back to how they were
             gta.delete_source(test_source_name)
             gta.load_xml('sim_baseline')
@@ -358,34 +357,35 @@ class SimulateROI(Link):
         simfile = os.path.join(workdir, 'sim_%s.yaml'%args.sim)
         sim_config = utils.load_yaml(simfile)
         
-        injected_source = sim_config.get('injected_source', None)
-        if injected_source is not None:
-            injected_source['source_model']['norm'] = dict(value=profile['j_integ'])
-            injected_source['source_model']['ra'] = gta.config['selection']['ra']
-            injected_source['source_model']['dec'] = gta.config['selection']['dec']
-            mcube_file = args.sim
-        else:
-            mcube_file = None
+        injected_source_base = sim_config.get('injected_source', None)
+        if injected_source_base is not None:
+            injected_source_base['source_model']['ra'] = gta.config['selection']['ra']
+            injected_source_base['source_model']['dec'] = gta.config['selection']['dec']
 
         test_source_override = sim_config['test_source']
      
         test_sources = []
-        for profile in profiles:
+        for profile in args.profiles:
             profile_path = os.path.join(workdir, 'profile_%s.yaml'%profile)
             test_source = load_yaml(profile_path)
             test_source['source_model'].update(test_source_override)
             test_sources.append(test_source)
+           
+            j_value_path = os.path.join(workdir, 'j_val_%s.yaml'%profile)
+            j_value_dict = load_yaml(j_value_path)
+            if injected_source_base is not None:
+                injected_source = injected_source_base.copy()
+                injected_source['source_model']['norm'] = j_value_dict['j_integ']
+                mcube_file = "%s_%s"%(args.sim, profile)
 
-        first = args.seed
-        last = first + args.nsims
-
-        for i in range(first, last):
-            
-            if i == first:
-                mcube_out = mcube_file
-            else:
-                mcube_out = None
-            self.run_simulation(gta, injected_source, test_sources, i, mcube_out)
+            first = args.seed
+            last = first + args.nsims
+            for i in range(first, last):            
+                if i == first:
+                    mcube_out = mcube_file
+                else:
+                    mcube_out = None
+                self.run_simulation(gta, injected_source, test_sources, i, mcube_out)
 
 
 class RandomDirGen_SG(ConfigMaker):
@@ -398,8 +398,7 @@ class RandomDirGen_SG(ConfigMaker):
     description = "Run analyses on a series of ROIs"
     clientclass = RandomDirGen
 
-    batch_args = get_slac_default_args()    
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 60
 
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
@@ -463,8 +462,7 @@ class SimulateROI_SG(ConfigMaker):
     description = "Run analyses on a series of ROIs"
     clientclass = SimulateROI
 
-    batch_args = get_slac_default_args()    
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 1500
 
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],

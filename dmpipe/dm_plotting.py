@@ -21,7 +21,7 @@ init_matplotlib_backend()
 from fermipy.jobs.utils import is_null, is_not_null
 from fermipy.jobs.link import Link
 from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
-from fermipy.jobs.slac_impl import make_nfs_path, get_slac_default_args, Slac_Interface
+from fermipy.jobs.slac_impl import make_nfs_path
 
 from fermipy.castro import CastroData
 from fermipy.sed_plotting import plotCastro
@@ -222,10 +222,8 @@ class PlotCastro_SG(ConfigMaker):
     description = "Make castro plots for set of targets"
     clientclass = PlotCastro
     
-    batch_args = get_slac_default_args()    
-    batch_args['lsf_args']['W'] = 50
-    batch_interface = Slac_Interface(**batch_args)
- 
+    job_time = 60
+
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            dry_run=defaults.common['dry_run'])
@@ -277,9 +275,7 @@ class PlotLimits_SG(ConfigMaker):
     description = "Make castro plots for set of targets"
     clientclass = PlotLimits
     
-    batch_args = get_slac_default_args()    
-    batch_args['lsf_args']['W'] = 50
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 60
  
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
@@ -343,9 +339,7 @@ class PlotStackedLimits_SG(ConfigMaker):
     description = "Make castro plots for set of targets"
     clientclass = PlotLimits
 
-    batch_args = get_slac_default_args()    
-    batch_args['lsf_args']['W'] = 50
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 60
 
     default_options = dict(ttype=defaults.common['ttype'],
                            rosterlist=defaults.common['targetlist'],
@@ -429,9 +423,7 @@ class PlotDM_SG(ConfigMaker):
     description = "Make castro plots for set of targets"
     clientclass = PlotDM
 
-    batch_args = get_slac_default_args()    
-    batch_args['lsf_args']['W'] = 50
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 60
 
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
@@ -494,9 +486,7 @@ class PlotStackedDM_SG(ConfigMaker):
     description = "Make castro plots for set of targets"
     clientclass = PlotDM
 
-    batch_args = get_slac_default_args()    
-    batch_args['lsf_args']['W'] = 50
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 60
 
     default_options = dict(ttype=defaults.common['ttype'],
                            rosterlist=defaults.common['targetlist'],

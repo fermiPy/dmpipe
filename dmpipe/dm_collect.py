@@ -24,7 +24,7 @@ from fermipy.sed_plotting import plotCastro
 from fermipy.jobs.utils import is_null, is_not_null
 from fermipy.jobs.link import Link
 from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
-from fermipy.jobs.slac_impl import make_nfs_path, get_slac_default_args, Slac_Interface
+from fermipy.jobs.slac_impl import make_nfs_path
 from fermipy import fits_utils
 
 from dmpipe.name_policy import NameFactory
@@ -282,8 +282,7 @@ class CollectSED_SG(ConfigMaker):
     description = "Run analyses on a series of ROIs"
     clientclass = CollectSED
 
-    batch_args = get_slac_default_args()    
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 120
 
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
@@ -352,8 +351,7 @@ class CollectLimits_SG(ConfigMaker):
     description = "Run analyses on a series of ROIs"
     clientclass = CollectLimits
 
-    batch_args = get_slac_default_args()    
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 120
 
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
@@ -433,8 +431,7 @@ class CollectStackedLimits_SG(ConfigMaker):
     description = "Run analyses on a series of ROIs"
     clientclass = CollectLimits
 
-    batch_args = get_slac_default_args()    
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 120
 
     default_options = dict(ttype=defaults.common['ttype'],
                            rosterlist=defaults.common['targetlist'],

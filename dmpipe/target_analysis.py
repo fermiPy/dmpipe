@@ -374,8 +374,7 @@ class AnalyzeROI_SG(ConfigMaker):
     description = "Run analyses on a series of ROIs"
     clientclass = AnalyzeROI
 
-    batch_args = get_slac_default_args()    
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 1500
 
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
@@ -430,8 +429,7 @@ class AnalyzeSED_SG(ConfigMaker):
     description = "Run analyses on a series of ROIs"
     clientclass = AnalyzeSED
 
-    batch_args = get_slac_default_args()    
-    batch_interface = Slac_Interface(**batch_args)
+    job_time = 1500
 
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
