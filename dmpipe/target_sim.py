@@ -376,7 +376,8 @@ class SimulateROI(Link):
             if injected_source_base is not None:
                 injected_source = injected_source_base.copy()
                 injected_source['source_model']['norm'] = j_value_dict['j_integ']
-                mcube_file = "%s_%s"%(args.sim, profile)
+
+            mcube_file = "%s_%s"%(args.sim, profile)
 
             first = args.seed
             last = first + args.nsims
