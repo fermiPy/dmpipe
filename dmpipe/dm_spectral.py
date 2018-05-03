@@ -37,13 +37,14 @@ NAME_FACTORY = NameFactory(basedir='.')
 REF_J = 1.0e19
 REF_SIGV = 1.0e-26
 
+
 class DMCastroData(castro.CastroData_Base):
     """ This class wraps the data needed to make a "Castro" plot,
     namely the log-likelihood as a function of <sigma v> * J (or D) for a
     series of DM masses
     """
 
-    def __init__(self, norm_vals, nll_vals, norm_value, channel, masses, astro_value, 
+    def __init__(self, norm_vals, nll_vals, norm_value, channel, masses, astro_value,
                  astro_prior=None, prior_applied=True, ref_j=REF_J, ref_sigmav=REF_SIGV):
         """ C'tor
 
@@ -77,7 +78,7 @@ class DMCastroData(castro.CastroData_Base):
 
         ref_j : float
            Reference value for J-factor
-        
+
         ref_sigmav : float
            Reference value for sigma
         """
@@ -96,7 +97,9 @@ class DMCastroData(castro.CastroData_Base):
         else:
             test_norm = self._norm_value
         if np.fabs(test_norm - self._norm_value) > 0.01:
-            sys.stderr.write("WARNING, normalization value does not match expected value: %.2E %.2E\n"%(self._norm_value, test_norm))
+            sys.stderr.write(
+                "WARNING, normalization value does not match expected value: %.2E %.2E\n" %
+                (self._norm_value, test_norm))
 
         if isinstance(channel, str):
             self._channel = DMFitFunction.channel_rev_map[channel]
@@ -180,10 +183,11 @@ class DMCastroData(castro.CastroData_Base):
     @property
     def ref_sigmav(self):
         """ Reference value for <sigmav> """
-        return self._ref_sigmav   
+        return self._ref_sigmav
 
     @staticmethod
-    def create_from_stack(components, nystep=200, ylims=(1e-30, 1e-20), weights=None, ref_j=REF_J, ref_sigmav=REF_SIGV):
+    def create_from_stack(components, nystep=200, ylims=(1e-30, 1e-20),
+                          weights=None, ref_j=REF_J, ref_sigmav=REF_SIGV):
         """ Create a DMCastroData object by stacking a series of DMCastroData objects
         """
         if len(components) == 0:
@@ -200,7 +204,7 @@ class DMCastroData(castro.CastroData_Base):
         """
         ref_j = np.squeeze(np.array(tab_s['REF_J']))
         ref_sigmav = np.squeeze(np.array(tab_s['REF_SIGMAV']))
-        
+
         norm = np.squeeze(np.array(tab_s['NORM']))
         norm_vals = np.squeeze(np.array(tab_s['NORM_SCAN'])) * norm
         nll_vals = -np.squeeze(np.array(tab_s['DLOGLIKE_SCAN']))
@@ -269,8 +273,8 @@ class DMCastroData(castro.CastroData_Base):
                    "NORM_SCAN": self._norm_vals * self._norm_value,
                    "DLOGLIKE_SCAN": -1 * self._nll_vals,
                    "ASTRO_VALUE": self.astro_value,
-                   "REF_J":self.ref_j,
-                   "REF_SIGMAV":self.ref_sigmav}
+                   "REF_J": self.ref_j,
+                   "REF_SIGMAV": self.ref_sigmav}
 
         if self._astro_prior is not None:
             col_prior_type = Column(name="PRIOR_TYPE", dtype="S16")
@@ -299,7 +303,6 @@ class DMCastroData(castro.CastroData_Base):
                      "CHANNEL": self._channel})
         return tab
 
-
     def build_limits_table(self, limit_dict):
         """Build a FITS table with limits data
         """
@@ -310,11 +313,11 @@ class DMCastroData(castro.CastroData_Base):
         collist = [col_norm, col_astro_val, col_ref_j, col_ref_sigmav]
         valdict = {"NORM": self._norm_value,
                    "ASTRO_VALUE": self.astro_value,
-                   "REF_J":self.ref_j,
-                   "REF_SIGMAV":self.ref_sigmav}
-        
-        for k,v in limit_dict.items():
-            collist.append( Column(name=k, dtype=float, shape=v.shape) )
+                   "REF_J": self.ref_j,
+                   "REF_SIGMAV": self.ref_sigmav}
+
+        for k, v in limit_dict.items():
+            collist.append(Column(name=k, dtype=float, shape=v.shape))
             valdict[k] = v
 
         if self._astro_prior is not None:
@@ -357,23 +360,21 @@ class DMSpecTable(object):
         self._ref_vals = ref_vals
         self._channel_map, self._channel_names = DMSpecTable.make_channel_map(s_table)
 
-
     @staticmethod
     def make_channel_map(s_table):
         """ Construct a map from channel number to list of table rows """
         data = s_table['ref_chan']
         o = {}
-        for i,d in enumerate(data):
-            if o.has_key(d):
+        for i, d in enumerate(data):
+            if d in o:
                 o[d].append(i)
             else:
                 o[d] = [i]
         l = []
-        for k in sorted(o.keys()):            
+        for k in sorted(o.keys()):
             nm = DMFitFunction.channel_shortname_mapping[k]
             l.append(nm)
         return o, l
-    
 
     @staticmethod
     def make_ebounds_table(emin, emax, eref):
@@ -618,18 +619,17 @@ class DMSpecTable(object):
             # Rescale the normalization values
             j_value = jfactor
             norm_factor = ref_norm / jfactor
-        elif isinstance(jfactor, dict):               
+        elif isinstance(jfactor, dict):
             jfactor['j_ref'] = ref_norm
             j_value = jfactor.get('j_value')
-            norm_factor =  ref_norm / j_value
-            j_functype = jfactor.get('functype', None) 
+            norm_factor = ref_norm / j_value
+            j_functype = jfactor.get('functype', None)
             if is_null(j_functype):
                 j_prior = None
             else:
                 j_prior = stats_utils.create_prior_functor(jfactor)
         else:
-            sys.stderr.write("Did not recoginize J factor %s %s\n"%(jfactor, type(jfactor)))
-
+            sys.stderr.write("Did not recoginize J factor %s %s\n" % (jfactor, type(jfactor)))
 
         norm_limits = castro_data.getLimits(1e-5)
         spec_vals *= norm_factor
@@ -644,7 +644,7 @@ class DMSpecTable(object):
         for i in range(nmass):
             max_ratio = 1. / ((spec_vals[i] / norm_limits).max())
             log_max_ratio = np.log10(max_ratio)
-            norm_vals[i][0] = 10**(log_max_ratio-5)
+            norm_vals[i][0] = 10**(log_max_ratio - 5)
             norm_vals[i][1:] = np.logspace(log_max_ratio - 4, log_max_ratio + 4,
                                            n_scan_pt - 1)
             test_vals = (np.expand_dims(spec_vals[i], 1) * (np.expand_dims(norm_vals[i], 1).T))
@@ -652,10 +652,10 @@ class DMSpecTable(object):
             mle_vals[i] = norm_vals[i][dll_vals[i].argmin()]
             mle_ll = dll_vals[i].min()
             dll_vals[i] -= mle_ll
-            
+
             msk = np.isfinite(dll_vals[i])
             if not msk.any():
-                print ("Skipping mass %0.2e for channel %s"%(masses[i], channel))
+                print ("Skipping mass %0.2e for channel %s" % (masses[i], channel))
                 mass_mask[i] = False
                 continue
 
@@ -665,9 +665,9 @@ class DMSpecTable(object):
                     lnlfn_prior = stats_utils.LnLFn_norm_prior(lnlfn, j_prior)
                     dll_vals[i, 0:] = lnlfn_prior(norm_vals[i])
                 except ValueError:
-                    print ("Skipping mass %0.2e for channel %s"%(masses[i], channel))
+                    print ("Skipping mass %0.2e for channel %s" % (masses[i], channel))
                     mass_mask[i] = False
-                    dll_vals[i, 0:] = np.nan* np.ones((n_scan_pt))
+                    dll_vals[i, 0:] = np.nan * np.ones((n_scan_pt))
 
         norm_vals *= (ref_sigmav)
         dm_castro = DMCastroData(norm_vals[mass_mask], dll_vals[mass_mask], norm_factor,
@@ -759,8 +759,8 @@ class ConvertCastro(Link):
     """Small class to convert CastroData to a DMCastroData"""
     appname = 'dmpipe-convert-castro'
     linkname_default = 'convert-castro'
-    usage = '%s [options]' %(appname)
-    description = "Convert SED to DMCastroData"    
+    usage = '%s [options]' % (appname)
+    description = "Convert SED to DMCastroData"
 
     default_options = dict(specfile=defaults.common['specfile'],
                            sed_file=defaults.common['sed_file'],
@@ -790,13 +790,13 @@ class ConvertCastro(Link):
 
         for chan in channels:
             chan_idx = DMFitFunction.channel_rev_map[chan]
-            #try:
+            # try:
             dm_castro = spec_table.convert_castro_data(sed, chan_idx, norm_type, j_val)
             tab_castro = dm_castro.build_scandata_table()
 
             if mass_table is None:
                 mass_table = dm_castro.build_mass_table()
-            #except IndexError, msg:
+            # except IndexError, msg:
             #    raise IndexError("Skipping channel %s" % msg)
             #    continue
             c_list.append(dm_castro)
@@ -813,16 +813,16 @@ class ConvertCastro(Link):
         l_list = []
         t_list = []
         n_list = []
- 
+
         for castro, chan in zip(dm_castro_list, channels):
             chan_idx = DMFitFunction.channel_rev_map[chan]
             norm = castro.norm_value
-            mles = norm*castro.mles()
-            limit_dict = dict(MLES=mles)            
+            mles = norm * castro.mles()
+            limit_dict = dict(MLES=mles)
             for alpha in alphas:
-                limits = norm*castro.getLimits(alpha)
-                limit_dict['UL_%.02f'%alpha] = limits
-            
+                limits = norm * castro.getLimits(alpha)
+                limit_dict['UL_%.02f' % alpha] = limits
+
             tab_limits = castro.build_limits_table(limit_dict)
             l_list.append(limit_dict)
             t_list.append(tab_limits)
@@ -832,11 +832,12 @@ class ConvertCastro(Link):
         n_list.append("MASSES")
         return l_list, t_list, n_list
 
-    
-    def convert_sed(self, spec_table, sed_file, norm_type, channels, j_factor, outfile, limitfile, clobber):
+    def convert_sed(self, spec_table, sed_file, norm_type, channels,
+                    j_factor, outfile, limitfile, clobber):
         """Convert a single SED to DM"""
         sed = CastroData.create_from_sedfile(sed_file, norm_type)
-        c_list, t_list, n_list = ConvertCastro.convert_sed_to_dm(spec_table, sed, channels, norm_type, j_factor)
+        c_list, t_list, n_list = ConvertCastro.convert_sed_to_dm(
+            spec_table, sed, channels, norm_type, j_factor)
 
         do_limits = True
         write_castro = True
@@ -846,9 +847,10 @@ class ConvertCastro(Link):
 
         if is_not_null(limitfile):
             mass_table = t_list[-1]
-            c_list_lim, t_list_lim, n_list_lim = ConvertCastro.extract_dm_limits(c_list, channels, [0.68, 0.95], mass_table)
-            fits_utils.write_tables_to_fits(limitfile, t_list_lim, clobber=clobber, namelist=n_list_lim)
-        
+            c_list_lim, t_list_lim, n_list_lim = ConvertCastro.extract_dm_limits(
+                c_list, channels, [0.68, 0.95], mass_table)
+            fits_utils.write_tables_to_fits(
+                limitfile, t_list_lim, clobber=clobber, namelist=n_list_lim)
 
     def run_analysis(self, argv):
         """Run this analysis"""
@@ -856,7 +858,7 @@ class ConvertCastro(Link):
 
         norm_type = 'eflux'
         channels = None
-        
+
         spec_table = DMSpecTable.create_from_fits(args.specfile)
         profile = load_yaml(args.j_value_file)
 
@@ -877,21 +879,28 @@ class ConvertCastro(Link):
         if args.nsims < 0:
             seedlist = [None]
         else:
-            seedlist = range(args.seed, args.seed+args.nsims)
+            seedlist = range(args.seed, args.seed + args.nsims)
 
         for seed in seedlist:
             sedfile = args.sed_file
             outfile = args.outfile
             limitfile = args.limitfile
             if seed is not None:
-                sedfile = sedfile.replace('_SEED.fits','_%06i.fits'%seed)
+                sedfile = sedfile.replace('_SEED.fits', '_%06i.fits' % seed)
                 if is_not_null(outfile):
-                    outfile = outfile.replace('_SEED.fits','_%06i.fits'%seed)
+                    outfile = outfile.replace('_SEED.fits', '_%06i.fits' % seed)
                 if is_not_null(limitfile):
-                    limitfile = limitfile.replace('_SEED.fits','_%06i.fits'%seed)
-                
-            self.convert_sed(spec_table, sedfile, norm_type, channels, j_factor, outfile, limitfile, args.clobber)
-        
+                    limitfile = limitfile.replace('_SEED.fits', '_%06i.fits' % seed)
+
+            self.convert_sed(
+                spec_table,
+                sedfile,
+                norm_type,
+                channels,
+                j_factor,
+                outfile,
+                limitfile,
+                args.clobber)
 
 
 class SpecTable(Link):
@@ -899,7 +908,7 @@ class SpecTable(Link):
     """
     appname = 'dmpipe-spec-table'
     linkname_default = 'spec-table'
-    usage = '%s [options]' %(appname)
+    usage = '%s [options]' % (appname)
     description = "Build a table with the spectra for DM signals"
 
     default_options = dict(ttype=defaults.common['ttype'],
@@ -936,7 +945,7 @@ class SpecTable(Link):
             spec_config = args.specconfig
         if is_not_null(args.specfile):
             spec_file = args.specfile
-            
+
         if config_file is None:
             sys.stderr.write('No input configuration file is specified')
             return -1
@@ -948,7 +957,7 @@ class SpecTable(Link):
         if spec_file is None:
             sys.stderr.write('No output spectra file is specified')
             return -1
-        
+
         spec_config = load_yaml(spec_config)
         channels = spec_config['channels']
         masses = np.logspace(np.log10(spec_config['masses']['mass_min']),
@@ -963,11 +972,11 @@ class StackLikelihood(Link):
     """Small class to convert stack DMCastroData """
     appname = 'dmpipe-stack-likelihood'
     linkname_default = 'stack-likelihood'
-    usage = '%s [options]' %(appname)
+    usage = '%s [options]' % (appname)
     description = "Stack the likelihood from a set of targets"
 
-    default_options = dict(ttype=defaults.common['ttype'], 
-                           specconfig=defaults.common['specconfig'], 
+    default_options = dict(ttype=defaults.common['ttype'],
+                           specconfig=defaults.common['specconfig'],
                            rosterlist=defaults.common['rosterlist'],
                            jprior=defaults.common['jprior'],
                            sim=defaults.sims['sim'],
@@ -998,7 +1007,7 @@ class StackLikelihood(Link):
                              profile=tokens[1],
                              fullpath=True,
                              sim_name=sim,
-                             seed="%06i"%seed,
+                             seed="%06i" % seed,
                              jprior=jprior_key)
 
             if is_not_null(sim):
@@ -1035,9 +1044,9 @@ class StackLikelihood(Link):
                          fullpath=True,
                          roster_name=roster_name,
                          sim_name=sim,
-                         seed="%06i"%seed,
+                         seed="%06i" % seed,
                          jprior=jprior_key)
-             
+
         if is_not_null(sim):
             outdir = NAME_FACTORY.sim_targetdir(**name_keys)
             outpath = NAME_FACTORY.sim_resultsfile(**name_keys)
@@ -1049,12 +1058,12 @@ class StackLikelihood(Link):
             os.makedirs(outdir)
         except OSError:
             pass
-        
+
         limitfile = outpath.replace('results', 'limits')
         print("Writing stacked results %s" % outpath)
         channels = stacked_dict.keys()
         t_list = []
-        n_list = []        
+        n_list = []
         lim_list = []
         lim_table_list = []
         mass_table = None
@@ -1062,11 +1071,11 @@ class StackLikelihood(Link):
         for chan in channels:
             stacked = stacked_dict[chan]
             norm = stacked.norm_value
-            mles = norm*stacked.mles()
-            limit_dict = dict(MLES=mles) 
+            mles = norm * stacked.mles()
+            limit_dict = dict(MLES=mles)
             for alpha in alphas:
-                limits = norm*stacked.getLimits(alpha)
-                limit_dict['UL_%.02f'%alpha] = limits
+                limits = norm * stacked.getLimits(alpha)
+                limit_dict['UL_%.02f' % alpha] = limits
             tab_limits = stacked.build_limits_table(limit_dict)
             if mass_table is None:
                 mass_table = stacked.build_mass_table()
@@ -1074,25 +1083,31 @@ class StackLikelihood(Link):
             n_list.append(chan)
             lim_list.append(limit_dict)
             lim_table_list.append(tab_limits)
-   
+
         t_list.append(mass_table)
         lim_table_list.append(mass_table)
         n_list.append("MASSES")
         fits_utils.write_tables_to_fits(outpath, t_list,
                                         clobber=clobber, namelist=n_list)
-        
+
         fits_utils.write_tables_to_fits(limitfile, lim_table_list,
                                         clobber=clobber, namelist=n_list)
-
 
     @staticmethod
     def stack_rosters(roster_dict, ttype, channels, jprior_key, sim, seed, clobber):
         """ Stack all of the DMCastroData in a dictionary of rosters
         """
         for roster_name, rost in roster_dict.items():
-            stacked_dict = StackLikelihood.stack_roster(roster_name, rost, ttype, channels, jprior_key, sim, seed)
-            StackLikelihood.write_stacked(ttype, roster_name, stacked_dict, jprior_key, sim, seed, clobber)
-
+            stacked_dict = StackLikelihood.stack_roster(
+                roster_name, rost, ttype, channels, jprior_key, sim, seed)
+            StackLikelihood.write_stacked(
+                ttype,
+                roster_name,
+                stacked_dict,
+                jprior_key,
+                sim,
+                seed,
+                clobber)
 
     def run_analysis(self, argv):
         """Run this analysis"""
@@ -1127,18 +1142,25 @@ class StackLikelihood(Link):
             roster_file = args.rosterlist
 
         roster_dict = load_yaml(roster_file)
-        
+
         if is_sim:
-            seedlist = range(args.seed, args.seed+args.nsims)
+            seedlist = range(args.seed, args.seed + args.nsims)
         else:
             seedlist = [0]
-        
+
         jprior = args.jprior
         if is_null(jprior):
-            jprior = 'none';
+            jprior = 'none'
 
-        for seed in seedlist:            
-            StackLikelihood.stack_rosters(roster_dict, args.ttype, channels, jprior, sim_name, seed, args.clobber)
+        for seed in seedlist:
+            StackLikelihood.stack_rosters(
+                roster_dict,
+                args.ttype,
+                channels,
+                jprior,
+                sim_name,
+                seed,
+                args.clobber)
 
 
 class ConvertCastro_SG(ConfigMaker):
@@ -1157,8 +1179,8 @@ class ConvertCastro_SG(ConfigMaker):
                            specfile=defaults.common['specfile'],
                            targetlist=defaults.common['targetlist'],
                            jpriors=defaults.common['jpriors'],
-                           sim=defaults.sims['sim'], 
-                           nsims=defaults.sims['nsims'], 
+                           sim=defaults.sims['sim'],
+                           nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
                            clobber=defaults.common['clobber'])
 
@@ -1173,7 +1195,7 @@ class ConvertCastro_SG(ConfigMaker):
         """Hook to build job configurations
         """
         job_configs = {}
-        
+
         ttype = args['ttype']
         (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
         if targets_yaml is None:
@@ -1200,10 +1222,10 @@ class ConvertCastro_SG(ConfigMaker):
             for profile in profile_list:
                 for jprior in jpriors:
                     full_key = "%s:%s:%s" % (target_name, profile, jprior)
-                    name_keys = dict(target_type=ttype, 
+                    name_keys = dict(target_type=ttype,
                                      target_name=target_name,
                                      profile=profile,
-                                     jprior=jprior, 
+                                     jprior=jprior,
                                      fullpath=True)
                     if is_sim:
                         name_keys['sim_name'] = sim
@@ -1211,7 +1233,7 @@ class ConvertCastro_SG(ConfigMaker):
                         j_value_yaml = NAME_FACTORY.sim_j_valuefile(**name_keys)
                         outfile = NAME_FACTORY.sim_dmlikefile(**name_keys)
                         limitfile = NAME_FACTORY.sim_dmlimitsfile(**name_keys)
-                        full_key += ":%s"%sim
+                        full_key += ":%s" % sim
                     else:
                         sed_file = NAME_FACTORY.sedfile(**name_keys)
                         j_value_yaml = NAME_FACTORY.j_valuefile(**name_keys)
@@ -1227,7 +1249,7 @@ class ConvertCastro_SG(ConfigMaker):
                                       limitfile=limitfile,
                                       logfile=logfile,
                                       nsims=nsims,
-                                      seed=seed,                                  
+                                      seed=seed,
                                       dry_run=dry_run,
                                       clobber=clobber)
 
@@ -1252,8 +1274,8 @@ class StackLikelihood_SG(ConfigMaker):
                            specconfig=defaults.common['specfile'],
                            rosterlist=defaults.common['rosterlist'],
                            jpriors=defaults.common['jpriors'],
-                           sim=defaults.sims['sim'], 
-                           nsims=defaults.sims['nsims'], 
+                           sim=defaults.sims['sim'],
+                           nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
                            clobber=defaults.common['clobber'])
 
@@ -1268,12 +1290,12 @@ class StackLikelihood_SG(ConfigMaker):
         """Hook to build job configurations
         """
         job_configs = {}
-        
+
         jpriors = args['jpriors']
         dry_run = args['dry_run']
         clobber = args['clobber']
         sim = args['sim']
-        
+
         if is_not_null(sim):
             is_sim = True
             nsims = args['nsims']
@@ -1294,8 +1316,8 @@ class StackLikelihood_SG(ConfigMaker):
                 target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
             else:
                 target_dir = NAME_FACTORY.targetdir(**name_keys)
-                
-            logfile = os.path.join(target_dir, 'stack_%s_%s.log'%(jprior, sim))
+
+            logfile = os.path.join(target_dir, 'stack_%s_%s.log' % (jprior, sim))
             job_config = dict(ttype=args['ttype'],
                               specconfig=args['specconfig'],
                               rosterlist=args['rosterlist'],
@@ -1303,7 +1325,7 @@ class StackLikelihood_SG(ConfigMaker):
                               sim=sim,
                               logfile=logfile,
                               nsims=nsims,
-                              seed=seed,                                  
+                              seed=seed,
                               dry_run=dry_run,
                               clobber=clobber)
 

@@ -8,6 +8,7 @@ import yaml
 from fermipy.jobs.utils import is_null, is_not_null
 from fermipy.jobs.name_policy import NameFactory as NameFactory_Base
 
+
 class NameFactory(NameFactory_Base):
     """ Helper class to define file names and keys consistently. """
 
@@ -69,17 +70,17 @@ class NameFactory(NameFactory_Base):
         """ return the name of DM spectral file
         """
         return self._format_from_dict(NameFactory.specfile_format, **kwargs)
-      
+
     def rosterfile(self, **kwargs):
         """ return the name for the Roster list file
         """
         return self._format_from_dict(NameFactory.rosterfile_format, **kwargs)
-    
+
     def sim_rosterfile(self, **kwargs):
         """ return the name for the Roster list file for simulation
         """
         return self._format_from_dict(NameFactory.sim_rosterfile_format, **kwargs)
-    
+
     def j_valuefile(self, **kwargs):
         """ return the name of the yaml file with information about a partiuclar target j factor
         """
@@ -89,17 +90,17 @@ class NameFactory(NameFactory_Base):
         """ return the name of the yaml file with information about a partiuclar target j factor
         """
         return self._format_from_dict(NameFactory.sim_j_valuefile_format, **kwargs)
-    
+
     def dmlikefile(self, **kwargs):
         """ return the name for the DM likelilood file for a particular target
         """
         return self._format_from_dict(NameFactory.dmlikefile_format, **kwargs)
-    
+
     def dmlimitsfile(self, **kwargs):
         """ return the name for the DM limits file for a particular target
         """
         return self._format_from_dict(NameFactory.dmlimitsfile_format, **kwargs)
- 
+
     def resultsfile(self, **kwargs):
         """ return the name for the stacked results file for a particular roster
         """
@@ -109,42 +110,42 @@ class NameFactory(NameFactory_Base):
         """ return the name for the stacked limits file for a particular roster
         """
         return self._format_from_dict(NameFactory.stackedlimitsfile_format, **kwargs)
-        
+
     def sim_dmlikefile(self, **kwargs):
         """ return the name for the simulated DM likelilood file for a particular target
         """
-        if not kwargs.has_key('seed'):
+        if 'seed' not in kwargs:
             kwargs['seed'] = 'SEED'
         return self._format_from_dict(NameFactory.sim_dmlikefile_format, **kwargs)
-    
+
     def sim_dmlimitsfile(self, **kwargs):
         """ return the name for the simulated DM limits file for a particular target
         """
-        if not kwargs.has_key('seed'):
+        if 'seed' not in kwargs:
             kwargs['seed'] = 'SEED'
         return self._format_from_dict(NameFactory.sim_dmlimitsfile_format, **kwargs)
 
     def sim_resultsfile(self, **kwargs):
         """ return the name for the stacked results file for a particular roster
         """
-        if not kwargs.has_key('seed'):
+        if 'seed' not in kwargs:
             kwargs['seed'] = 'SEED'
         return self._format_from_dict(NameFactory.sim_resultsfile_format, **kwargs)
- 
+
     def sim_stackedlimitsfile(self, **kwargs):
         """ return the name for the stacked limits file for a particular roster
         """
-        if not kwargs.has_key('seed'):
+        if 'seed' not in kwargs:
             kwargs['seed'] = 'SEED'
         return self._format_from_dict(NameFactory.sim_stackedlimitsfile_format, **kwargs)
-    
+
     def resolve_rosterfile(self, args, require_sim_name=False):
         """Get the name of the roster based on the job arguments"""
         ttype = args.get('ttype')
         if is_null(ttype):
             sys.stderr.write('Target type must be specified')
             return (None, None)
-      
+
         sim = args.get('sim')
         if is_null(sim):
             if require_sim_name:
@@ -164,10 +165,10 @@ class NameFactory(NameFactory_Base):
 
         roster_override = args.get('rosterfile')
         if is_not_null(roster_override):
-           rosterfile  = roster_override
-        
+            rosterfile = roster_override
+
         return (rosterfile, sim)
-  
+
     def resolve_specfile(self, args, require_sim_name=False):
         """Get the name of the specturm file based on the job arguments"""
         ttype = args.get('ttype')
@@ -195,4 +196,3 @@ class NameFactory(NameFactory_Base):
         if is_not_null(spec_override):
             specconfig = spec_override
         return specconfig
-

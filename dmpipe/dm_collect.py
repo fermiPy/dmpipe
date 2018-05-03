@@ -55,7 +55,7 @@ class CollectLimits(Link):
     """
     appname = 'dmpipe-collect-limits'
     linkname_default = 'collect-limits'
-    usage = '%s [options]'%(appname)
+    usage = '%s [options]' % (appname)
     description = "Collect Limits from simulations"
 
     default_options = dict(limitfile=defaults.generic['limitfile'],
@@ -79,7 +79,13 @@ class CollectLimits(Link):
         limitfile = args.limitfile
         first = args.seed
         last = first + args.nsims
-        flist = [ limitfile.replace("_SEED.fits", "_%06i.fits"%seed) for seed in range(first, last) ]
+        flist = [
+            limitfile.replace(
+                "_SEED.fits",
+                "_%06i.fits" %
+                seed) for seed in range(
+                first,
+                last)]
 
         spec_config = load_yaml(args.specconfig)
         channels = spec_config['channels']
@@ -89,16 +95,15 @@ class CollectLimits(Link):
 
         hdus = channels + ['MASSES']
 
-        out_tables, out_names = vstack_tables(flist, hdus) 
+        out_tables, out_names = vstack_tables(flist, hdus)
 
         if is_not_null(outfile):
             fits_utils.write_tables_to_fits(outfile, out_tables, namelist=out_names)
 
         if is_not_null(summaryfile):
             summary_tables = [summarize_limits_results(ot) for ot in out_tables[0:-1]]
-            summary_tables.append( Table(out_tables[-1][0])  )
+            summary_tables.append(Table(out_tables[-1][0]))
             fits_utils.write_tables_to_fits(summaryfile, summary_tables, namelist=out_names)
-
 
 
 class CollectLimits_SG(ConfigMaker):
@@ -153,23 +158,27 @@ class CollectLimits_SG(ConfigMaker):
                     if is_null(jprior):
                         jprior = 'none'
                     full_key = "%s:%s:%s:%s" % (target_name, profile, sim, jprior)
-                    name_keys = dict(target_type=ttype, 
+                    name_keys = dict(target_type=ttype,
                                      target_name=target_name,
                                      sim_name=sim,
                                      profile=profile,
-                                     jprior=jprior, 
+                                     jprior=jprior,
                                      fullpath=True)
                     limitfile = NAME_FACTORY.sim_dmlimitsfile(**name_keys)
                     first = args['seed']
                     last = first + args['nsims'] - 1
-                    outfile = limitfile.replace('_SEED.fits','_collected_%06i_%06i.fits'%(first, last))
+                    outfile = limitfile.replace(
+                        '_SEED.fits', '_collected_%06i_%06i.fits' %
+                        (first, last))
                     logfile = make_nfs_path(outfile.replace('.fits', '.log'))
                     if not write_full:
                         outfile = None
-                    summaryfile = limitfile.replace('_SEED.fits','_summary_%06i_%06i.fits'%(first, last))
+                    summaryfile = limitfile.replace(
+                        '_SEED.fits', '_summary_%06i_%06i.fits' %
+                        (first, last))
                     job_config = dict(limitfile=limitfile,
                                       specconfig=specconfig,
-                                      jprior=jprior, 
+                                      jprior=jprior,
                                       outfile=outfile,
                                       summaryfile=summaryfile,
                                       logfile=logfile,
@@ -232,23 +241,27 @@ class CollectStackedLimits_SG(ConfigMaker):
                 if is_null(jprior):
                     jprior = 'none'
                 full_key = "%s:%s:%s" % (roster_name, sim, jprior)
-                name_keys = dict(target_type=ttype, 
+                name_keys = dict(target_type=ttype,
                                  roster_name=roster_name,
                                  sim_name=sim,
-                                 jprior=jprior, 
+                                 jprior=jprior,
                                  fullpath=True)
 
                 limitfile = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
                 first = args['seed']
                 last = first + args['nsims'] - 1
-                outfile = limitfile.replace('_SEED.fits','_collected_%06i_%06i.fits'%(first, last))
+                outfile = limitfile.replace(
+                    '_SEED.fits', '_collected_%06i_%06i.fits' %
+                    (first, last))
                 logfile = make_nfs_path(outfile.replace('.fits', '.log'))
                 if not write_full:
                     outfile = None
-                summaryfile = limitfile.replace('_SEED.fits','_summary_%06i_%06i.fits'%(first, last))
+                summaryfile = limitfile.replace(
+                    '_SEED.fits', '_summary_%06i_%06i.fits' %
+                    (first, last))
                 job_config = dict(limitfile=limitfile,
                                   specconfig=specconfig,
-                                  jprior=jprior, 
+                                  jprior=jprior,
                                   outfile=outfile,
                                   summaryfile=summaryfile,
                                   logfile=logfile,
@@ -258,6 +271,7 @@ class CollectStackedLimits_SG(ConfigMaker):
                 job_configs[full_key] = job_config
 
         return job_configs
+
 
 def register_classes():
     CollectLimits.register_class()

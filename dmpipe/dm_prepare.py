@@ -41,6 +41,7 @@ except ImportError:
 
 NAME_FACTORY = NameFactory(basedir=('.'))
 
+
 class PrepareTargets(Link):
     """Small class wrap an analysis script.
 
@@ -48,7 +49,7 @@ class PrepareTargets(Link):
     """
     appname = 'dmpipe-prepare-targets'
     linkname_default = 'prepare-targets'
-    usage = '%s [options]' %(appname)
+    usage = '%s [options]' % (appname)
     description = "Prepare directories for target analyses"
 
     default_options = dict(ttype=defaults.common['ttype'],
@@ -57,19 +58,18 @@ class PrepareTargets(Link):
                            sims=defaults.sims['sims'],
                            dry_run=defaults.common['dry_run'])
 
-
     def __init__(self, **kwargs):
         """C'tor
         """
         linkname, init_dict = self._init_dict(**kwargs)
         super(PrepareTargets, self).__init__(linkname, **init_dict)
 
-    @classmethod 
-    def _write_data_target_config(cls, base_config, target, target_dir):         
-        target_config_path = os.path.join(target_dir, 'config.yaml')        
+    @classmethod
+    def _write_data_target_config(cls, base_config, target, target_dir):
+        target_config_path = os.path.join(target_dir, 'config.yaml')
         target_config = base_config.copy()
         target_config['selection']['ra'] = target.ra
-        target_config['selection']['dec'] = target.dec                    
+        target_config['selection']['dec'] = target.dec
         try:
             os.makedirs(target_dir)
         except OSError:
@@ -77,17 +77,19 @@ class PrepareTargets(Link):
         write_yaml(target_config, target_config_path)
         return target_config
 
-    @classmethod 
-    def _write_sim_target_config(cls, target_config, target_dir, sim_target_dir):         
-        sim_target_config_path = os.path.join(sim_target_dir, 'config.yaml')        
+    @classmethod
+    def _write_sim_target_config(cls, target_config, target_dir, sim_target_dir):
+        sim_target_config_path = os.path.join(sim_target_dir, 'config.yaml')
         sim_target_config = copy.deepcopy(target_config)
         try:
             os.makedirs(sim_target_dir)
         except OSError:
             pass
 
-        sim_target_config['gtlike']['bexpmap'] = os.path.abspath(os.path.join(target_dir,'bexpmap_00.fits'))
-        sim_target_config['gtlike']['srcmap'] = os.path.abspath(os.path.join(target_dir,'srcmap_00.fits'))
+        sim_target_config['gtlike']['bexpmap'] = os.path.abspath(
+            os.path.join(target_dir, 'bexpmap_00.fits'))
+        sim_target_config['gtlike']['srcmap'] = os.path.abspath(
+            os.path.join(target_dir, 'srcmap_00.fits'))
         sim_target_config['gtlike']['use_external_srcmap'] = True
 
         write_yaml(sim_target_config, sim_target_config_path)
@@ -95,12 +97,12 @@ class PrepareTargets(Link):
 
     @classmethod
     def _write_profile_yaml(cls, target, profile_path, target_verkey):
-       
+
         source_model = dict(SpectrumType='PowerLaw',
                             RA=target.ra,
                             DEC=target.dec)
-        
-        if target.proftype in [None, 'point', 'Point']:                                        
+
+        if target.proftype in [None, 'point', 'Point']:
             source_model.update(dict(SpatialModel='PointSource'))
         elif target.proftype in ['Map']:
             source_model.update(dict(SpatialModel='DiffuseSource',
@@ -112,7 +114,7 @@ class PrepareTargets(Link):
             source_model.update(dict(SpatialModel='DiffuseSource',
                                      SpatialType='RadialProfile',
                                      radialprofile=target.j_rad_file))
-                    
+
         profile_dict = dict(name=target_verkey,
                             source_model=source_model)
         write_yaml(profile_dict, profile_path)
@@ -120,7 +122,7 @@ class PrepareTargets(Link):
 
     @classmethod
     def _write_j_value_yaml(cls, target, j_val_path):
-        
+
         j_profile_data = target.profile.copy()
         j_profile_data['j_integ'] = target.j_integ
         j_profile_data['j_sigma'] = target.j_sigma
@@ -131,12 +133,12 @@ class PrepareTargets(Link):
     @classmethod
     def _write_sim_yaml(cls, target, sim, sim_target_dir, target_verkey):
 
-        sim_profile_yaml = os.path.join('config', 'sim_%s.yaml'%sim)
+        sim_profile_yaml = os.path.join('config', 'sim_%s.yaml' % sim)
         sim_profile = load_yaml(sim_profile_yaml)
         injected_source = sim_profile.get('injected_source', None)
         if injected_source is not None:
             sim_profile['injected_source']['source_model']['norm']['value'] = target.j_integ
-        sim_out_path = os.path.join(sim_target_dir, 'sim_%s_%s.yaml'%(sim, target_verkey))
+        sim_out_path = os.path.join(sim_target_dir, 'sim_%s_%s.yaml' % (sim, target_verkey))
         write_yaml(sim_profile, sim_out_path)
         return sim_profile
 
@@ -157,15 +159,15 @@ class PrepareTargets(Link):
         for roster_name, rost in roster_dict.items():
             tlist = []
             for target_name, target in rost.items():
-                
+
                 if target.ver_key is None:
                     target_verkey = target.version
                 else:
                     target_verkey = target.ver_key
                 target_key = "%s:%s" % (target_name, target_verkey)
                 print("Writing %s" % (target_key))
-                
-                if target_info_dict.has_key(target_name):
+
+                if target_name in target_info_dict:
                     target_info_dict[target_name].append(target_verkey)
                 else:
                     target_info_dict[target_name] = [target_verkey]
@@ -180,7 +182,7 @@ class PrepareTargets(Link):
                 j_val_path = NAME_FACTORY.j_valuefile(**name_keys)
 
                 write_config = False
-                if target_dict.has_key(target_name):
+                if target_name in target_dict:
                     # Already made the config for this target
                     target_config = target_dict[target_name].copy()
                 else:
@@ -212,7 +214,7 @@ class PrepareTargets(Link):
         write_yaml(target_info_dict, target_file)
 
         for sim in sims:
-            sim_dir = os.path.join("%s_sim"%ttype, "sim_%s"%sim)
+            sim_dir = os.path.join("%s_sim" % ttype, "sim_%s" % sim)
             sim_roster_file = os.path.join(sim_dir, 'roster_list.yaml')
             sim_target_file = os.path.join(sim_dir, 'target_list.yaml')
             try:
@@ -221,7 +223,6 @@ class PrepareTargets(Link):
                 pass
             copyfile(roster_file, sim_roster_file)
             copyfile(target_file, sim_target_file)
-
 
     def run_analysis(self, argv):
         """Run this analysis"""
@@ -232,7 +233,7 @@ class PrepareTargets(Link):
         if len(args.rosters) == 0:
             sys.stderr.write("You must specify at least one target roster")
             return -1
-        
+
         if is_null(args.ttype):
             sys.stderr.write("You must specify a target type")
             return -1
@@ -245,7 +246,7 @@ class PrepareTargets(Link):
         name_keys = dict(target_type=args.ttype,
                          fullpath=True)
         config_file = NAME_FACTORY.ttypeconfig(**name_keys)
-        
+
         if is_not_null(args.config):
             config_file = args.config
 
@@ -255,8 +256,7 @@ class PrepareTargets(Link):
 
         base_config = load_yaml(config_file)
         self._write_target_dirs(args.ttype, roster_dict, base_config, sims)
-   
+
 
 def register_classes():
     PrepareTargets.register_class()
-

@@ -19,7 +19,7 @@ def plot_dm_spectra_by_channel(dm_spec_table, mass=100, spec_type='eflux', ylims
     """ Make a plot of the DM spectra.
 
     dm_spec_table : Object with the spectral table
-    mass       : Mass of the DM particle 
+    mass       : Mass of the DM particle
     ylims      : y-axis limits
     """
     import matplotlib.pyplot as plt
@@ -48,13 +48,13 @@ def plot_dm_spectra_by_channel(dm_spec_table, mass=100, spec_type='eflux', ylims
 
     leg = axis.legend(loc="best", ncol=2, fontsize=10)
     return fig, axis, leg
-        
+
 
 def plot_dm_spectra_by_mass(dm_spec_table, chan='bb', spec_type='eflux', ylims=(1e-12, 1e-6)):
     """ Make a plot of the DM spectra.
 
     dm_spec_table : Object with the spectral table
-    mass       : Mass of the DM particle 
+    mass       : Mass of the DM particle
     ylims      : y-axis limits
     """
     import matplotlib.pyplot as plt
@@ -75,12 +75,12 @@ def plot_dm_spectra_by_mass(dm_spec_table, chan='bb', spec_type='eflux', ylims=(
 
     masses = dm_spec_table.masses(chan_id)
     for table_idx, mass in zip(chan_idx_list, masses):
-        spectrum = dm_spec_table._s_table[table_idx]["ref_%s" % spec_type]        
-        axis.plot(energies, spectrum, label="%.1F GeV"%mass)
+        spectrum = dm_spec_table._s_table[table_idx]["ref_%s" % spec_type]
+        axis.plot(energies, spectrum, label="%.1F GeV" % mass)
 
     leg = axis.legend(loc="best", ncol=2, fontsize=10)
     return fig, axis, leg
-        
+
 
 def plot_dm_castro(castro_dm, ylims=(1e-28, 1e-22), nstep=100, zlims=None):
     """ Make a color plot (1castro plot) of the delta log-likelihood as a function of
@@ -273,8 +273,8 @@ def plot_limits_from_arrays(ldict, xlims, ylims, bands):
 def plot_expected_limit_bands(axis, bands):
     """ Plot the expected limit bands """
     masses = bands['MASSES']
-    print (masses.shape, bands['q02'].shape, bands['q16'].shape, 
-           bands['median'].shape, bands['q84'].shape,  bands['q97'].shape)
+    print (masses.shape, bands['q02'].shape, bands['q16'].shape,
+           bands['median'].shape, bands['q84'].shape, bands['q97'].shape)
 
     axis.fill_between(masses, bands['q02'], bands['q97'], color='yellow')
     axis.fill_between(masses, bands['q16'], bands['q84'], color='green')
@@ -297,7 +297,7 @@ def plot_limits(sdict, xlims, ylims, alpha=0.05):
     ylims      : y-axis limits
     alpha      : Confidence level to use in setting limits = 1 - alpha
     """
-    
+
     ldict = {}
     for key, val in sdict.items():
         ldict[key] = (val.masses, val.getLimits(alpha))
@@ -359,7 +359,6 @@ def plot_limit(dm_castro_data, ylims, alpha=0.05):
     axis.plot(xvals, yvals)
 
     return fig, axis
-
 
 
 def test_func():

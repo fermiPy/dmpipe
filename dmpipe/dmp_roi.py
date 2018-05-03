@@ -139,7 +139,7 @@ def merge_and_sort_table(tdict, klist):
 
     # Sort the rows
     for key in klist:
-        if kdict.has_key(key):
+        if key in kdict:
             kdict[key] += 1
         else:
             kdict[key] = 0

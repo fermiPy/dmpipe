@@ -36,23 +36,24 @@ from dmpipe import defaults
 
 NAME_FACTORY = NameFactory(basedir='.')
 
+
 def get_ul_bands(table, prefix):
-    o = dict(q02=np.squeeze(table["%s_q02"%prefix]),
-             q16=np.squeeze(table["%s_q16"%prefix]),
-             q84=np.squeeze(table["%s_q84"%prefix]),
-             q97=np.squeeze(table["%s_q97"%prefix]),
-             median=np.squeeze(table["%s_median"%prefix]))
+    o = dict(q02=np.squeeze(table["%s_q02" % prefix]),
+             q16=np.squeeze(table["%s_q16" % prefix]),
+             q84=np.squeeze(table["%s_q84" % prefix]),
+             q97=np.squeeze(table["%s_q97" % prefix]),
+             median=np.squeeze(table["%s_median" % prefix]))
     return o
 
 
 class PlotDMSpectra(Link):
     """Small class wrap an analysis script.
-    
+
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
     appname = 'dmpipe-plot-dm-spectra'
     linkname_default = 'plot-dm-spectra'
-    usage = '%s [options]' %(appname)
+    usage = '%s [options]' % (appname)
     description = "Plot the DM spectra stored in pre-computed tables"
 
     default_options = dict(infile=defaults.generic['infile'],
@@ -66,29 +67,31 @@ class PlotDMSpectra(Link):
         """
         linkname, init_dict = self._init_dict(**kwargs)
         super(PlotDMSpectra, self).__init__(linkname, **init_dict)
-        
+
     def run_analysis(self, argv):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
-        
+
         dm_spec_table = DMSpecTable.create_from_fits(args.infile)
-        dm_plot_by_mass = plot_dm_spectra_by_mass(dm_spec_table, chan=args.chan, spec_type=args.spec_type)
-        dm_plot_by_chan = plot_dm_spectra_by_channel(dm_spec_table, mass=args.mass, spec_type=args.spec_type)
-        
+        dm_plot_by_mass = plot_dm_spectra_by_mass(
+            dm_spec_table, chan=args.chan, spec_type=args.spec_type)
+        dm_plot_by_chan = plot_dm_spectra_by_channel(
+            dm_spec_table, mass=args.mass, spec_type=args.spec_type)
+
         if args.outfile:
-            dm_plot_by_mass[0].savefig(args.outfile.replace('.png', '_%s.png'%args.chan))
-            dm_plot_by_chan[0].savefig(args.outfile.replace('.png', '_%1.FGeV.png'%args.mass))
+            dm_plot_by_mass[0].savefig(args.outfile.replace('.png', '_%s.png' % args.chan))
+            dm_plot_by_chan[0].savefig(args.outfile.replace('.png', '_%1.FGeV.png' % args.mass))
 
 
 class PlotLimits(Link):
     """Small class wrap an analysis script.
-    
+
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
     appname = 'dmpipe-plot-limits'
     linkname_default = 'plot-limits'
-    usage = '%s [options]'%(appname)
-    description = "Plot DM limits on <sigma v> versus mass" 
+    usage = '%s [options]' % (appname)
+    description = "Plot DM limits on <sigma v> versus mass"
 
     default_options = dict(infile=defaults.generic['infile'],
                            outfile=defaults.generic['outfile'],
@@ -109,7 +112,7 @@ class PlotLimits(Link):
         if is_not_null(args.infile):
             tab_m = Table.read(args.infile, hdu="MASSES")
             tab_s = Table.read(args.infile, hdu=args.chan)
-            
+
             xvals = tab_m['MASSES'][0]
             yvals = tab_s['UL_0.95'][0]
             ldict = dict(limits=(xvals, yvals))
@@ -130,8 +133,8 @@ class PlotLimits(Link):
         else:
             injected_src = None
 
-        xlims=(1e1, 1e4)
-        ylims=(1e-28, 1e-22)
+        xlims = (1e1, 1e4)
+        ylims = (1e-28, 1e-22)
 
         dm_plot = plot_limits_from_arrays(ldict, xlims, ylims, bands)
 
@@ -147,12 +150,12 @@ class PlotLimits(Link):
 
 class PlotDM(Link):
     """Small class wrap an analysis script.
-    
+
     This is useful for parallelizing analysis using the fermipy.jobs module.
     """
     appname = 'dmpipe-plot-dm'
     linkname_default = 'plot-dm'
-    usage = "%s [options]"%(appname)
+    usage = "%s [options]" % (appname)
     description = "Plot the likelihood vs <sigma v> and DM particle mass"
 
     default_options = dict(infile=defaults.generic['infile'],
@@ -171,7 +174,7 @@ class PlotDM(Link):
         tab_m = Table.read(args.infile, hdu="MASSES")
         tab_s = Table.read(args.infile, hdu=args.chan)
         dm_castro = DMCastroData.create_from_tables(tab_s, tab_m)
-        
+
         dm_plot = plot_dm_castro(dm_castro)
         if args.outfile:
             dm_plot[0].savefig(args.outfile)
@@ -188,9 +191,9 @@ class PlotLimits_SG(ConfigMaker):
     usage = "%s [options]" % (appname)
     description = "Make castro plots for set of targets"
     clientclass = PlotLimits
-    
+
     job_time = 60
- 
+
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            bands=defaults.collect['bands'],
@@ -217,7 +220,7 @@ class PlotLimits_SG(ConfigMaker):
 
         jpriors = args['jpriors']
         channels = args['channels']
-        
+
         targets = load_yaml(targets_yaml)
         for target_name, target_list in targets.items():
             for targ_prof in target_list:
@@ -229,9 +232,9 @@ class PlotLimits_SG(ConfigMaker):
                                      fullpath=True)
                     input_path = NAME_FACTORY.dmlimitsfile(**name_keys)
                     for chan in channels:
-                        targ_key = "%s:%s:%s:%s"%(target_name, targ_prof, jprior, chan)
+                        targ_key = "%s:%s:%s:%s" % (target_name, targ_prof, jprior, chan)
 
-                        output_path = input_path.replace('.fits', '_%s.png'%chan)
+                        output_path = input_path.replace('.fits', '_%s.png' % chan)
                         logfile = make_nfs_path(output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
@@ -239,7 +242,7 @@ class PlotLimits_SG(ConfigMaker):
                                           logfile=logfile,
                                           chan=chan)
                         job_configs[targ_key] = job_config
-                
+
         return job_configs
 
 
@@ -295,24 +298,24 @@ class PlotStackedLimits_SG(ConfigMaker):
                                  sim_name=sim,
                                  fullpath=True)
                 for chan in channels:
-                    targ_key = "%s:%s:%s"%(roster_name, jprior, chan)
+                    targ_key = "%s:%s:%s" % (roster_name, jprior, chan)
                     if sim is not None:
-                        seedlist = range(args['seed'], args['seed']+args['nsims'])
-                        sim_path = os.path.join('config','sim_%s.yaml'%sim)
+                        seedlist = range(args['seed'], args['seed'] + args['nsims'])
+                        sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
                     else:
                         seedlist = [None]
                         sim_path = None
 
                     for seed in seedlist:
                         if seed is not None:
-                            name_keys['seed'] = "%06i"%seed                    
+                            name_keys['seed'] = "%06i" % seed
                             input_path = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
-                            full_targ_key = "%s_%06i"%(targ_key, seed)
+                            full_targ_key = "%s_%06i" % (targ_key, seed)
                         else:
                             input_path = NAME_FACTORY.stackedlimitsfile(**name_keys)
                             full_targ_key = targ_key
 
-                        output_path = input_path.replace('.fits', '_%s.png'%chan)
+                        output_path = input_path.replace('.fits', '_%s.png' % chan)
                         logfile = make_nfs_path(output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
@@ -321,10 +324,8 @@ class PlotStackedLimits_SG(ConfigMaker):
                                           sim=sim_path,
                                           chan=chan)
                         job_configs[full_targ_key] = job_config
-                
+
         return job_configs
-
-
 
 
 class PlotDM_SG(ConfigMaker):
@@ -377,8 +378,8 @@ class PlotDM_SG(ConfigMaker):
                                      fullpath=True)
                     input_path = NAME_FACTORY.dmlikefile(**name_keys)
                     for chan in channels:
-                        targ_key = "%s:%s:%s:%s"%(target_name, targ_prof, jprior, chan)
-                        output_path = input_path.replace('.fits', '_%s.png'%chan)
+                        targ_key = "%s:%s:%s:%s" % (target_name, targ_prof, jprior, chan)
+                        output_path = input_path.replace('.fits', '_%s.png' % chan)
                         logfile = make_nfs_path(output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
@@ -386,7 +387,7 @@ class PlotDM_SG(ConfigMaker):
                                           logfile=logfile,
                                           chan=chan)
                         job_configs[targ_key] = job_config
-                
+
         return job_configs
 
 
@@ -408,7 +409,7 @@ class PlotStackedDM_SG(ConfigMaker):
                            jpriors=defaults.common['jpriors'],
                            sim=defaults.sims['sim'],
                            nsims=defaults.sims['nsims'],
-                           seed=defaults.sims['seed'],                           
+                           seed=defaults.sims['seed'],
                            dry_run=defaults.common['dry_run'])
 
     def __init__(self, link, **kwargs):
@@ -422,14 +423,14 @@ class PlotStackedDM_SG(ConfigMaker):
         """Hook to build job configurations
         """
         job_configs = {}
-        
+
         ttype = args['ttype']
         (roster_yaml, sim) = NAME_FACTORY.resolve_rosterfile(args)
         if roster_yaml is None:
             return job_configs
 
         roster_dict = load_yaml(roster_yaml)
- 
+
         jpriors = args['jpriors']
         channels = args['channels']
 
@@ -440,25 +441,25 @@ class PlotStackedDM_SG(ConfigMaker):
                                  jprior=jprior,
                                  sim_name=sim,
                                  fullpath=True)
-                
+
                 for chan in channels:
-                    targ_key = "%s:%s:%s"%(roster_name, jprior, chan)
-                
+                    targ_key = "%s:%s:%s" % (roster_name, jprior, chan)
+
                     if sim is not None:
-                        seedlist = range(args['seed'], args['seed']+args['nsims'])
+                        seedlist = range(args['seed'], args['seed'] + args['nsims'])
                     else:
                         seedlist = [None]
-                        
+
                     for seed in seedlist:
                         if seed is not None:
-                            name_keys['seed'] = "%06i"%seed                    
+                            name_keys['seed'] = "%06i" % seed
                             input_path = NAME_FACTORY.sim_resultsfile(**name_keys)
-                            full_targ_key = "%s_%06i"%(targ_key, seed)
+                            full_targ_key = "%s_%06i" % (targ_key, seed)
                         else:
                             input_path = NAME_FACTORY.resultsfile(**name_keys)
                             full_targ_key = targ_key
 
-                        output_path = input_path.replace('.fits', '_%s.png'%chan)
+                        output_path = input_path.replace('.fits', '_%s.png' % chan)
                         logfile = make_nfs_path(output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
@@ -466,7 +467,7 @@ class PlotStackedDM_SG(ConfigMaker):
                                           logfile=logfile,
                                           chan=chan)
                         job_configs[full_targ_key] = job_config
-                
+
         return job_configs
 
 

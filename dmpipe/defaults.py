@@ -8,7 +8,7 @@ from fermipy.jobs import defaults as base_defaults
 
 generic = {
     'limitfile': (None, 'Path to file with limits.', str),
-    }
+}
 generic.update(base_defaults.generic)
 
 common = {
@@ -23,9 +23,9 @@ common = {
     'channels': ([], 'DM annihilation channels', list),
     'chan': ('bb', 'DM annihilation channel', str),
     'mass': (100, 'DM particle mass', float),
-    'spec_type' : ('eflux', 'Type of flux to consider', str),
-    'clobber' : (False, 'Overwrite existing files.', bool),
-    }
+    'spec_type': ('eflux', 'Type of flux to consider', str),
+    'clobber': (False, 'Overwrite existing files.', bool),
+}
 common.update(base_defaults.common)
 
 sims = {}
@@ -33,5 +33,5 @@ sims.update(base_defaults.sims)
 
 collect = {
     'bands': (None, 'Name of file with expected limit bands.', str),
-    }
+}
 collect.update(base_defaults.collect)
