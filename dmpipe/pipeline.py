@@ -13,7 +13,6 @@ import argparse
 from collections import OrderedDict
 
 from fermipy.jobs.job_archive import JobArchive, JobStatus, JobDetails
-from fermipy.jobs.slac_impl import check_log
 from fermipy.jobs.link import Link
 from fermipy.jobs.chain import Chain, insert_app_config, purge_dict
 from fermipy.utils import load_yaml
@@ -68,10 +67,12 @@ class PipelineData(Chain):
         super(PipelineData, self).__init__(linkname, **init_dict)
 
     def _register_link_classes(self):    
-        from dmpipe.dm_plotting import register_classes as register_plotting
+        from fermipy.jobs.target_analysis import register_classes as register_analysis
+        from fermipy.jobs.target_plotting import register_classes as register_plotting
+        from dmpipe.dm_plotting import register_classes as register_plotting_dm
         from dmpipe.dm_spectral import register_classes as register_spectral
-        from dmpipe.target_analysis import register_classes as register_analysis
         register_plotting()
+        register_plotting_dm()
         register_spectral()
         register_analysis()
 
@@ -83,8 +84,8 @@ class PipelineData(Chain):
         config_dict = load_yaml(config_yaml)
         link_prefix = config_dict.get('link_prefix', '')         
         ttype = config_dict.get('ttype')    
-        config_template = config_dict.get('config_template')
-        config_localpath = config_dict.get('config_localpath')
+        config_template = config_dict.get('config_template', None)
+        config_localpath = config_dict.get('config_localpath', None)
         specfile = config_dict.get('specfile')
         rosterlist = config_dict.get('rosterlist')
         targetlist = config_dict.get('targetlist')
@@ -94,12 +95,12 @@ class PipelineData(Chain):
         plot_channels_default = config_dict.get('plot_channels', [])
         
         insert_app_config(o_dict, link_prefix+'analyze-roi',
-                          'dmpipe-analyze-roi-sg',
+                          'fermipy-analyze-roi-sg',
                           ttype=ttype, 
                           targetlist=targetlist,
                           config=config_localpath)
         insert_app_config(o_dict, link_prefix+'analyze-sed',
-                          'dmpipe-analyze-sed-sg',
+                          'fermipy-analyze-sed-sg',
                           ttype=ttype, 
                           targetlist=targetlist,
                           config=config_localpath)
@@ -119,7 +120,7 @@ class PipelineData(Chain):
         config_plot_castro = get_plot_config(data_plotting, 'plot-castro') 
         if config_plot_castro is not None:
             insert_app_config(o_dict, link_prefix+'plot-castro-sg',
-                              'dmpipe-plot-castro-sg',
+                              'fermipy-plot-castro-sg',
                               ttype=ttype,
                               targetlist=targetlist,
                               **config_plot_castro)
@@ -184,16 +185,20 @@ class PipelineSim(Chain):
         super(PipelineSim, self).__init__(linkname, **init_dict)
 
     def _register_link_classes(self):    
-        from dmpipe.dm_plotting import register_classes as register_plotting
+        from fermipy.jobs.target_analysis import register_classes as register_analysis
+        from fermipy.jobs.target_collect import register_classes as register_collect
+        from fermipy.jobs.target_sim import register_classes as register_sim
+        from fermipy.jobs.target_plotting import register_classes as register_plotting
+        from dmpipe.dm_plotting import register_classes as register_plotting_dm
         from dmpipe.dm_spectral import register_classes as register_spectral
-        from dmpipe.target_analysis import register_classes as register_analysis
-        from dmpipe.dm_collect import register_classes as register_collect
-        from dmpipe.target_sim import register_classes as register_sim
-        register_plotting()
-        register_spectral()
+        from dmpipe.dm_collect import register_classes as register_collect_dm
         register_analysis()
         register_collect()
         register_sim()
+        register_plotting()
+        register_plotting_dm()
+        register_spectral()
+        register_collect_dm()
   
     def _map_arguments(self, input_dict):
         """Map from the top-level arguments to the arguments provided to
@@ -207,13 +212,14 @@ class PipelineSim(Chain):
         sim_dict = config_dict['sims'][sim_name]
     
         ttype = config_dict.get('ttype')
-        config_template = config_dict.get('config_template')
-        config_localpath = config_dict.get('config_localpath')
+        config_template = config_dict.get('config_template', None)
+        config_localpath = config_dict.get('config_localpath', None)
         specfile = config_dict.get('specfile')
         rosterlist = config_dict.get('rosterlist')
         targetlist = config_dict.get('targetlist')
         jpriors = config_dict.get('jpriors')
 
+        enumbins = config_dict.get('enumbins', 12)
         sim_values = config_dict['sim_defaults']
         sim_values.update(sim_dict)    
         seed = sim_values.get('seed', 0)
@@ -223,14 +229,14 @@ class PipelineSim(Chain):
         plot_channels_default = config_dict.get('plot_channels', [])
         
         insert_app_config(o_dict, link_prefix+'copy-base-roi',
-                          'dmpipe-copy-base-roi-sg',
+                          'fermipy-copy-base-roi-sg',
                           ttype=ttype, 
                           targetlist=targetlist,
                           rosterlist=rosterlist,
                           sim=sim_name,
                           config=config_template)
         insert_app_config(o_dict, link_prefix+'simulate-roi',
-                          'dmpipe-simulate-roi-sg',
+                          'fermipy-simulate-roi-sg',
                           ttype=ttype,  
                           sim=sim_name,
                           targetlist=targetlist,
@@ -253,9 +259,10 @@ class PipelineSim(Chain):
                           rosterlist=rosterlist,
                           seed=seed, nsims=nsims)
         insert_app_config(o_dict, link_prefix+'collect-sed',
-                          'dmpipe-collect-sed-sg',
+                          'fermipy-collect-sed-sg',
                           ttype=ttype,  
                           sim=sim_name,
+                          enumbins=enumbins,
                           targetlist=targetlist,
                           seed=seed, nsims=nsims)
         insert_app_config(o_dict, link_prefix+'collect-limits',
@@ -318,16 +325,20 @@ class PipelineRandom(Chain):
         if LinkFactory._class_dict.has_key(self.appname):
             return
 
-        from dmpipe.dm_plotting import register_classes as register_plotting
+        from fermipy.jobs.target_analysis import register_classes as register_analysis
+        from fermipy.jobs.target_collect import register_classes as register_collect
+        from fermipy.jobs.target_sim import register_classes as register_sim
+        from fermipy.jobs.target_plotting import register_classes as register_plotting
+        from dmpipe.dm_plotting import register_classes as register_plotting_dm
         from dmpipe.dm_spectral import register_classes as register_spectral
-        from dmpipe.target_analysis import register_classes as register_analysis
-        from dmpipe.dm_collect import register_classes as register_collect
-        from dmpipe.target_sim import register_classes as register_sim
-        register_plotting()
-        register_spectral()
+        from dmpipe.dm_collect import register_classes as register_collect_dm
         register_analysis()
         register_collect()
         register_sim()
+        register_plotting()
+        register_plotting_dm()
+        register_spectral()
+        register_collect_dm()
    
 
     def _map_arguments(self, input_dict):
@@ -339,13 +350,14 @@ class PipelineRandom(Chain):
         link_prefix = config_dict.get('link_prefix', '')         
               
         ttype = config_dict.get('ttype')
-        config_template = config_dict.get('config_template')
-        config_localpath = config_dict.get('config_localpath')
+        config_template = config_dict.get('config_template', None)
+        config_localpath = config_dict.get('config_localpath', None)
         specfile = config_dict.get('specfile')
         rosterlist = config_dict.get('rosterlist')
         targetlist = config_dict.get('targetlist')
         jpriors = config_dict.get('jpriors')
         random = config_dict.get('random')
+        enumbins = config_dict.get('enumbins', 12)
 
         rand_dirs = random.get('rand_dirs')
         sim_values = config_dict['sim_defaults']
@@ -356,20 +368,21 @@ class PipelineRandom(Chain):
         plot_channels_default = config_dict.get('plot_channels', [])
     
         insert_app_config(o_dict, link_prefix+'copy-base-roi',
-                          'dmpipe-copy-base-roi-sg',
+                          'fermipy-copy-base-roi-sg',
                           ttype=ttype, 
                           targetlist=targetlist,
                           rosterlist=rosterlist,
                           sim='random',
                           config=config_template)
         insert_app_config(o_dict, link_prefix+'random-dir-gen',
-                          'dmpipe-random-dir-gen-sg',
+                          'fermipy-random-dir-gen-sg',
                           ttype=ttype,  
-                          rand_config=random['rand_dirs'],
+                          rand_config=rand_dirs,
                           targetlist=targetlist,
+                          sim='random',
                           config=config_localpath)
-        insert_app_config(o_dict, link_prefix+'analyze-sed',
-                          'dmpipe-analyze-sed-sg',
+        insert_app_config(o_dict, link_prefix+'fermipy-sed',
+                          'fermipy-analyze-sed-sg',
                           ttype=ttype,  
                           sim='random',
                           skydirs='skydirs.yaml',
@@ -393,9 +406,10 @@ class PipelineRandom(Chain):
                           rosterlist=rosterlist,
                           seed=seed, nsims=nsims)
         insert_app_config(o_dict, link_prefix+'collect-sed',
-                          'dmpipe-collect-sed-sg',
+                          'fermipy-collect-sed-sg',
                           ttype=ttype,  
                           sim='random',
+                          enumbins=enumbins,
                           targetlist=targetlist,
                           seed=seed, nsims=nsims)
         insert_app_config(o_dict, link_prefix+'collect-limits',
@@ -456,7 +470,7 @@ class Pipeline(Chain):
         self._preconfigured = False
 
     def _register_link_classes(self): 
-        from dmpipe.target_analysis import PrepareTargets
+        from dmpipe.dm_prepare import PrepareTargets
         from dmpipe.dm_spectral import SpecTable
         PrepareTargets.register_class()
         SpecTable.register_class()
@@ -469,7 +483,8 @@ class Pipeline(Chain):
         o_dict = OrderedDict()
         config_dict = load_yaml(config_yaml)
         ttype = config_dict.get('ttype')    
-        config_template = config_dict.get('config_template')
+        self.link_prefix = "%s."%ttype
+        config_template = config_dict.get('config_template', None)
         rosters = config_dict.get('rosters')
         sims = config_dict.get('sims', {})
         sim_names = []
@@ -506,7 +521,7 @@ class Pipeline(Chain):
         o_dict = OrderedDict()
         config_dict = load_yaml(config_yaml)
         ttype = config_dict.get('ttype')    
-        config_template = config_dict.get('config_template')
+        config_template = config_dict.get('config_template', None)
         rosters = config_dict.get('rosters')
         specfile = config_dict.get('specfile')
         sims = config_dict.get('sims', {})
@@ -531,8 +546,8 @@ class Pipeline(Chain):
 
         insert_app_config(o_dict, 'data',
                           'dmpipe-pipeline-data',
-                          link_prefix='data.',
                           linkname='data',
+                          link_prefix='data.',
                           config=config_yaml,
                           dry_run=dry_run)
         
