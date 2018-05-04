@@ -23,7 +23,7 @@ from fermipy.castro import CastroData
 from fermipy.utils import load_yaml
 from fermipy.jobs.utils import is_null, is_not_null
 from fermipy.jobs.link import Link
-from fermipy.jobs.scatter_gather import ConfigMaker
+from fermipy.jobs.scatter_gather import ScatterGather
 from fermipy.jobs.slac_impl import make_nfs_path
 
 from fermipy.spectrum import DMFitFunction
@@ -1174,7 +1174,7 @@ class StackLikelihood(Link):
                 args.clobber)
 
 
-class ConvertCastro_SG(ConfigMaker):
+class ConvertCastro_SG(ScatterGather):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
@@ -1270,7 +1270,7 @@ class ConvertCastro_SG(ConfigMaker):
         return job_configs
 
 
-class StackLikelihood_SG(ConfigMaker):
+class StackLikelihood_SG(ScatterGather):
     """Small class to generate configurations for this script
 
     This adds the following arguments:

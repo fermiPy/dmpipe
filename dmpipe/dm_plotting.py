@@ -16,7 +16,7 @@ from astropy.table import Table
 from fermipy.utils import init_matplotlib_backend, load_yaml
 from fermipy.jobs.utils import is_not_null
 from fermipy.jobs.link import Link
-from fermipy.jobs.scatter_gather import ConfigMaker
+from fermipy.jobs.scatter_gather import ScatterGather
 from fermipy.jobs.slac_impl import make_nfs_path
 
 from dmpipe.dm_spectral import DMCastroData, DMSpecTable
@@ -183,7 +183,7 @@ class PlotDM(Link):
         return dm_plot
 
 
-class PlotLimits_SG(ConfigMaker):
+class PlotLimits_SG(ScatterGather):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
@@ -250,7 +250,7 @@ class PlotLimits_SG(ConfigMaker):
         return job_configs
 
 
-class PlotStackedLimits_SG(ConfigMaker):
+class PlotStackedLimits_SG(ScatterGather):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
@@ -337,7 +337,7 @@ class PlotStackedLimits_SG(ConfigMaker):
         return job_configs
 
 
-class PlotDM_SG(ConfigMaker):
+class PlotDM_SG(ScatterGather):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
@@ -403,7 +403,7 @@ class PlotDM_SG(ConfigMaker):
         return job_configs
 
 
-class PlotStackedDM_SG(ConfigMaker):
+class PlotStackedDM_SG(ScatterGather):
     """Small class to generate configurations for this script
 
     This adds the following arguments:

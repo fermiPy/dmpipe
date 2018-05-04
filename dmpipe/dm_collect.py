@@ -14,7 +14,7 @@ from fermipy import fits_utils
 
 from fermipy.jobs.utils import is_null, is_not_null
 from fermipy.jobs.link import Link
-from fermipy.jobs.scatter_gather import ConfigMaker
+from fermipy.jobs.scatter_gather import ScatterGather
 from fermipy.jobs.slac_impl import make_nfs_path
 from fermipy.jobs.target_collect import vstack_tables, add_summary_stats_to_table
 
@@ -93,7 +93,7 @@ class CollectLimits(Link):
                 summaryfile, summary_tables, namelist=out_names)
 
 
-class CollectLimits_SG(ConfigMaker):
+class CollectLimits_SG(ScatterGather):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
@@ -179,7 +179,7 @@ class CollectLimits_SG(ConfigMaker):
         return job_configs
 
 
-class CollectStackedLimits_SG(ConfigMaker):
+class CollectStackedLimits_SG(ScatterGather):
     """Small class to generate configurations for this script
 
     This adds the following arguments:
