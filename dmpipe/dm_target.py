@@ -66,7 +66,10 @@ if __name__ == "__main__":
 
     PARSER = argparse.ArgumentParser(usage=USAGE, description=DESCRIPTION)
     PARSER.add_argument('--output', '-o', default=None, help='Output file.')
-    PARSER.add_argument('--clobber', action='store_true', help='Overwrite output file.')
+    PARSER.add_argument(
+        '--clobber',
+        action='store_true',
+        help='Overwrite output file.')
     PARSER.add_argument('input', nargs="*", help='Input roster.')
 
     ARGS = PARSER.parse_args()

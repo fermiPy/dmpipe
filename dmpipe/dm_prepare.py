@@ -9,35 +9,20 @@ This is useful to parallize the production of the source maps
 from __future__ import absolute_import, division, print_function
 
 import os
-import sys
-import argparse
-import numpy as np
 import copy
 
 from shutil import copyfile
 
 from dmsky.roster import RosterLibrary
 
-from fermipy.utils import load_yaml, write_yaml, init_matplotlib_backend
-
-from fermipy.castro import CastroData
-from fermipy.sed_plotting import plotCastro
+from fermipy.utils import load_yaml, write_yaml
 
 from fermipy.jobs.utils import is_null, is_not_null
 from fermipy.jobs.link import Link
-from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
-from fermipy.jobs.slac_impl import make_nfs_path, get_slac_default_args, SlacInterface
 
 from dmpipe.name_policy import NameFactory
 from dmpipe import defaults
 
-init_matplotlib_backend('Agg')
-
-try:
-    from fermipy.gtanalysis import GTAnalysis
-    HAVE_ST = True
-except ImportError:
-    HAVE_ST = False
 
 NAME_FACTORY = NameFactory(basedir=('.'))
 
@@ -78,7 +63,8 @@ class PrepareTargets(Link):
         return target_config
 
     @classmethod
-    def _write_sim_target_config(cls, target_config, target_dir, sim_target_dir):
+    def _write_sim_target_config(
+            cls, target_config, target_dir, sim_target_dir):
         sim_target_config_path = os.path.join(sim_target_dir, 'config.yaml')
         sim_target_config = copy.deepcopy(target_config)
         try:
@@ -137,8 +123,11 @@ class PrepareTargets(Link):
         sim_profile = load_yaml(sim_profile_yaml)
         injected_source = sim_profile.get('injected_source', None)
         if injected_source is not None:
-            sim_profile['injected_source']['source_model']['norm']['value'] = target.j_integ
-        sim_out_path = os.path.join(sim_target_dir, 'sim_%s_%s.yaml' % (sim, target_verkey))
+            sim_profile['injected_source']['source_model'][
+                'norm']['value'] = target.j_integ
+        sim_out_path = os.path.join(
+            sim_target_dir, 'sim_%s_%s.yaml' %
+            (sim, target_verkey))
         write_yaml(sim_profile, sim_out_path)
         return sim_profile
 
@@ -187,7 +176,8 @@ class PrepareTargets(Link):
                     target_config = target_dict[target_name].copy()
                 else:
                     # Make the config for this target
-                    target_config = cls._write_data_target_config(base_config, target, target_dir)
+                    target_config = cls._write_data_target_config(
+                        base_config, target, target_dir)
                     target_dict[target_name] = target_config
                     write_config = True
 
@@ -197,13 +187,17 @@ class PrepareTargets(Link):
                 for sim in sims:
                     name_keys['sim_name'] = sim
                     sim_target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
-                    sim_profile_path = NAME_FACTORY.sim_profilefile(**name_keys)
+                    sim_profile_path = NAME_FACTORY.sim_profilefile(
+                        **name_keys)
                     sim_j_val_path = NAME_FACTORY.sim_j_valuefile(**name_keys)
                     if write_config:
-                        cls._write_sim_target_config(target_config, target_dir, sim_target_dir)
-                    cls._write_profile_yaml(target, sim_profile_path, target_verkey)
-                    j_profile = cls._write_j_value_yaml(target, sim_j_val_path)
-                    cls._write_sim_yaml(target, sim, sim_target_dir, target_verkey)
+                        cls._write_sim_target_config(
+                            target_config, target_dir, sim_target_dir)
+                    cls._write_profile_yaml(
+                        target, sim_profile_path, target_verkey)
+                    cls._write_j_value_yaml(target, sim_j_val_path)
+                    cls._write_sim_yaml(target, sim,
+                                        sim_target_dir, target_verkey)
 
             roster_info_dict[roster_name] = tlist
 
@@ -230,13 +224,11 @@ class PrepareTargets(Link):
         roster_lib = RosterLibrary()
         roster_dict = {}
 
-        if len(args.rosters) == 0:
-            sys.stderr.write("You must specify at least one target roster")
-            return -1
+        if not args.rosters:
+            raise RuntimeError("You must specify at least one target roster")
 
         if is_null(args.ttype):
-            sys.stderr.write("You must specify a target type")
-            return -1
+            raise RuntimeError("You must specify a target type")
 
         if is_null(args.sims):
             sims = []
@@ -259,4 +251,5 @@ class PrepareTargets(Link):
 
 
 def register_classes():
+    """Register these classes with the `LinkFactory` """
     PrepareTargets.register_class()

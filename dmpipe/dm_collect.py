@@ -6,28 +6,17 @@ Collect information for simulated realizations of an analysis
 """
 from __future__ import absolute_import, division, print_function
 
-import os
-import sys
-import argparse
-import numpy as np
-
-from shutil import copyfile
-
 #from dmsky.roster import RosterLibrary
-from astropy.table import Table, Column, vstack
+from astropy.table import Table
 
-from fermipy.utils import load_yaml, write_yaml, init_matplotlib_backend
-
-from fermipy.castro import CastroData
-from fermipy.sed_plotting import plotCastro
+from fermipy.utils import load_yaml, init_matplotlib_backend
+from fermipy import fits_utils
 
 from fermipy.jobs.utils import is_null, is_not_null
 from fermipy.jobs.link import Link
-from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
+from fermipy.jobs.scatter_gather import ConfigMaker
 from fermipy.jobs.slac_impl import make_nfs_path
-from fermipy import fits_utils
-
-from fermipy.jobs.target_collect import fill_output_table, vstack_tables, collect_summary_stats, add_summary_stats_to_table
+from fermipy.jobs.target_collect import vstack_tables, add_summary_stats_to_table
 
 from dmpipe.name_policy import NameFactory
 from dmpipe import defaults
@@ -79,13 +68,8 @@ class CollectLimits(Link):
         limitfile = args.limitfile
         first = args.seed
         last = first + args.nsims
-        flist = [
-            limitfile.replace(
-                "_SEED.fits",
-                "_%06i.fits" %
-                seed) for seed in range(
-                first,
-                last)]
+        flist = [limitfile.replace("_SEED.fits", "_%06i.fits" % seed)\
+                     for seed in range(first, last)]
 
         spec_config = load_yaml(args.specconfig)
         channels = spec_config['channels']
@@ -98,12 +82,15 @@ class CollectLimits(Link):
         out_tables, out_names = vstack_tables(flist, hdus)
 
         if is_not_null(outfile):
-            fits_utils.write_tables_to_fits(outfile, out_tables, namelist=out_names)
+            fits_utils.write_tables_to_fits(
+                outfile, out_tables, namelist=out_names)
 
         if is_not_null(summaryfile):
-            summary_tables = [summarize_limits_results(ot) for ot in out_tables[0:-1]]
+            summary_tables = [summarize_limits_results(
+                ot) for ot in out_tables[0:-1]]
             summary_tables.append(Table(out_tables[-1][0]))
-            fits_utils.write_tables_to_fits(summaryfile, summary_tables, namelist=out_names)
+            fits_utils.write_tables_to_fits(
+                summaryfile, summary_tables, namelist=out_names)
 
 
 class CollectLimits_SG(ConfigMaker):
@@ -141,7 +128,8 @@ class CollectLimits_SG(ConfigMaker):
         job_configs = {}
 
         ttype = args['ttype']
-        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args, require_sim_name=True)
+        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(
+            args, require_sim_name=True)
         if targets_yaml is None:
             return job_configs
 
@@ -157,7 +145,8 @@ class CollectLimits_SG(ConfigMaker):
                 for jprior in jpriors:
                     if is_null(jprior):
                         jprior = 'none'
-                    full_key = "%s:%s:%s:%s" % (target_name, profile, sim, jprior)
+                    full_key = "%s:%s:%s:%s" % (
+                        target_name, profile, sim, jprior)
                     name_keys = dict(target_type=ttype,
                                      target_name=target_name,
                                      sim_name=sim,
@@ -225,7 +214,8 @@ class CollectStackedLimits_SG(ConfigMaker):
         job_configs = {}
 
         ttype = args['ttype']
-        (roster_yaml, sim) = NAME_FACTORY.resolve_rosterfile(args, require_sim_name=True)
+        (roster_yaml, sim) = NAME_FACTORY.resolve_rosterfile(
+            args, require_sim_name=True)
         if roster_yaml is None:
             return job_configs
 
@@ -274,6 +264,7 @@ class CollectStackedLimits_SG(ConfigMaker):
 
 
 def register_classes():
+    """Register these classes with the `LinkFactory` """
     CollectLimits.register_class()
     CollectLimits_SG.register_class()
     CollectStackedLimits_SG.register_class()

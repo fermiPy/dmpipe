@@ -6,21 +6,18 @@ Scripts to run the all-sky diffuse analysis
 """
 from __future__ import absolute_import, division, print_function
 
-import sys
-import os
-import argparse
-
 from collections import OrderedDict
 
-from fermipy.jobs.job_archive import JobArchive, JobStatus, JobDetails
-from fermipy.jobs.link import Link
+from fermipy.jobs.job_archive import JobStatus, JobDetails
 from fermipy.jobs.chain import Chain, insert_app_config, purge_dict
 from fermipy.utils import load_yaml
 
 from dmpipe import defaults
 
 
-def get_plot_config(plotting_dict, key, plot_channels_default=None, jpriors_default=None):
+def _get_plot_config(plotting_dict, key,
+                     plot_channels_default=None, jpriors_default=None):
+    """ Get the configuration for a type of plot """
     sub_dict = plotting_dict.get(key, None)
     if sub_dict is None:
         return None
@@ -28,24 +25,6 @@ def get_plot_config(plotting_dict, key, plot_channels_default=None, jpriors_defa
     jpriors = sub_dict.get('jpriors', jpriors_default)
     return purge_dict(dict(channels=channels,
                            jpriors=jpriors))
-
-
-def print_jobs(config_dict, indent="", stream=sys.stdout):
-
-    for k, v in config_dict.items():
-        appname = v.pop('appname', None)
-        if appname is not None:
-            stream.write("%s%s" % (indent, appname))
-            for kk, vv in v.items():
-                if isinstance(vv, list):
-                    for vvv in vv:
-                        stream.write(" --%s %s" % (kk, vvv))
-                else:
-                    stream.write(" --%s %s" % (kk, vv))
-            stream.write("\n")
-        else:
-            stream.write("%s%s:\n" % (indent, k))
-            print_jobs(v, indent + "  ", stream)
 
 
 class PipelineData(Chain):
@@ -84,7 +63,6 @@ class PipelineData(Chain):
         config_dict = load_yaml(config_yaml)
         link_prefix = config_dict.get('link_prefix', '')
         ttype = config_dict.get('ttype')
-        config_template = config_dict.get('config_template', None)
         config_localpath = config_dict.get('config_localpath', None)
         specfile = config_dict.get('specfile')
         rosterlist = config_dict.get('rosterlist')
@@ -117,7 +95,7 @@ class PipelineData(Chain):
                           jpriors=jpriors,
                           rosterlist=rosterlist)
 
-        config_plot_castro = get_plot_config(data_plotting, 'plot-castro')
+        config_plot_castro = _get_plot_config(data_plotting, 'plot-castro')
         if config_plot_castro is not None:
             insert_app_config(o_dict, link_prefix + 'plot-castro-sg',
                               'fermipy-plot-castro-sg',
@@ -125,8 +103,8 @@ class PipelineData(Chain):
                               targetlist=targetlist,
                               **config_plot_castro)
 
-        config_plot_dm = get_plot_config(data_plotting, 'plot-dm',
-                                         plot_channels_default, jpriors)
+        config_plot_dm = _get_plot_config(data_plotting, 'plot-dm',
+                                          plot_channels_default, jpriors)
         if config_plot_castro is not None:
             insert_app_config(o_dict, link_prefix + 'plot-dm-sg',
                               'dmpipe-plot-dm-sg',
@@ -134,8 +112,8 @@ class PipelineData(Chain):
                               targetlist=targetlist,
                               **config_plot_dm)
 
-        config_plot_limits = get_plot_config(data_plotting, 'plot-limits',
-                                             plot_channels_default, jpriors)
+        config_plot_limits = _get_plot_config(data_plotting, 'plot-limits',
+                                              plot_channels_default, jpriors)
         if config_plot_limits is not None:
             insert_app_config(o_dict, link_prefix + 'plot-limits-sg',
                               'dmpipe-plot-limits-sg',
@@ -143,8 +121,8 @@ class PipelineData(Chain):
                               targetlist=targetlist,
                               **config_plot_limits)
 
-        config_plot_stacked_dm = get_plot_config(data_plotting, 'plot-stacked-dm',
-                                                 plot_channels_default, jpriors)
+        config_plot_stacked_dm = _get_plot_config(data_plotting, 'plot-stacked-dm',
+                                                  plot_channels_default, jpriors)
         if config_plot_stacked_dm is not None:
             insert_app_config(o_dict, link_prefix + 'plot-stacked-dm-sg',
                               'dmpipe-plot-stacked-dm-sg',
@@ -153,8 +131,8 @@ class PipelineData(Chain):
                               rosterlist=rosterlist,
                               **config_plot_stacked_dm)
 
-        config_plot_stacked_limits = get_plot_config(data_plotting, 'plot-stacked-limits',
-                                                     plot_channels_default, jpriors)
+        config_plot_stacked_limits = _get_plot_config(data_plotting, 'plot-stacked-limits',
+                                                      plot_channels_default, jpriors)
         if config_plot_stacked_limits is not None:
             insert_app_config(o_dict, link_prefix + 'plot-stacked-limits-sg',
                               'dmpipe-plot-stacked-limits-sg',
@@ -279,8 +257,8 @@ class PipelineSim(Chain):
                           rosterlist=rosterlist,
                           seed=seed, nsims=nsims)
 
-        config_plot_stacked_dm = get_plot_config(sim_plotting, 'plot-stacked-dm',
-                                                 plot_channels_default, jpriors)
+        config_plot_stacked_dm = _get_plot_config(sim_plotting, 'plot-stacked-dm',
+                                                  plot_channels_default, jpriors)
         if config_plot_stacked_dm is not None:
             insert_app_config(o_dict, link_prefix + 'plot-stacked-dm',
                               'dmpipe-plot-stacked-dm-sg',
@@ -289,8 +267,8 @@ class PipelineSim(Chain):
                               rosterlist=rosterlist,
                               **config_plot_stacked_dm)
 
-        config_plot_stacked_limits = get_plot_config(sim_plotting, 'plot-stacked-limits',
-                                                     plot_channels_default, jpriors)
+        config_plot_stacked_limits = _get_plot_config(sim_plotting, 'plot-stacked-limits',
+                                                      plot_channels_default, jpriors)
         if config_plot_stacked_limits is not None:
             insert_app_config(o_dict, link_prefix + 'plot-stacked-limits',
                               'dmpipe-plot-stacked-limits-sg',
@@ -425,8 +403,8 @@ class PipelineRandom(Chain):
                           rosterlist=rosterlist,
                           seed=seed, nsims=nsims)
 
-        config_plot_stacked_dm = get_plot_config(rand_plotting, 'plot-stacked-dm',
-                                                 plot_channels_default, jpriors)
+        config_plot_stacked_dm = _get_plot_config(rand_plotting, 'plot-stacked-dm',
+                                                  plot_channels_default, jpriors)
         if config_plot_stacked_dm is not None:
             insert_app_config(o_dict, link_prefix + 'plot-stacked-dm',
                               'dmpipe-plot-stacked-dm-sg',
@@ -435,8 +413,8 @@ class PipelineRandom(Chain):
                               rosterlist=rosterlist,
                               **config_plot_stacked_dm)
 
-        config_plot_stacked_limits = get_plot_config(rand_plotting, 'plot-stacked-limits',
-                                                     plot_channels_default, jpriors)
+        config_plot_stacked_limits = _get_plot_config(rand_plotting, 'plot-stacked-limits',
+                                                      plot_channels_default, jpriors)
         if config_plot_stacked_limits is not None:
             insert_app_config(o_dict, link_prefix + 'plot-stacked-limits',
                               'dmpipe-plot-stacked-limits-sg',
@@ -476,7 +454,8 @@ class Pipeline(Chain):
         PipelineRandom.register_class()
 
     def preconfigure(self, config_yaml):
-        """ """
+        """ Run any links needed to build files
+        that are used in _map_arguments """
         o_dict = OrderedDict()
         config_dict = load_yaml(config_yaml)
         ttype = config_dict.get('ttype')
@@ -500,7 +479,7 @@ class Pipeline(Chain):
         link = self['prepare-targets']
 
         key = JobDetails.make_fullkey(link.full_linkname)
-        if len(link.jobs) == 0:
+        if not link.jobs:
             raise ValueError("No Jobs")
         link_status = link.check_job_status(key)
         if link_status == JobStatus.done:

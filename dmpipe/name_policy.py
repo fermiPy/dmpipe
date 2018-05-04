@@ -4,7 +4,8 @@ Handle the naming conventions for DM pipeline analysis
 """
 from __future__ import absolute_import, division, print_function
 
-import yaml
+import sys
+
 from fermipy.jobs.utils import is_null, is_not_null
 from fermipy.jobs.name_policy import NameFactory as NameFactory_Base
 
@@ -18,7 +19,8 @@ class NameFactory(NameFactory_Base):
     # DM spectral file
     specfile_format = 'dm_spectra_{target_type}.fits'
 
-    # target keys, these are how we specify various files associated with particular targets
+    # target keys, these are how we specify various files associated with
+    # particular targets
 
     # Roster list file format
     rosterfile_format = '{target_type}/{rosterlist}'
@@ -50,7 +52,8 @@ class NameFactory(NameFactory_Base):
     # Simulated DM limits file for a particular target (and j-factor prior)
     sim_dmlimitsfile_format = '{target_type}_sim/sim_{sim_name}/{target_name}/dmlimits_{profile}_{jprior}_{seed}.fits'
 
-    # Simulated Stacked DM limits file for a particular roster (and j-factor prior)
+    # Simulated Stacked DM limits file for a particular roster (and j-factor
+    # prior)
     sim_resultsfile_format = '{target_type}_sim/sim_{sim_name}/stacked/results_{roster_name}_{jprior}_{seed}.fits'
 
     # Stacked DM limits file for a particular roster (and j-factor prior)
@@ -79,7 +82,8 @@ class NameFactory(NameFactory_Base):
     def sim_rosterfile(self, **kwargs):
         """ return the name for the Roster list file for simulation
         """
-        return self._format_from_dict(NameFactory.sim_rosterfile_format, **kwargs)
+        return self._format_from_dict(
+            NameFactory.sim_rosterfile_format, **kwargs)
 
     def j_valuefile(self, **kwargs):
         """ return the name of the yaml file with information about a partiuclar target j factor
@@ -89,7 +93,8 @@ class NameFactory(NameFactory_Base):
     def sim_j_valuefile(self, **kwargs):
         """ return the name of the yaml file with information about a partiuclar target j factor
         """
-        return self._format_from_dict(NameFactory.sim_j_valuefile_format, **kwargs)
+        return self._format_from_dict(
+            NameFactory.sim_j_valuefile_format, **kwargs)
 
     def dmlikefile(self, **kwargs):
         """ return the name for the DM likelilood file for a particular target
@@ -99,7 +104,8 @@ class NameFactory(NameFactory_Base):
     def dmlimitsfile(self, **kwargs):
         """ return the name for the DM limits file for a particular target
         """
-        return self._format_from_dict(NameFactory.dmlimitsfile_format, **kwargs)
+        return self._format_from_dict(
+            NameFactory.dmlimitsfile_format, **kwargs)
 
     def resultsfile(self, **kwargs):
         """ return the name for the stacked results file for a particular roster
@@ -109,35 +115,40 @@ class NameFactory(NameFactory_Base):
     def stackedlimitsfile(self, **kwargs):
         """ return the name for the stacked limits file for a particular roster
         """
-        return self._format_from_dict(NameFactory.stackedlimitsfile_format, **kwargs)
+        return self._format_from_dict(
+            NameFactory.stackedlimitsfile_format, **kwargs)
 
     def sim_dmlikefile(self, **kwargs):
         """ return the name for the simulated DM likelilood file for a particular target
         """
         if 'seed' not in kwargs:
             kwargs['seed'] = 'SEED'
-        return self._format_from_dict(NameFactory.sim_dmlikefile_format, **kwargs)
+        return self._format_from_dict(
+            NameFactory.sim_dmlikefile_format, **kwargs)
 
     def sim_dmlimitsfile(self, **kwargs):
         """ return the name for the simulated DM limits file for a particular target
         """
         if 'seed' not in kwargs:
             kwargs['seed'] = 'SEED'
-        return self._format_from_dict(NameFactory.sim_dmlimitsfile_format, **kwargs)
+        return self._format_from_dict(
+            NameFactory.sim_dmlimitsfile_format, **kwargs)
 
     def sim_resultsfile(self, **kwargs):
         """ return the name for the stacked results file for a particular roster
         """
         if 'seed' not in kwargs:
             kwargs['seed'] = 'SEED'
-        return self._format_from_dict(NameFactory.sim_resultsfile_format, **kwargs)
+        return self._format_from_dict(
+            NameFactory.sim_resultsfile_format, **kwargs)
 
     def sim_stackedlimitsfile(self, **kwargs):
         """ return the name for the stacked limits file for a particular roster
         """
         if 'seed' not in kwargs:
             kwargs['seed'] = 'SEED'
-        return self._format_from_dict(NameFactory.sim_stackedlimitsfile_format, **kwargs)
+        return self._format_from_dict(
+            NameFactory.sim_stackedlimitsfile_format, **kwargs)
 
     def resolve_rosterfile(self, args, require_sim_name=False):
         """Get the name of the roster based on the job arguments"""
@@ -169,7 +180,7 @@ class NameFactory(NameFactory_Base):
 
         return (rosterfile, sim)
 
-    def resolve_specfile(self, args, require_sim_name=False):
+    def resolve_specfile(self, args):
         """Get the name of the specturm file based on the job arguments"""
         ttype = args.get('ttype')
         if is_null(ttype):

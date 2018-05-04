@@ -8,25 +8,18 @@ Top level script to make a castro plot in mass / sigmav space
 """
 from __future__ import absolute_import, division, print_function
 
-import sys
 import os
-import argparse
 import numpy as np
 
 from astropy.table import Table
 
 from fermipy.utils import init_matplotlib_backend, load_yaml
-init_matplotlib_backend()
-
-from fermipy.jobs.utils import is_null, is_not_null
+from fermipy.jobs.utils import is_not_null
 from fermipy.jobs.link import Link
-from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
+from fermipy.jobs.scatter_gather import ConfigMaker
 from fermipy.jobs.slac_impl import make_nfs_path
 
-from fermipy.castro import CastroData
-from fermipy.sed_plotting import plotCastro
-
-from dmpipe.dm_spectral import DMCastroData
+from dmpipe.dm_spectral import DMCastroData, DMSpecTable
 from dmpipe.dm_plotting_utils import plot_dm_castro
 from dmpipe.dm_plotting_utils import plot_dm_spectra_by_mass, plot_dm_spectra_by_channel
 from dmpipe.dm_plotting_utils import plot_limits_from_arrays, plot_mc_truth
@@ -34,10 +27,12 @@ from dmpipe.dm_plotting_utils import plot_limits_from_arrays, plot_mc_truth
 from dmpipe.name_policy import NameFactory
 from dmpipe import defaults
 
+init_matplotlib_backend()
 NAME_FACTORY = NameFactory(basedir='.')
 
 
 def get_ul_bands(table, prefix):
+    """ Get the Upper limit bands out of a `astropy.Table` objects """
     o = dict(q02=np.squeeze(table["%s_q02" % prefix]),
              q16=np.squeeze(table["%s_q16" % prefix]),
              q84=np.squeeze(table["%s_q84" % prefix]),
@@ -79,8 +74,14 @@ class PlotDMSpectra(Link):
             dm_spec_table, mass=args.mass, spec_type=args.spec_type)
 
         if args.outfile:
-            dm_plot_by_mass[0].savefig(args.outfile.replace('.png', '_%s.png' % args.chan))
-            dm_plot_by_chan[0].savefig(args.outfile.replace('.png', '_%1.FGeV.png' % args.mass))
+            dm_plot_by_mass[0].savefig(
+                args.outfile.replace(
+                    '.png', '_%s.png' %
+                    args.chan))
+            dm_plot_by_chan[0].savefig(
+                args.outfile.replace(
+                    '.png', '_%1.FGeV.png' %
+                    args.mass))
 
 
 class PlotLimits(Link):
@@ -232,10 +233,13 @@ class PlotLimits_SG(ConfigMaker):
                                      fullpath=True)
                     input_path = NAME_FACTORY.dmlimitsfile(**name_keys)
                     for chan in channels:
-                        targ_key = "%s:%s:%s:%s" % (target_name, targ_prof, jprior, chan)
+                        targ_key = "%s:%s:%s:%s" % (
+                            target_name, targ_prof, jprior, chan)
 
-                        output_path = input_path.replace('.fits', '_%s.png' % chan)
-                        logfile = make_nfs_path(output_path.replace('.png', '.log'))
+                        output_path = input_path.replace(
+                            '.fits', '_%s.png' % chan)
+                        logfile = make_nfs_path(
+                            output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
                                           jprior=jprior,
@@ -300,7 +304,8 @@ class PlotStackedLimits_SG(ConfigMaker):
                 for chan in channels:
                     targ_key = "%s:%s:%s" % (roster_name, jprior, chan)
                     if sim is not None:
-                        seedlist = range(args['seed'], args['seed'] + args['nsims'])
+                        seedlist = range(
+                            args['seed'], args['seed'] + args['nsims'])
                         sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
                     else:
                         seedlist = [None]
@@ -309,14 +314,18 @@ class PlotStackedLimits_SG(ConfigMaker):
                     for seed in seedlist:
                         if seed is not None:
                             name_keys['seed'] = "%06i" % seed
-                            input_path = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
+                            input_path = NAME_FACTORY.sim_stackedlimitsfile(
+                                **name_keys)
                             full_targ_key = "%s_%06i" % (targ_key, seed)
                         else:
-                            input_path = NAME_FACTORY.stackedlimitsfile(**name_keys)
+                            input_path = NAME_FACTORY.stackedlimitsfile(
+                                **name_keys)
                             full_targ_key = targ_key
 
-                        output_path = input_path.replace('.fits', '_%s.png' % chan)
-                        logfile = make_nfs_path(output_path.replace('.png', '.log'))
+                        output_path = input_path.replace(
+                            '.fits', '_%s.png' % chan)
+                        logfile = make_nfs_path(
+                            output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
                                           jprior=jprior,
@@ -378,9 +387,12 @@ class PlotDM_SG(ConfigMaker):
                                      fullpath=True)
                     input_path = NAME_FACTORY.dmlikefile(**name_keys)
                     for chan in channels:
-                        targ_key = "%s:%s:%s:%s" % (target_name, targ_prof, jprior, chan)
-                        output_path = input_path.replace('.fits', '_%s.png' % chan)
-                        logfile = make_nfs_path(output_path.replace('.png', '.log'))
+                        targ_key = "%s:%s:%s:%s" % (
+                            target_name, targ_prof, jprior, chan)
+                        output_path = input_path.replace(
+                            '.fits', '_%s.png' % chan)
+                        logfile = make_nfs_path(
+                            output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
                                           jprior=jprior,
@@ -446,21 +458,25 @@ class PlotStackedDM_SG(ConfigMaker):
                     targ_key = "%s:%s:%s" % (roster_name, jprior, chan)
 
                     if sim is not None:
-                        seedlist = range(args['seed'], args['seed'] + args['nsims'])
+                        seedlist = range(
+                            args['seed'], args['seed'] + args['nsims'])
                     else:
                         seedlist = [None]
 
                     for seed in seedlist:
                         if seed is not None:
                             name_keys['seed'] = "%06i" % seed
-                            input_path = NAME_FACTORY.sim_resultsfile(**name_keys)
+                            input_path = NAME_FACTORY.sim_resultsfile(
+                                **name_keys)
                             full_targ_key = "%s_%06i" % (targ_key, seed)
                         else:
                             input_path = NAME_FACTORY.resultsfile(**name_keys)
                             full_targ_key = targ_key
 
-                        output_path = input_path.replace('.fits', '_%s.png' % chan)
-                        logfile = make_nfs_path(output_path.replace('.png', '.log'))
+                        output_path = input_path.replace(
+                            '.fits', '_%s.png' % chan)
+                        logfile = make_nfs_path(
+                            output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
                                           jprior=jprior,
@@ -472,6 +488,7 @@ class PlotStackedDM_SG(ConfigMaker):
 
 
 def register_classes():
+    """Register these classes with the `LinkFactory` """
     PlotDMSpectra.register_class()
     PlotLimits.register_class()
     PlotLimits_SG.register_class()

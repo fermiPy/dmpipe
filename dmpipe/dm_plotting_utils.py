@@ -10,12 +10,13 @@ import numpy as np
 from fermipy import castro
 from fermipy import stats_utils
 from fermipy import sed_plotting
-
-from dmpipe.dm_spectral import DMSpecTable
 from fermipy.spectrum import DMFitFunction
 
+from dmpipe.dm_spectral import DMSpecTable
 
-def plot_dm_spectra_by_channel(dm_spec_table, mass=100, spec_type='eflux', ylims=(1e-12, 1e-8)):
+
+def plot_dm_spectra_by_channel(dm_spec_table, mass=100,
+                               spec_type='eflux', ylims=(1e-12, 1e-8)):
     """ Make a plot of the DM spectra.
 
     dm_spec_table : Object with the spectral table
@@ -23,7 +24,6 @@ def plot_dm_spectra_by_channel(dm_spec_table, mass=100, spec_type='eflux', ylims
     ylims      : y-axis limits
     """
     import matplotlib.pyplot as plt
-    import matplotlib
 
     chan_names = dm_spec_table.channel_names
     chan_ids = dm_spec_table.channel_map.keys()
@@ -50,7 +50,8 @@ def plot_dm_spectra_by_channel(dm_spec_table, mass=100, spec_type='eflux', ylims
     return fig, axis, leg
 
 
-def plot_dm_spectra_by_mass(dm_spec_table, chan='bb', spec_type='eflux', ylims=(1e-12, 1e-6)):
+def plot_dm_spectra_by_mass(dm_spec_table, chan='bb',
+                            spec_type='eflux', ylims=(1e-12, 1e-6)):
     """ Make a plot of the DM spectra.
 
     dm_spec_table : Object with the spectral table
@@ -58,7 +59,6 @@ def plot_dm_spectra_by_mass(dm_spec_table, chan='bb', spec_type='eflux', ylims=(
     ylims      : y-axis limits
     """
     import matplotlib.pyplot as plt
-    import matplotlib
 
     chan_id = DMFitFunction.channel_rev_map[chan]
     chan_idx_list = dm_spec_table.channel_map[chan_id]
@@ -94,7 +94,8 @@ def plot_dm_castro(castro_dm, ylims=(1e-28, 1e-22), nstep=100, zlims=None):
     mass_label = r"$m_{\chi}$ [GeV]"
     sigmav_label = r'$\langle \sigma v \rangle$ [$cm^{3} s^{-1}$]'
     return sed_plotting.plotCastro_base(castro_dm,
-                                        xlims=(castro_dm.masses[0], castro_dm.masses[-1]),
+                                        xlims=(castro_dm.masses[0],
+                                               castro_dm.masses[-1]),
                                         ylims=ylims,
                                         xlabel=mass_label,
                                         ylabel=sigmav_label,
@@ -106,7 +107,7 @@ def plot_castro_nuiscance(xlims, ylims, zvals, zlims=None):
     """ Make a castro plot including the effect of the nuisance parameter
     """
     import matplotlib.pyplot as plt
-    import matplotlib
+    from matplotlib import cm
 
     fig = plt.figure()
     axis = fig.add_subplot(111)
@@ -124,7 +125,7 @@ def plot_castro_nuiscance(xlims, ylims, zvals, zlims=None):
 
     image = axis.imshow(zvals, extent=[xlims[0], xlims[-1], ylims[0], ylims[-1]],
                         origin='lower', aspect='auto', interpolation='nearest',
-                        vmin=zmin, vmax=zmax, cmap=matplotlib.cm.jet_r)
+                        vmin=zmin, vmax=zmax, cmap=cm.jet_r)
     return fig, axis, image
 
 
@@ -132,7 +133,7 @@ def plot_nll(nll_dict, xlims=None, nstep=50, ylims=None):
     """ Plot the -log(L) as a function of sigmav for each object in a dict
     """
     import matplotlib.pyplot as plt
-    import matplotlib
+
     if xlims is None:
         xmin = 1e-28
         xmax = 1e-24
@@ -165,7 +166,7 @@ def plot_comparison(nll, nstep=25, xlims=None):
     """ Plot the comparison between differnt version of the -log(L)
     """
     import matplotlib.pyplot as plt
-    import matplotlib
+
     if xlims is None:
         xmin = nll._lnlfn.interp.xmin
         xmax = nll._lnlfn.interp.xmax
@@ -204,7 +205,6 @@ def plot_stacked(sdict, xlims, ibin=0):
     as well as the individual curves
     """
     import matplotlib.pyplot as plt
-    import matplotlib
     ndict = {}
 
     for key, val in sdict.items():
@@ -232,7 +232,7 @@ def plot_stacked(sdict, xlims, ibin=0):
     return fig, axis, leg
 
 
-def plot_limits_from_arrays(ldict, xlims, ylims, bands):
+def plot_limits_from_arrays(ldict, xlims, ylims, bands=None):
     """ Plot the upper limits as a function of DM particle mass and cross section.
 
     ldict      : A dictionary of strings pointing to pairs of `np.array` objects,
@@ -242,7 +242,6 @@ def plot_limits_from_arrays(ldict, xlims, ylims, bands):
     bands      : Dictionary with the expected limit bands
     """
     import matplotlib.pyplot as plt
-    import matplotlib
 
     fig = plt.figure()
     axis = fig.add_subplot(111)
@@ -301,7 +300,7 @@ def plot_limits(sdict, xlims, ylims, alpha=0.05):
     ldict = {}
     for key, val in sdict.items():
         ldict[key] = (val.masses, val.getLimits(alpha))
-    return plot_limits_from_arrays(ldict[key], xlims, ylims)
+    return plot_limits_from_arrays(ldict, xlims, ylims)
 
 
 def compare_limits(sdict, xlims, ylims, alpha=0.05):
@@ -313,7 +312,6 @@ def compare_limits(sdict, xlims, ylims, alpha=0.05):
     alpha      : Confidence level to use in setting limits = 1 - alpha
     """
     import matplotlib.pyplot as plt
-    import matplotlib
 
     fig = plt.figure()
     axis = fig.add_subplot(111)
@@ -336,7 +334,7 @@ def plot_limit(dm_castro_data, ylims, alpha=0.05):
     """ Plot the limit curve for a given DMCastroData object
     """
     import matplotlib.pyplot as plt
-    import matplotlib
+
     xbins = dm_castro_data.masses
     xmin = xbins[0]
     xmax = xbins[-1]
@@ -366,7 +364,8 @@ def test_func():
     norm_type = "EFLUX"
 
     spec_table = DMSpecTable.create_from_fits("dm_spec_2.fits")
-    castro_eflux = castro.CastroData.create_from_fits("dsph_castro.fits", norm_type, irow=3)
+    castro_eflux = castro.CastroData.create_from_fits(
+        "dsph_castro.fits", norm_type, irow=3)
     castro_dm = spec_table.convert_castro_data(castro_eflux, 4, norm_type)
 
     mass_label = r"$m_{\chi}$ [GeV]"
@@ -381,7 +380,8 @@ def test_func():
                                            nstep=100)
 
     nll_dm = castro_dm[2]
-    j_prior = stats_utils.create_prior_functor(dict(functype='lgauss', mu=1., sigma=0.15))
+    j_prior = stats_utils.create_prior_functor(
+        dict(functype='lgauss', mu=1., sigma=0.15))
     j_vals = np.linspace(0.7, 1.3, 30)
 
     in_vals = np.meshgrid(j_vals, nll_dm.interp.x)

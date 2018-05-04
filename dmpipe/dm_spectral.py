@@ -8,7 +8,6 @@ from __future__ import absolute_import, division, print_function
 
 import sys
 import os
-import argparse
 
 import yaml
 import numpy as np
@@ -24,7 +23,7 @@ from fermipy.castro import CastroData
 from fermipy.utils import load_yaml
 from fermipy.jobs.utils import is_null, is_not_null
 from fermipy.jobs.link import Link
-from fermipy.jobs.scatter_gather import ConfigMaker, build_sg_from_link
+from fermipy.jobs.scatter_gather import ConfigMaker
 from fermipy.jobs.slac_impl import make_nfs_path
 
 from fermipy.spectrum import DMFitFunction
@@ -105,7 +104,9 @@ class DMCastroData(castro.CastroData_Base):
             self._channel = DMFitFunction.channel_rev_map[channel]
         else:
             self._channel = channel
-        super(DMCastroData, self).__init__(norm_vals, nll_vals, norm_type="sigmav")
+        super(DMCastroData, self).__init__(norm_vals,
+                                           nll_vals,
+                                           norm_type="sigmav")
 
     @property
     def n_masses(self):
@@ -190,13 +191,14 @@ class DMCastroData(castro.CastroData_Base):
                           weights=None, ref_j=REF_J, ref_sigmav=REF_SIGV):
         """ Create a DMCastroData object by stacking a series of DMCastroData objects
         """
-        if len(components) == 0:
+        if not components:
             return None
         shape = (components[0].nx, nystep)
-        norm_vals, nll_vals = castro.CastroData_Base.stack_nll(
-            shape, components, ylims, weights)
+        norm_vals, nll_vals = castro.CastroData_Base.stack_nll(shape, components,
+                                                               ylims, weights)
         return DMCastroData(norm_vals, nll_vals, 1.0,
-                            components[0].channel, components[0].masses, astro_value=None, ref_j=REF_J, ref_sigmav=REF_SIGV)
+                            components[0].channel, components[0].masses,
+                            astro_value=None, ref_j=ref_j, ref_sigmav=ref_sigmav)
 
     @staticmethod
     def create_from_tables(tab_s, tab_m):
@@ -232,7 +234,8 @@ class DMCastroData(castro.CastroData_Base):
             prior_applied = True
 
         return DMCastroData(norm_vals, nll_vals, norm, channel,
-                            masses, astro_value, prior, prior_applied, ref_j=ref_j, ref_sigmav=ref_sigmav)
+                            masses, astro_value, prior, prior_applied,
+                            ref_j=ref_j, ref_sigmav=ref_sigmav)
 
     @staticmethod
     def create_from_fitsfile(filepath, channel):
@@ -268,7 +271,13 @@ class DMCastroData(castro.CastroData_Base):
         col_ref_j = Column(name="REF_J", dtype=float)
         col_ref_sigmav = Column(name="REF_SIGMAV", dtype=float)
 
-        collist = [col_norm, col_normv, col_dll, col_astro_val, col_ref_j, col_ref_sigmav]
+        collist = [
+            col_norm,
+            col_normv,
+            col_dll,
+            col_astro_val,
+            col_ref_j,
+            col_ref_sigmav]
         valdict = {"NORM": self._norm_value,
                    "NORM_SCAN": self._norm_vals * self._norm_value,
                    "DLOGLIKE_SCAN": -1 * self._nll_vals,
@@ -336,16 +345,6 @@ class DMCastroData(castro.CastroData_Base):
         tab.add_row(valdict)
         return tab
 
-    def build_mass_table(self):
-        """Build a FITS table with mass values
-        """
-        col_masses = Column(name="MASSES", dtype=float,
-                            shape=self._masses.shape)
-        col_channel = Column(name="CHANNEL", dtype=int)
-        tab = Table(data=[col_masses, col_channel])
-        tab.add_row({"MASSES": self._masses,
-                     "CHANNEL": self._channel})
-        return tab
 
 
 class DMSpecTable(object):
@@ -358,7 +357,8 @@ class DMSpecTable(object):
         self._e_table = e_table
         self._s_table = s_table
         self._ref_vals = ref_vals
-        self._channel_map, self._channel_names = DMSpecTable.make_channel_map(s_table)
+        self._channel_map, self._channel_names = DMSpecTable.make_channel_map(
+            s_table)
 
     @staticmethod
     def make_channel_map(s_table):
@@ -455,7 +455,8 @@ class DMSpecTable(object):
     def ebin_edges(self):
         """ Return an array with the energy bin edges
         """
-        return np.hstack([self._e_table["E_MIN"].data, self._e_table["E_MAX"].data])
+        return np.hstack([self._e_table["E_MIN"].data,
+                          self._e_table["E_MAX"].data])
 
     def ebin_refs(self):
         """ Return an array with the energy bin reference energies
@@ -523,7 +524,6 @@ class DMSpecTable(object):
         dmf = DMFitFunction(init_params, jfactor=REF_J)
 
         nebins = len(ebin_edges) - 1
-        nchan = len(ichans)
         nrow = len(ichans) * len(masses)
         dnde = np.ndarray((nrow, nebins))
         flux = np.ndarray((nrow, nebins))
@@ -594,7 +594,8 @@ class DMSpecTable(object):
             return False
         return True
 
-    def convert_castro_data(self, castro_data, channel, norm_type, jfactor=None):
+    def convert_castro_data(self, castro_data, channel,
+                            norm_type, jfactor=None):
         """ Convert CastroData object, i.e., Likelihood as a function of
         flux and energy flux, to a DMCastroData object, i.e., Likelihood as
         a function of DM mass and sigmav
@@ -629,7 +630,9 @@ class DMSpecTable(object):
             else:
                 j_prior = stats_utils.create_prior_functor(jfactor)
         else:
-            sys.stderr.write("Did not recoginize J factor %s %s\n" % (jfactor, type(jfactor)))
+            sys.stderr.write(
+                "Did not recoginize J factor %s %s\n" %
+                (jfactor, type(jfactor)))
 
         norm_limits = castro_data.getLimits(1e-5)
         spec_vals *= norm_factor
@@ -647,7 +650,8 @@ class DMSpecTable(object):
             norm_vals[i][0] = 10**(log_max_ratio - 5)
             norm_vals[i][1:] = np.logspace(log_max_ratio - 4, log_max_ratio + 4,
                                            n_scan_pt - 1)
-            test_vals = (np.expand_dims(spec_vals[i], 1) * (np.expand_dims(norm_vals[i], 1).T))
+            test_vals = (np.expand_dims(
+                spec_vals[i], 1) * (np.expand_dims(norm_vals[i], 1).T))
             dll_vals[i, 0:] = castro_data(test_vals)
             mle_vals[i] = norm_vals[i][dll_vals[i].argmin()]
             mle_ll = dll_vals[i].min()
@@ -655,7 +659,9 @@ class DMSpecTable(object):
 
             msk = np.isfinite(dll_vals[i])
             if not msk.any():
-                print ("Skipping mass %0.2e for channel %s" % (masses[i], channel))
+                print (
+                    "Skipping mass %0.2e for channel %s" %
+                    (masses[i], channel))
                 mass_mask[i] = False
                 continue
 
@@ -665,13 +671,16 @@ class DMSpecTable(object):
                     lnlfn_prior = stats_utils.LnLFn_norm_prior(lnlfn, j_prior)
                     dll_vals[i, 0:] = lnlfn_prior(norm_vals[i])
                 except ValueError:
-                    print ("Skipping mass %0.2e for channel %s" % (masses[i], channel))
+                    print (
+                        "Skipping mass %0.2e for channel %s" %
+                        (masses[i], channel))
                     mass_mask[i] = False
                     dll_vals[i, 0:] = np.nan * np.ones((n_scan_pt))
 
         norm_vals *= (ref_sigmav)
         dm_castro = DMCastroData(norm_vals[mass_mask], dll_vals[mass_mask], norm_factor,
-                                 channel, masses[mass_mask], j_value, j_prior, ref_j=ref_norm, ref_sigmav=ref_sigmav)
+                                 channel, masses[mass_mask], j_value, j_prior,
+                                 ref_j=ref_norm, ref_sigmav=ref_sigmav)
         return dm_castro
 
     def convert_tscube(self, tscube, channel, norm_type):
@@ -695,7 +704,10 @@ class DMSpecTable(object):
         norm_factor = 1.
 
         nvals = tscube.nvals
-        cube_shape = (len(masses), tscube.tscube.counts.shape[1], tscube.tscube.counts.shape[2])
+        cube_shape = (
+            len(masses),
+            tscube.tscube.counts.shape[1],
+            tscube.tscube.counts.shape[2])
 
         dm_ts_cube = np.zeros(cube_shape)
         dm_ul_cube = np.zeros(cube_shape)
@@ -735,7 +747,13 @@ class DMSpecTable(object):
                 dll_vals[i] -= mle_ll
 
             norm_vals *= (ref_sigmav)
-            dm_castro = DMCastroData(norm_vals, dll_vals, norm_factor, channel, masses, j_ref)
+            dm_castro = DMCastroData(
+                norm_vals,
+                dll_vals,
+                norm_factor,
+                channel,
+                masses,
+                j_ref)
             tab = dm_castro.build_scandata_table()
             if dm_table is None:
                 dm_table = tab
@@ -768,7 +786,8 @@ class ConvertCastro(Link):
                            jprior=defaults.common['jprior'],
                            outfile=defaults.generic['outfile'],
                            limitfile=defaults.generic['limitfile'],
-                           nsims=defaults.common['nsims'],  # Note that this defaults to -1
+                           # Note that this defaults to -1
+                           nsims=defaults.common['nsims'],
                            seed=defaults.sims['seed'],
                            dry_run=defaults.common['dry_run'],
                            clobber=defaults.common['clobber'])
@@ -791,7 +810,8 @@ class ConvertCastro(Link):
         for chan in channels:
             chan_idx = DMFitFunction.channel_rev_map[chan]
             # try:
-            dm_castro = spec_table.convert_castro_data(sed, chan_idx, norm_type, j_val)
+            dm_castro = spec_table.convert_castro_data(
+                sed, chan_idx, norm_type, j_val)
             tab_castro = dm_castro.build_scandata_table()
 
             if mass_table is None:
@@ -814,16 +834,15 @@ class ConvertCastro(Link):
         t_list = []
         n_list = []
 
-        for castro, chan in zip(dm_castro_list, channels):
-            chan_idx = DMFitFunction.channel_rev_map[chan]
-            norm = castro.norm_value
-            mles = norm * castro.mles()
+        for castro_data, chan in zip(dm_castro_list, channels):
+            norm = castro_data.norm_value
+            mles = norm * castro_data.mles()
             limit_dict = dict(MLES=mles)
             for alpha in alphas:
-                limits = norm * castro.getLimits(alpha)
+                limits = norm * castro_data.getLimits(alpha)
                 limit_dict['UL_%.02f' % alpha] = limits
 
-            tab_limits = castro.build_limits_table(limit_dict)
+            tab_limits = castro_data.build_limits_table(limit_dict)
             l_list.append(limit_dict)
             t_list.append(tab_limits)
             n_list.append(chan)
@@ -832,25 +851,24 @@ class ConvertCastro(Link):
         n_list.append("MASSES")
         return l_list, t_list, n_list
 
-    def convert_sed(self, spec_table, sed_file, norm_type, channels,
+    @staticmethod
+    def convert_sed(spec_table, sed_file, norm_type, channels,
                     j_factor, outfile, limitfile, clobber):
         """Convert a single SED to DM"""
         sed = CastroData.create_from_sedfile(sed_file, norm_type)
         c_list, t_list, n_list = ConvertCastro.convert_sed_to_dm(
             spec_table, sed, channels, norm_type, j_factor)
 
-        do_limits = True
-        write_castro = True
-
         if is_not_null(outfile):
-            fits_utils.write_tables_to_fits(outfile, t_list, clobber=clobber, namelist=n_list)
+            fits_utils.write_tables_to_fits(
+                outfile, t_list, clobber=clobber, namelist=n_list)
 
         if is_not_null(limitfile):
             mass_table = t_list[-1]
             c_list_lim, t_list_lim, n_list_lim = ConvertCastro.extract_dm_limits(
                 c_list, channels, [0.68, 0.95], mass_table)
-            fits_utils.write_tables_to_fits(
-                limitfile, t_list_lim, clobber=clobber, namelist=n_list_lim)
+            fits_utils.write_tables_to_fits(limitfile, t_list_lim,
+                                            clobber=clobber, namelist=n_list_lim)
 
     def run_analysis(self, argv):
         """Run this analysis"""
@@ -869,12 +887,10 @@ class ConvertCastro(Link):
         j_sigma = profile.get('j_sigma', None)
         if is_null(args.jprior) or is_null(j_sigma) or j_sigma == 0.0:
             j_factor = j_value
-            j_prior_key = 'none'
         else:
             j_factor = dict(functype=args.jprior,
                             j_value=j_value,
                             mu=j_value, sigma=j_sigma)
-            j_prior_key = args.jprior
 
         if args.nsims < 0:
             seedlist = [None]
@@ -888,19 +904,17 @@ class ConvertCastro(Link):
             if seed is not None:
                 sedfile = sedfile.replace('_SEED.fits', '_%06i.fits' % seed)
                 if is_not_null(outfile):
-                    outfile = outfile.replace('_SEED.fits', '_%06i.fits' % seed)
+                    outfile = outfile.replace(
+                        '_SEED.fits',
+                        '_%06i.fits' %
+                        seed)
                 if is_not_null(limitfile):
-                    limitfile = limitfile.replace('_SEED.fits', '_%06i.fits' % seed)
+                    limitfile = limitfile.replace(
+                        '_SEED.fits', '_%06i.fits' % seed)
 
-            self.convert_sed(
-                spec_table,
-                sedfile,
-                norm_type,
-                channels,
-                j_factor,
-                outfile,
-                limitfile,
-                args.clobber)
+            self.convert_sed(spec_table, sedfile, norm_type,
+                             channels, j_factor, outfile,
+                             limitfile, args.clobber)
 
 
 class SpecTable(Link):
@@ -964,8 +978,10 @@ class SpecTable(Link):
                              np.log10(spec_config['masses']['mass_max']),
                              spec_config['masses']['mass_nstep'])
 
-        dm_spec_table = DMSpecTable.create_from_config(config_file, channels, masses)
+        dm_spec_table = DMSpecTable.create_from_config(
+            config_file, channels, masses)
         dm_spec_table.write_fits(spec_file, args.clobber)
+        return 0
 
 
 class StackLikelihood(Link):
@@ -992,7 +1008,8 @@ class StackLikelihood(Link):
         super(StackLikelihood, self).__init__(linkname, **init_dict)
 
     @staticmethod
-    def stack_roster(roster_name, rost, ttype, channels, jprior_key, sim, seed):
+    def stack_roster(rost, ttype,
+                     channels, jprior_key, sim, seed):
         """ Stack all of the DMCastroData in a roster
         """
         component_dict = {}
@@ -1011,10 +1028,8 @@ class StackLikelihood(Link):
                              jprior=jprior_key)
 
             if is_not_null(sim):
-                target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
                 dmlike_path = NAME_FACTORY.sim_dmlikefile(**name_keys)
             else:
-                target_dir = NAME_FACTORY.targetdir(**name_keys)
                 dmlike_path = NAME_FACTORY.dmlikefile(**name_keys)
 
             tab_m = Table.read(dmlike_path, hdu="MASSES")
@@ -1028,15 +1043,17 @@ class StackLikelihood(Link):
                 component_dict[chan].append(dm_castro)
 
         for chan, comps in component_dict.items():
-            if len(comps) == 0:
+            if not comps:
                 continue
-            stacked = DMCastroData.create_from_stack(comps, ref_j=REF_J, ref_sigmav=REF_SIGV)
+            stacked = DMCastroData.create_from_stack(comps, ref_j=REF_J,
+                                                     ref_sigmav=REF_SIGV)
             out_dict[chan] = stacked
 
         return out_dict
 
     @staticmethod
-    def write_stacked(ttype, roster_name, stacked_dict, jprior_key, sim, seed, clobber):
+    def write_stacked(ttype, roster_name, stacked_dict,
+                      jprior_key, sim, seed, clobber):
         """ Write the stacked DMCastroData object to a FITS file
         """
         name_keys = dict(target_type=ttype,
@@ -1094,28 +1111,22 @@ class StackLikelihood(Link):
                                         clobber=clobber, namelist=n_list)
 
     @staticmethod
-    def stack_rosters(roster_dict, ttype, channels, jprior_key, sim, seed, clobber):
+    def stack_rosters(roster_dict, ttype, channels,
+                      jprior_key, sim, seed, clobber):
         """ Stack all of the DMCastroData in a dictionary of rosters
         """
         for roster_name, rost in roster_dict.items():
-            stacked_dict = StackLikelihood.stack_roster(
-                roster_name, rost, ttype, channels, jprior_key, sim, seed)
-            StackLikelihood.write_stacked(
-                ttype,
-                roster_name,
-                stacked_dict,
-                jprior_key,
-                sim,
-                seed,
-                clobber)
+            stacked_dict = StackLikelihood.stack_roster(rost, ttype,
+                                                        channels, jprior_key, sim, seed)
+            StackLikelihood.write_stacked(ttype, roster_name, stacked_dict,
+                                          jprior_key, sim, seed, clobber)
 
     def run_analysis(self, argv):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
 
         if args.ttype is None:
-            sys.stderr.write('Target type must be specified')
-            return -1
+            raise RuntimeError('Target type must be specified')
 
         name_keys = dict(target_type=args.ttype,
                          rosterlist='roster_list.yaml',
@@ -1230,7 +1241,8 @@ class ConvertCastro_SG(ConfigMaker):
                     if is_sim:
                         name_keys['sim_name'] = sim
                         sed_file = NAME_FACTORY.sim_sedfile(**name_keys)
-                        j_value_yaml = NAME_FACTORY.sim_j_valuefile(**name_keys)
+                        j_value_yaml = NAME_FACTORY.sim_j_valuefile(
+                            **name_keys)
                         outfile = NAME_FACTORY.sim_dmlikefile(**name_keys)
                         limitfile = NAME_FACTORY.sim_dmlimitsfile(**name_keys)
                         full_key += ":%s" % sim
@@ -1317,7 +1329,9 @@ class StackLikelihood_SG(ConfigMaker):
             else:
                 target_dir = NAME_FACTORY.targetdir(**name_keys)
 
-            logfile = os.path.join(target_dir, 'stack_%s_%s.log' % (jprior, sim))
+            logfile = os.path.join(
+                target_dir, 'stack_%s_%s.log' %
+                (jprior, sim))
             job_config = dict(ttype=args['ttype'],
                               specconfig=args['specconfig'],
                               rosterlist=args['rosterlist'],
@@ -1335,6 +1349,7 @@ class StackLikelihood_SG(ConfigMaker):
 
 
 def register_classes():
+    """Register these classes with the `LinkFactory` """
     ConvertCastro.register_class()
     ConvertCastro_SG.register_class()
     StackLikelihood.register_class()
