@@ -8,7 +8,7 @@ def test_spectral_link_classes():
     SpecTable.create()
     StackLikelihood.create()
 
- def test_spectral_sg_classes():
+def test_spectral_sg_classes():
     from dmpipe.dm_spectral import ConvertCastro_SG, StackLikelihood_SG
     ConvertCastro_SG.create()
     StackLikelihood_SG.create()

@@ -3,13 +3,11 @@ from __future__ import absolute_import, division, print_function
 
 
 def test_collect_link_classes():
-    from dmpipe.dm_collect import CollectSED, CollectLimits
-    CollectSED.create()
+    from dmpipe.dm_collect import CollectLimits
     CollectLimits.create()
 
 def test_collect_sg_classes():
-    from dmpipe.dm_collect import CollectSED_SG, CollectLimits_SG, CollectStackedLimits_SG
-    CollectSED_SG.create()
+    from dmpipe.dm_collect import CollectLimits_SG, CollectStackedLimits_SG
     CollectLimits_SG.create()
     CollectStackedLimits_SG.create()
 
