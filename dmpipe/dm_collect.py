@@ -55,12 +55,6 @@ class CollectLimits(Link):
                            seed=defaults.sims['seed'],
                            dry_run=defaults.common['dry_run'])
 
-    def __init__(self, **kwargs):
-        """C'tor
-        """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(CollectLimits, self).__init__(linkname, **init_dict)
-
     def run_analysis(self, argv):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
@@ -114,13 +108,6 @@ class CollectLimits_SG(ScatterGather):
                            seed=defaults.sims['seed'],
                            write_full=defaults.collect['write_full'],
                            dry_run=defaults.common['dry_run'])
-
-    def __init__(self, link, **kwargs):
-        """C'tor
-        """
-        super(CollectLimits_SG, self).__init__(link,
-                                               options=kwargs.get('options',
-                                                                  self.default_options.copy()))
 
     def build_job_configs(self, args):
         """Hook to build job configurations
@@ -200,13 +187,6 @@ class CollectStackedLimits_SG(ScatterGather):
                            write_full=defaults.collect['write_full'],
                            write_summary=defaults.collect['write_summary'],
                            dry_run=defaults.common['dry_run'])
-
-    def __init__(self, link, **kwargs):
-        """C'tor
-        """
-        super(CollectStackedLimits_SG, self).__init__(link,
-                                                      options=kwargs.get('options',
-                                                                         self.default_options.copy()))
 
     def build_job_configs(self, args):
         """Hook to build job configurations

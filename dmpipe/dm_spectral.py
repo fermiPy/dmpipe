@@ -792,12 +792,6 @@ class ConvertCastro(Link):
                            dry_run=defaults.common['dry_run'],
                            clobber=defaults.common['clobber'])
 
-    def __init__(self, **kwargs):
-        """C'tor
-        """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(ConvertCastro, self).__init__(linkname, **init_dict)
-
     @staticmethod
     def convert_sed_to_dm(spec_table, sed, channels, norm_type, j_val):
         """ Convert an SED file to a DMCastroData object """
@@ -932,12 +926,6 @@ class SpecTable(Link):
                            dry_run=defaults.common['dry_run'],
                            clobber=defaults.common['clobber'])
 
-    def __init__(self, **kwargs):
-        """ C'tor to build this object from energy binning and spectral values tables.
-        """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(SpecTable, self).__init__(linkname, **init_dict)
-
     def run_analysis(self, argv):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
@@ -1000,12 +988,6 @@ class StackLikelihood(Link):
                            seed=defaults.sims['seed'],
                            dry_run=defaults.common['dry_run'],
                            clobber=defaults.common['clobber'])
-
-    def __init__(self, **kwargs):
-        """ C'tor to build this object from energy binning and spectral values tables.
-        """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(StackLikelihood, self).__init__(linkname, **init_dict)
 
     @staticmethod
     def stack_roster(rost, ttype,
@@ -1195,13 +1177,6 @@ class ConvertCastro_SG(ScatterGather):
                            seed=defaults.sims['seed'],
                            clobber=defaults.common['clobber'])
 
-    def __init__(self, link, **kwargs):
-        """C'tor
-        """
-        super(ConvertCastro_SG, self).__init__(link,
-                                               options=kwargs.get('options',
-                                                                  self.default_options.copy()))
-
     def build_job_configs(self, args):
         """Hook to build job configurations
         """
@@ -1290,13 +1265,6 @@ class StackLikelihood_SG(ScatterGather):
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
                            clobber=defaults.common['clobber'])
-
-    def __init__(self, link, **kwargs):
-        """C'tor
-        """
-        super(StackLikelihood_SG, self).__init__(link,
-                                                 options=kwargs.get('options',
-                                                                    self.default_options.copy()))
 
     def build_job_configs(self, args):
         """Hook to build job configurations

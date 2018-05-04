@@ -50,13 +50,6 @@ class PipelineData(Chain):
                            sim=defaults.sims['sim'],
                            dry_run=defaults.common['dry_run'])
 
-    def __init__(self, **kwargs):
-        """C'tor
-        """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(PipelineData, self).__init__(linkname, **init_dict)
-
-
     def _map_arguments(self, input_dict):
         """Map from the top-level arguments to the arguments provided to
         the indiviudal links """
@@ -151,12 +144,6 @@ class PipelineSim(Chain):
     default_options = dict(config=defaults.common['config'],
                            sim=defaults.sims['sim'],
                            dry_run=defaults.common['dry_run'])
-
-    def __init__(self, **kwargs):
-        """C'tor
-        """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(PipelineSim, self).__init__(linkname, **init_dict)
 
     def _map_arguments(self, input_dict):
         """Map from the top-level arguments to the arguments provided to
@@ -267,13 +254,6 @@ class PipelineRandom(Chain):
 
     default_options = dict(config=defaults.common['config'],
                            dry_run=defaults.common['dry_run'])
-
-    def __init__(self, **kwargs):
-        """C'tor
-        """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(PipelineRandom, self).__init__(linkname, **init_dict)
-
 
     def _map_arguments(self, input_dict):
         """Map from the top-level arguments to the arguments provided to
@@ -395,14 +375,15 @@ class Pipeline(Chain):
     def __init__(self, **kwargs):
         """C'tor
         """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(Pipeline, self).__init__(linkname, **init_dict)
+        super(Pipeline, self).__init__(**kwargs)
         self._preconfigured = False
 
 
     def preconfigure(self, config_yaml):
         """ Run any links needed to build files
         that are used in _map_arguments """
+        if self._preconfigured:
+            return
         config_dict = load_yaml(config_yaml)
         ttype = config_dict.get('ttype')
         self.link_prefix = "%s." % ttype
@@ -427,10 +408,12 @@ class Pipeline(Chain):
             raise ValueError("No Jobs")
         link_status = link.check_job_status(key)
         if link_status == JobStatus.done:
+            self._preconfigured = True
             return
         elif link_status == JobStatus.failed:
             link.clean_jobs()
         link.run_with_log()
+        self._preconfigured = True
 
     def _map_arguments(self, input_dict):
         """Map from the top-level arguments to the arguments provided to

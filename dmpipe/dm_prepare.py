@@ -43,12 +43,6 @@ class PrepareTargets(Link):
                            sims=defaults.sims['sims'],
                            dry_run=defaults.common['dry_run'])
 
-    def __init__(self, **kwargs):
-        """C'tor
-        """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(PrepareTargets, self).__init__(linkname, **init_dict)
-
     @classmethod
     def _write_data_target_config(cls, base_config, target, target_dir):
         target_config_path = os.path.join(target_dir, 'config.yaml')

@@ -57,12 +57,6 @@ class PlotDMSpectra(Link):
                            mass=defaults.common['mass'],
                            spec_type=defaults.common['spec_type'])
 
-    def __init__(self, **kwargs):
-        """C'tor
-        """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(PlotDMSpectra, self).__init__(linkname, **init_dict)
-
     def run_analysis(self, argv):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
@@ -99,12 +93,6 @@ class PlotLimits(Link):
                            chan=defaults.common['chan'],
                            bands=defaults.collect['bands'],
                            sim=defaults.sims['sim'])
-
-    def __init__(self, **kwargs):
-        """C'tor
-        """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(PlotLimits, self).__init__(linkname, **init_dict)
 
     def run_analysis(self, argv):
         """Run this analysis"""
@@ -163,12 +151,6 @@ class PlotDM(Link):
                            outfile=defaults.generic['outfile'],
                            chan=defaults.common['chan'])
 
-    def __init__(self, **kwargs):
-        """C'tor
-        """
-        linkname, init_dict = self._init_dict(**kwargs)
-        super(PlotDM, self).__init__(linkname, **init_dict)
-
     def run_analysis(self, argv):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
@@ -201,13 +183,6 @@ class PlotLimits_SG(ScatterGather):
                            channels=defaults.common['channels'],
                            jpriors=defaults.common['jpriors'],
                            dry_run=defaults.common['dry_run'])
-
-    def __init__(self, link, **kwargs):
-        """C'tor
-        """
-        super(PlotLimits_SG, self).__init__(link,
-                                            options=kwargs.get('options',
-                                                               self.default_options.copy()))
 
     def build_job_configs(self, args):
         """Hook to build job configurations
@@ -271,13 +246,6 @@ class PlotStackedLimits_SG(ScatterGather):
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
                            dry_run=defaults.common['dry_run'])
-
-    def __init__(self, link, **kwargs):
-        """C'tor
-        """
-        super(PlotStackedLimits_SG, self).__init__(link,
-                                                   options=kwargs.get('options',
-                                                                      self.default_options.copy()))
 
     def build_job_configs(self, args):
         """Hook to build job configurations
@@ -355,13 +323,6 @@ class PlotDM_SG(ScatterGather):
                            jpriors=defaults.common['jpriors'],
                            dry_run=defaults.common['dry_run'])
 
-    def __init__(self, link, **kwargs):
-        """C'tor
-        """
-        super(PlotDM_SG, self).__init__(link,
-                                        options=kwargs.get('options',
-                                                           self.default_options.copy()))
-
     def build_job_configs(self, args):
         """Hook to build job configurations
         """
@@ -423,13 +384,6 @@ class PlotStackedDM_SG(ScatterGather):
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
                            dry_run=defaults.common['dry_run'])
-
-    def __init__(self, link, **kwargs):
-        """C'tor
-        """
-        super(PlotStackedDM_SG, self).__init__(link,
-                                               options=kwargs.get('options',
-                                                                  self.default_options.copy()))
 
     def build_job_configs(self, args):
         """Hook to build job configurations
