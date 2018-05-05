@@ -1095,10 +1095,6 @@ class StackLikelihood(Link):
         fits_utils.write_tables_to_fits(limitfile, lim_table_list,
                                         clobber=clobber, namelist=n_list)
 
-
-        fits_utils.write_tables_to_fits(limitfile, lim_table_list,
-                                        clobber=clobber, namelist=n_list)
-
     @staticmethod
     def stack_rosters(roster_dict, ttype, channels,
                       jprior_key, sim, seed, clobber):
