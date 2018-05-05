@@ -1168,7 +1168,6 @@ class ConvertCastro_SG(ScatterGather):
 
     This adds the following arguments:
     """
-<<<<<<< HEAD
     appname = 'dmpipe-convert-castro-sg'
     usage = "%s [options]" % (appname)
     description = "Run analyses on a series of ROIs"
@@ -1184,22 +1183,6 @@ class ConvertCastro_SG(ScatterGather):
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
                            clobber=defaults.common['clobber'])
-=======
-    default_options = dict(specfile=('dm_spectra.fits', 'Spectra table', str),
-                           topdir=(None, 'Top level directory', str),
-                           targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
-                           jprior=(None, 'Type of Prior on J-factor', str),
-                           nsims=(-1, 'Number of realizations to simulate', int),
-                           seed=(0, 'Seed to use for first realization', int),
-                           clobber=(False, 'Overwrite existing files', bool))
-
-    def __init__(self, link, **kwargs):
-        """C'tor
-        """
-        ConfigMaker.__init__(self, link,
-                             options=kwargs.get('options',
-                                                ConfigMaker_CastroConvertor.default_options.copy()))
->>>>>>> master
 
     def build_job_configs(self, args):
         """Hook to build job configurations
