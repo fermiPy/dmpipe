@@ -179,7 +179,6 @@ class PlotLimits_SG(ScatterGather):
 
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
-                           bands=defaults.collect['bands'],
                            channels=defaults.common['channels'],
                            jpriors=defaults.common['jpriors'],
                            dry_run=defaults.common['dry_run'])
@@ -218,6 +217,8 @@ class PlotLimits_SG(ScatterGather):
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
                                           jprior=jprior,
+                                          bands=None,
+                                          sim=sim,
                                           logfile=logfile,
                                           chan=chan)
                         job_configs[targ_key] = job_config
