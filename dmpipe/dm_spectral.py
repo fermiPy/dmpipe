@@ -306,6 +306,7 @@ class DMCastroData(castro.CastroData_Base):
         """
         col_masses = Column(name="MASSES", dtype=float,
                             shape=self._masses.shape)
+
         col_channel = Column(name="CHANNEL", dtype=int)
         tab = Table(data=[col_masses, col_channel])
         tab.add_row({"MASSES": self._masses,
@@ -775,6 +776,7 @@ class DMSpecTable(object):
 
 class ConvertCastro(Link):
     """Small class to convert CastroData to a DMCastroData"""
+
     appname = 'dmpipe-convert-castro'
     linkname_default = 'convert-castro'
     usage = '%s [options]' % (appname)
@@ -925,6 +927,7 @@ class SpecTable(Link):
                            specfile=defaults.common['specfile'],
                            dry_run=defaults.common['dry_run'],
                            clobber=defaults.common['clobber'])
+
 
     def run_analysis(self, argv):
         """Run this analysis"""
@@ -1088,6 +1091,10 @@ class StackLikelihood(Link):
         n_list.append("MASSES")
         fits_utils.write_tables_to_fits(outpath, t_list,
                                         clobber=clobber, namelist=n_list)
+        
+        fits_utils.write_tables_to_fits(limitfile, lim_table_list,
+                                        clobber=clobber, namelist=n_list)
+
 
         fits_utils.write_tables_to_fits(limitfile, lim_table_list,
                                         clobber=clobber, namelist=n_list)
@@ -1161,6 +1168,7 @@ class ConvertCastro_SG(ScatterGather):
 
     This adds the following arguments:
     """
+<<<<<<< HEAD
     appname = 'dmpipe-convert-castro-sg'
     usage = "%s [options]" % (appname)
     description = "Run analyses on a series of ROIs"
@@ -1176,6 +1184,22 @@ class ConvertCastro_SG(ScatterGather):
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
                            clobber=defaults.common['clobber'])
+=======
+    default_options = dict(specfile=('dm_spectra.fits', 'Spectra table', str),
+                           topdir=(None, 'Top level directory', str),
+                           targetlist=('target_list.yaml', 'Yaml file with list of targets', str),
+                           jprior=(None, 'Type of Prior on J-factor', str),
+                           nsims=(-1, 'Number of realizations to simulate', int),
+                           seed=(0, 'Seed to use for first realization', int),
+                           clobber=(False, 'Overwrite existing files', bool))
+
+    def __init__(self, link, **kwargs):
+        """C'tor
+        """
+        ConfigMaker.__init__(self, link,
+                             options=kwargs.get('options',
+                                                ConfigMaker_CastroConvertor.default_options.copy()))
+>>>>>>> master
 
     def build_job_configs(self, args):
         """Hook to build job configurations
