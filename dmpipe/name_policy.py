@@ -59,11 +59,6 @@ class NameFactory(NameFactory_Base):
     # Stacked DM limits file for a particular roster (and j-factor prior)
     sim_stackedlimitsfile_format = '{target_type}_sim/sim_{sim_name}/stacked/limits_{roster_name}_{jprior}_{seed}.fits'
 
-    def __init__(self, **kwargs):
-        """ C'tor.  Set baseline dictionary used to resolve names
-        """
-        super(NameFactory, self).__init__(**kwargs)
-
     def specconfig(self, **kwargs):
         """ return the name of the input configuration file
         """
