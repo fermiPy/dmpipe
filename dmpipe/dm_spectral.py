@@ -1210,7 +1210,7 @@ class ConvertCastro_SG(ScatterGather):
             for profile in profile_list:
                 for jprior in jpriors:
                     full_key = "%s:%s:%s" % (target_name, profile, jprior)
-                    target_version = profile.split(' ')[0]
+                    target_version = profile.split('_')[0]
                     name_keys = dict(target_type=ttype,
                                      target_name=target_name,
                                      target_version=target_version,
