@@ -1091,7 +1091,6 @@ class StackLikelihood(Link):
         n_list.append("MASSES")
         fits_utils.write_tables_to_fits(outpath, t_list,
                                         clobber=clobber, namelist=n_list)
-        
         fits_utils.write_tables_to_fits(limitfile, lim_table_list,
                                         clobber=clobber, namelist=n_list)
 
