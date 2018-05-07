@@ -50,10 +50,6 @@ class PrepareTargets(Link):
         target_config = base_config.copy()
         target_config['selection']['ra'] = target.ra
         target_config['selection']['dec'] = target.dec
-        try:
-            os.makedirs(target_dir)
-        except OSError:
-            pass
         write_yaml(target_config, target_config_path)
         return target_config
 
@@ -61,10 +57,6 @@ class PrepareTargets(Link):
     def _write_sim_target_config(cls, target_config, target_dir, sim_target_dir):
         sim_target_config_path = os.path.join(sim_target_dir, 'config.yaml')
         sim_target_config = copy.deepcopy(target_config)
-        try:
-            os.makedirs(sim_target_dir)
-        except OSError:
-            pass
 
         sim_target_config['gtlike']['bexpmap'] = os.path.abspath(
             os.path.join(target_dir, 'bexpmap_00.fits'))
@@ -137,11 +129,6 @@ class PrepareTargets(Link):
         target_info_dict = {}
         roster_info_dict = {}
 
-        try:
-            os.makedirs(ttype)
-        except OSError:
-            pass
-
         for roster_name, rost in roster_dict.items():
             for target_name, target in rost.items():
                 ver_key = target.ver_key
@@ -155,12 +142,20 @@ class PrepareTargets(Link):
                                  fullpath=True)
                 j_val_path = NAME_FACTORY.j_valuefile(**name_keys)
                 target_dir = NAME_FACTORY.targetdir(**name_keys)
-
+                try:
+                    os.makedirs(target_dir)
+                except OSError:
+                    pass
                 cls._write_j_value_yaml(target, j_val_path)
+
                 for sim in sims:
                     name_keys['sim_name'] = sim
                     sim_target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
                     sim_j_val_path = NAME_FACTORY.sim_j_valuefile(**name_keys)
+                    try:
+                        os.makedirs(sim_target_dir)
+                    except OSError:
+                        pass
                     cls._write_j_value_yaml(target, sim_j_val_path)
                     cls._write_sim_yaml(target, sim, sim_target_dir, ver_key)
                 name_keys.pop('sim_name')
