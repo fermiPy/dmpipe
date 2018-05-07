@@ -40,6 +40,7 @@ class PrepareTargets(Link):
     default_options = dict(ttype=defaults.common['ttype'],
                            rosters=defaults.common['rosters'],
                            config=defaults.common['config'],
+                           spatial_models=defaults.common['spatial_models'],
                            sims=defaults.sims['sims'],
                            dry_run=defaults.common['dry_run'])
 
@@ -57,8 +58,7 @@ class PrepareTargets(Link):
         return target_config
 
     @classmethod
-    def _write_sim_target_config(
-            cls, target_config, target_dir, sim_target_dir):
+    def _write_sim_target_config(cls, target_config, target_dir, sim_target_dir):
         sim_target_config_path = os.path.join(sim_target_dir, 'config.yaml')
         sim_target_config = copy.deepcopy(target_config)
         try:
@@ -76,26 +76,29 @@ class PrepareTargets(Link):
         return sim_target_config
 
     @classmethod
-    def _write_profile_yaml(cls, target, profile_path, target_verkey):
+    def _write_profile_yaml(cls, target, profile_path, targ_ver, spatial):
 
         source_model = dict(SpectrumType='PowerLaw',
                             RA=target.ra,
                             DEC=target.dec)
 
-        if target.proftype in [None, 'point', 'Point']:
+        if spatial in [None, 'point']:
             source_model.update(dict(SpatialModel='PointSource'))
-        elif target.proftype in ['Map']:
+        elif spatial in ['map']:
             source_model.update(dict(SpatialModel='DiffuseSource',
                                      SpatialType='SpatialMap',
                                      Spatial_Filename=target.j_map_file))
-        else:
+        elif spatial in ['radial']:
             target.j_rad_file = profile_path.replace('.yaml', '.dat')
             target.write_j_rad_file()
             source_model.update(dict(SpatialModel='DiffuseSource',
                                      SpatialType='RadialProfile',
                                      radialprofile=target.j_rad_file))
+        else:
+            raise ValueError('Did not recognize spatial type %s' % spatial)
 
-        profile_dict = dict(name=target_verkey,
+        ver_name = "%s_%s" % (targ_ver, spatial)
+        profile_dict = dict(name=ver_name,
                             source_model=source_model)
         write_yaml(profile_dict, profile_path)
         return profile_dict
@@ -111,7 +114,7 @@ class PrepareTargets(Link):
         return j_profile_data
 
     @classmethod
-    def _write_sim_yaml(cls, target, sim, sim_target_dir, target_verkey):
+    def _write_sim_yaml(cls, target, sim, sim_target_dir, target_key):
 
         sim_profile_yaml = os.path.join('config', 'sim_%s.yaml' % sim)
         sim_profile = load_yaml(sim_profile_yaml)
@@ -121,12 +124,12 @@ class PrepareTargets(Link):
                 'norm']['value'] = target.j_integ
         sim_out_path = os.path.join(
             sim_target_dir, 'sim_%s_%s.yaml' %
-            (sim, target_verkey))
+            (sim, target_key))
         write_yaml(sim_profile, sim_out_path)
         return sim_profile
 
     @classmethod
-    def _write_target_dirs(cls, ttype, roster_dict, base_config, sims):
+    def _write_target_dirs(cls, ttype, roster_dict, base_config, sims, spatial_models):
         """ Create and populate directoris for target analysis
         """
         target_dict = {}
@@ -142,27 +145,23 @@ class PrepareTargets(Link):
         for roster_name, rost in roster_dict.items():
             tlist = []
             for target_name, target in rost.items():
-
-                if target.ver_key is None:
-                    target_verkey = target.version
-                else:
-                    target_verkey = target.ver_key
-                target_key = "%s:%s" % (target_name, target_verkey)
+                target_key = "%s:%s" % (target_name, target.version)
                 print("Writing %s" % (target_key))
-
-                if target_name in target_info_dict:
-                    target_info_dict[target_name].append(target_verkey)
-                else:
-                    target_info_dict[target_name] = [target_verkey]
-                tlist.append(target_key)
-
                 name_keys = dict(target_type=ttype,
                                  target_name=target_name,
-                                 profile=target_verkey,
+                                 target_version=target.version,
                                  fullpath=True)
-                target_dir = NAME_FACTORY.targetdir(**name_keys)
-                profile_path = NAME_FACTORY.profilefile(**name_keys)
                 j_val_path = NAME_FACTORY.j_valuefile(**name_keys)
+                target_dir = NAME_FACTORY.targetdir(**name_keys)
+
+                cls._write_j_value_yaml(target, j_val_path)
+                for sim in sims:
+                    name_keys['sim_name'] = sim
+                    sim_target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
+                    sim_j_val_path = NAME_FACTORY.sim_j_valuefile(**name_keys)
+                    cls._write_j_value_yaml(target, sim_j_val_path)
+                    cls._write_sim_yaml(target, sim, sim_target_dir, target.version)
+                name_keys.pop('sim_name')
 
                 write_config = False
                 if target_name in target_dict:
@@ -170,28 +169,44 @@ class PrepareTargets(Link):
                     target_config = target_dict[target_name].copy()
                 else:
                     # Make the config for this target
-                    target_config = cls._write_data_target_config(
-                        base_config, target, target_dir)
+                    target_config = cls._write_data_target_config(base_config,
+                                                                  target, target_dir)
                     target_dict[target_name] = target_config
                     write_config = True
 
-                cls._write_profile_yaml(target, profile_path, target_verkey)
-                cls._write_j_value_yaml(target, j_val_path)
+                write_sim_config = write_config
+                for spatial in spatial_models:
+                    ver_string = "%s_%s" % (target.version, spatial)
+                    roster_key = "%s_%s" % (roster_name, spatial)
+                    full_key = "%s:%s" % (target_name, ver_string)
 
-                for sim in sims:
-                    name_keys['sim_name'] = sim
-                    sim_target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
-                    sim_profile_path = NAME_FACTORY.sim_profilefile(
-                        **name_keys)
-                    sim_j_val_path = NAME_FACTORY.sim_j_valuefile(**name_keys)
-                    if write_config:
-                        cls._write_sim_target_config(
-                            target_config, target_dir, sim_target_dir)
-                    cls._write_profile_yaml(
-                        target, sim_profile_path, target_verkey)
-                    cls._write_j_value_yaml(target, sim_j_val_path)
-                    cls._write_sim_yaml(target, sim,
-                                        sim_target_dir, target_verkey)
+                    name_keys['profile'] = ver_string
+                    profile_path = NAME_FACTORY.profilefile(**name_keys)
+
+                    if target_name in target_info_dict:
+                        target_info_dict[target_name].append(ver_string)
+                    else:
+                        target_info_dict[target_name] = [ver_string]
+                        tlist.append(ver_string)
+
+                    cls._write_profile_yaml(target, profile_path,
+                                            target.version, spatial)
+
+                    if roster_key in roster_info_dict:
+                        roster_info_dict[roster_key].append(full_key)
+                    else:
+                        roster_info_dict[roster_key] = [full_key]
+
+                    for sim in sims:
+                        name_keys['sim_name'] = sim
+                        sim_target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
+                        sim_profile_path = NAME_FACTORY.sim_profilefile(**name_keys)
+                        if write_sim_config:
+                            cls._write_sim_target_config(target_config,
+                                                         target_dir, sim_target_dir)
+                            write_sim_config = False
+                        cls._write_profile_yaml(target, sim_profile_path,
+                                                target.version, spatial)
 
             roster_info_dict[roster_name] = tlist
 
@@ -241,7 +256,7 @@ class PrepareTargets(Link):
             roster_dict[roster] = rost
 
         base_config = load_yaml(config_file)
-        self._write_target_dirs(args.ttype, roster_dict, base_config, sims)
+        self._write_target_dirs(args.ttype, roster_dict, base_config, sims, args.spatial_models)
 
 
 def register_classes():

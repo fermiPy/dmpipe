@@ -29,10 +29,10 @@ class NameFactory(NameFactory_Base):
     sim_rosterfile_format = '{target_type}_sim/sim_{sim_name}/{rosterlist}'
 
     # Information about a particular target j factor
-    j_valuefile_format = '{target_type}/{target_name}/j_val_{profile}.yaml'
+    j_valuefile_format = '{target_type}/{target_name}/j_val_{target_version}.yaml'
 
     # Information about a particular target j factor
-    sim_j_valuefile_format = '{target_type}_sim/sim_{sim_name}/{target_name}/j_val_{profile}.yaml'
+    sim_j_valuefile_format = '{target_type}_sim/sim_{sim_name}/{target_name}/j_val_{target_version}.yaml'
 
     # DM likelilood file for a particular target (and j-factor prior)
     dmlikefile_format = '{target_type}/{target_name}/dmlike_{profile}_{jprior}.fits'

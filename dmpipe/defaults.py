@@ -20,6 +20,7 @@ common = {
     'j_value_file': (None, 'Path to yaml file with target j_value', str),
     'jprior': (None, 'Types of Prior on J-factor', str),
     'jpriors': ([], 'Types of Prior on J-factor', list),
+    'spatial_models': ([], 'Types of spatial models to use', list),
     'channels': ([], 'DM annihilation channels', list),
     'chan': ('bb', 'DM annihilation channel', str),
     'mass': (100, 'DM particle mass', float),

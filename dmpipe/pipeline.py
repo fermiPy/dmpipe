@@ -389,6 +389,7 @@ class Pipeline(Chain):
         self.link_prefix = "%s." % ttype
         config_template = config_dict.get('config_template', None)
         rosters = config_dict.get('rosters')
+        spatial_models = config_dict.get('spatial_models')
         sims = config_dict.get('sims', {})
         sim_names = []
         sim_names += sims.keys()
@@ -399,6 +400,7 @@ class Pipeline(Chain):
                              PrepareTargets,
                              ttype=ttype,
                              rosters=rosters,
+                             spatial_models=spatial_models,
                              sims=sim_names,
                              config=config_template)
         link = self['prepare-targets']
@@ -424,6 +426,7 @@ class Pipeline(Chain):
         ttype = config_dict.get('ttype')
         config_template = config_dict.get('config_template', None)
         rosters = config_dict.get('rosters')
+        spatial_models = config_dict.get('spatial_models')
         specfile = config_dict.get('specfile')
         sims = config_dict.get('sims', {})
         sim_names = []
@@ -436,6 +439,7 @@ class Pipeline(Chain):
                              PrepareTargets,
                              ttype=ttype,
                              rosters=rosters,
+                             spatial_models=spatial_models,
                              sims=sim_names,
                              config=config_template)
 
