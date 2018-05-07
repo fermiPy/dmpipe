@@ -143,13 +143,15 @@ class PrepareTargets(Link):
             pass
 
         for roster_name, rost in roster_dict.items():
-            tlist = []
             for target_name, target in rost.items():
-                target_key = "%s:%s" % (target_name, target.version)
+                ver_key = target.ver_key
+                if ver_key is None:
+                    ver_key = target.version
+                target_key = "%s:%s" % (target_name, ver_key)
                 print("Writing %s" % (target_key))
                 name_keys = dict(target_type=ttype,
                                  target_name=target_name,
-                                 target_version=target.version,
+                                 target_version=ver_key,
                                  fullpath=True)
                 j_val_path = NAME_FACTORY.j_valuefile(**name_keys)
                 target_dir = NAME_FACTORY.targetdir(**name_keys)
@@ -160,7 +162,7 @@ class PrepareTargets(Link):
                     sim_target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
                     sim_j_val_path = NAME_FACTORY.sim_j_valuefile(**name_keys)
                     cls._write_j_value_yaml(target, sim_j_val_path)
-                    cls._write_sim_yaml(target, sim, sim_target_dir, target.version)
+                    cls._write_sim_yaml(target, sim, sim_target_dir, ver_key)
                 name_keys.pop('sim_name')
 
                 write_config = False
@@ -176,7 +178,7 @@ class PrepareTargets(Link):
 
                 write_sim_config = write_config
                 for spatial in spatial_models:
-                    ver_string = "%s_%s" % (target.version, spatial)
+                    ver_string = "%s_%s" % (ver_key, spatial)
                     roster_key = "%s_%s" % (roster_name, spatial)
                     full_key = "%s:%s" % (target_name, ver_string)
 
@@ -187,10 +189,9 @@ class PrepareTargets(Link):
                         target_info_dict[target_name].append(ver_string)
                     else:
                         target_info_dict[target_name] = [ver_string]
-                        tlist.append(ver_string)
 
                     cls._write_profile_yaml(target, profile_path,
-                                            target.version, spatial)
+                                            ver_key, spatial)
 
                     if roster_key in roster_info_dict:
                         roster_info_dict[roster_key].append(full_key)
@@ -206,9 +207,7 @@ class PrepareTargets(Link):
                                                          target_dir, sim_target_dir)
                             write_sim_config = False
                         cls._write_profile_yaml(target, sim_profile_path,
-                                                target.version, spatial)
-
-            roster_info_dict[roster_name] = tlist
+                                                ver_key, spatial)
 
         roster_file = os.path.join(ttype, 'roster_list.yaml')
         target_file = os.path.join(ttype, 'target_list.yaml')
