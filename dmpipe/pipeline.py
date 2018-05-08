@@ -65,24 +65,24 @@ class PipelineData(Chain):
         data_plotting = config_dict.get('data_plotting')
         plot_channels_default = config_dict.get('plot_channels', [])
 
-        self._load_link_args('analyze-roi',
+        self._set_link('analyze-roi',
                              AnalyzeROI_SG,
                              ttype=ttype,
                              targetlist=targetlist,
                              config=config_localpath)
-        self._load_link_args('analyze-sed',
+        self._set_link('analyze-sed',
                              AnalyzeSED_SG,
                              ttype=ttype,
                              targetlist=targetlist,
                              config=config_localpath)
-        self._load_link_args('convert-castro',
+        self._set_link('convert-castro',
                              ConvertCastro_SG,
                              ttype=ttype,
                              jpriors=jpriors,
                              targetlist=targetlist,
                              config=config_localpath,
                              specfile=specfile)
-        self._load_link_args('stack-likelihood',
+        self._set_link('stack-likelihood',
                              StackLikelihood_SG,
                              ttype=ttype,
                              jpriors=jpriors,
@@ -90,7 +90,7 @@ class PipelineData(Chain):
 
         config_plot_castro = _get_plot_config(data_plotting, 'plot-castro')
         if config_plot_castro is not None:
-            self._load_link_args('plot-castro-sg',
+            self._set_link('plot-castro-sg',
                                  PlotCastro_SG,
                                  ttype=ttype,
                                  targetlist=targetlist,
@@ -99,7 +99,7 @@ class PipelineData(Chain):
         config_plot_dm = _get_plot_config(data_plotting, 'plot-dm',
                                           plot_channels_default, jpriors)
         if config_plot_castro is not None:
-            self._load_link_args('plot-dm-sg',
+            self._set_link('plot-dm-sg',
                                  PlotDM_SG,
                                  ttype=ttype,
                                  targetlist=targetlist,
@@ -108,7 +108,7 @@ class PipelineData(Chain):
         config_plot_limits = _get_plot_config(data_plotting, 'plot-limits',
                                               plot_channels_default, jpriors)
         if config_plot_limits is not None:
-            self._load_link_args('plot-limits-sg',
+            self._set_link('plot-limits-sg',
                                  PlotLimits_SG,
                                  ttype=ttype,
                                  targetlist=targetlist,
@@ -117,7 +117,7 @@ class PipelineData(Chain):
         config_plot_stacked_dm = _get_plot_config(data_plotting, 'plot-stacked-dm',
                                                   plot_channels_default, jpriors)
         if config_plot_stacked_dm is not None:
-            self._load_link_args('plot-stacked-dm-sg',
+            self._set_link('plot-stacked-dm-sg',
                                  PlotStackedDM_SG,
                                  ttype=ttype,
                                  rosterlist=rosterlist,
@@ -126,7 +126,7 @@ class PipelineData(Chain):
         config_plot_stacked_limits = _get_plot_config(data_plotting, 'plot-stacked-limits',
                                                       plot_channels_default, jpriors)
         if config_plot_stacked_limits is not None:
-            self._load_link_args('plot-stacked-limits-sg',
+            self._set_link('plot-stacked-limits-sg',
                                  PlotStackedLimits_SG,
                                  ttype=ttype,
                                  rosterlist=rosterlist,
@@ -171,21 +171,21 @@ class PipelineSim(Chain):
         sim_plotting = config_dict.get('sim_plotting')
         plot_channels_default = config_dict.get('plot_channels', [])
 
-        self._load_link_args('copy-base-roi',
+        self._set_link('copy-base-roi',
                              CopyBaseROI_SG,
                              ttype=ttype,
                              targetlist=targetlist,
                              rosterlist=rosterlist,
                              sim=sim_name,
                              config=config_template)
-        self._load_link_args('simulate-roi',
+        self._set_link('simulate-roi',
                              SimulateROI_SG,
                              ttype=ttype,
                              sim=sim_name,
                              targetlist=targetlist,
                              config=config_localpath,
                              seed=seed, nsims=nsims)
-        self._load_link_args('convert-castro',
+        self._set_link('convert-castro',
                              ConvertCastro_SG,
                              ttype=ttype,
                              sim=sim_name,
@@ -194,28 +194,28 @@ class PipelineSim(Chain):
                              config=config_localpath,
                              specfile=specfile,
                              seed=seed, nsims=nsims)
-        self._load_link_args('stack-likelihood',
+        self._set_link('stack-likelihood',
                              StackLikelihood_SG,
                              ttype=ttype,
                              sim=sim_name,
                              jpriors=jpriors,
                              rosterlist=rosterlist,
                              seed=seed, nsims=nsims)
-        self._load_link_args('collect-sed',
+        self._set_link('collect-sed',
                              CollectSED_SG,
                              ttype=ttype,
                              sim=sim_name,
                              enumbins=enumbins,
                              targetlist=targetlist,
                              seed=seed, nsims=nsims)
-        self._load_link_args('collect-limits',
+        self._set_link('collect-limits',
                              CollectLimits_SG,
                              ttype=ttype,
                              sim=sim_name,
                              jpriors=jpriors,
                              targetlist=targetlist,
                              seed=seed, nsims=nsims)
-        self._load_link_args('collect-stacked-limits',
+        self._set_link('collect-stacked-limits',
                              CollectStackedLimits_SG,
                              ttype=ttype,
                              sim=sim_name,
@@ -226,7 +226,7 @@ class PipelineSim(Chain):
         config_plot_stacked_dm = _get_plot_config(sim_plotting, 'plot-stacked-dm',
                                                   plot_channels_default, jpriors)
         if config_plot_stacked_dm is not None:
-            self._load_link_args('plot-stacked-dm',
+            self._set_link('plot-stacked-dm',
                                  PlotStackedDM_SG,
                                  ttype=ttype,
                                  sim=sim_name,
@@ -236,7 +236,7 @@ class PipelineSim(Chain):
         config_plot_stacked_limits = _get_plot_config(sim_plotting, 'plot-stacked-limits',
                                                       plot_channels_default, jpriors)
         if config_plot_stacked_limits is not None:
-            self._load_link_args('plot-stacked-limits',
+            self._set_link('plot-stacked-limits',
                                  PlotStackedLimits_SG,
                                  ttype=ttype,
                                  sim=sim_name,
@@ -279,21 +279,21 @@ class PipelineRandom(Chain):
         rand_plotting = config_dict.get('rand_plotting')
         plot_channels_default = config_dict.get('plot_channels', [])
 
-        self._load_link_args('copy-base-roi',
+        self._set_link('copy-base-roi',
                              CopyBaseROI_SG,
                              ttype=ttype,
                              targetlist=targetlist,
                              rosterlist=rosterlist,
                              sim='random',
                              config=config_template)
-        self._load_link_args('random-dir-gen',
+        self._set_link('random-dir-gen',
                              RandomDirGen_SG,
                              ttype=ttype,
                              rand_config=rand_dirs,
                              targetlist=targetlist,
                              sim='random',
                              config=config_localpath)
-        self._load_link_args('analyze-sed',
+        self._set_link('analyze-sed',
                              AnalyzeSED_SG,
                              ttype=ttype,
                              sim='random',
@@ -301,7 +301,7 @@ class PipelineRandom(Chain):
                              targetlist=targetlist,
                              config=config_localpath,
                              seed=seed, nsims=nsims)
-        self._load_link_args('convert-castro',
+        self._set_link('convert-castro',
                              ConvertCastro_SG,
                              ttype=ttype,
                              sim='random',
@@ -310,28 +310,28 @@ class PipelineRandom(Chain):
                              config=config_localpath,
                              specfile=specfile,
                              seed=seed, nsims=nsims)
-        self._load_link_args('stack-likelihood',
+        self._set_link('stack-likelihood',
                              StackLikelihood_SG,
                              ttype=ttype,
                              sim='random',
                              jpriors=jpriors,
                              rosterlist=rosterlist,
                              seed=seed, nsims=nsims)
-        self._load_link_args('collect-sed',
+        self._set_link('collect-sed',
                              CollectSED_SG,
                              ttype=ttype,
                              sim='random',
                              enumbins=enumbins,
                              targetlist=targetlist,
                              seed=seed, nsims=nsims)
-        self._load_link_args('collect-limits',
+        self._set_link('collect-limits',
                              CollectLimits_SG,
                              ttype=ttype,
                              sim='random',
                              jpriors=jpriors,
                              targetlist=targetlist,
                              seed=seed, nsims=nsims)
-        self._load_link_args('collect-stacked-limits',
+        self._set_link('collect-stacked-limits',
                              CollectStackedLimits_SG,
                              ttype=ttype,
                              sim='random',
@@ -342,7 +342,7 @@ class PipelineRandom(Chain):
         config_plot_stacked_dm = _get_plot_config(rand_plotting, 'plot-stacked-dm',
                                                   plot_channels_default, jpriors)
         if config_plot_stacked_dm is not None:
-            self._load_link_args('plot-stacked-dm',
+            self._set_link('plot-stacked-dm',
                                  PlotStackedDM_SG,
                                  ttype=ttype,
                                  sim='random',
@@ -352,7 +352,7 @@ class PipelineRandom(Chain):
         config_plot_stacked_limits = _get_plot_config(rand_plotting, 'plot-stacked-limits',
                                                       plot_channels_default, jpriors)
         if config_plot_stacked_limits is not None:
-            self._load_link_args('plot-stacked-limits',
+            self._set_link('plot-stacked-limits',
                                  PlotStackedLimits_SG,
                                  ttype=ttype,
                                  sim='random',
@@ -396,7 +396,7 @@ class Pipeline(Chain):
         if 'random' in config_dict:
             sim_names += ['random']
 
-        self._load_link_args('prepare-targets',
+        self._set_link('prepare-targets',
                              PrepareTargets,
                              ttype=ttype,
                              rosters=rosters,
@@ -435,7 +435,7 @@ class Pipeline(Chain):
             sim_names += ['random']
         dry_run = input_dict.get('dry_run', False)
 
-        self._load_link_args('prepare-targets',
+        self._set_link('prepare-targets',
                              PrepareTargets,
                              ttype=ttype,
                              rosters=rosters,
@@ -443,13 +443,13 @@ class Pipeline(Chain):
                              sims=sim_names,
                              config=config_template)
 
-        self._load_link_args('spec-table',
+        self._set_link('spec-table',
                              SpecTable,
                              ttype=ttype,
                              config=config_template,
                              specfile=specfile)
 
-        self._load_link_args('data',
+        self._set_link('data',
                              PipelineData,
                              link_prefix='data.',
                              config=config_yaml,
@@ -457,7 +457,7 @@ class Pipeline(Chain):
 
         for sim in sims.keys():
             linkname = 'sim_%s' % sim
-            self._load_link_args(linkname,
+            self._set_link(linkname,
                                  PipelineSim,
                                  link_prefix='%s.' % linkname,
                                  config=config_yaml,
@@ -465,7 +465,7 @@ class Pipeline(Chain):
                                  dry_run=dry_run)
 
         if 'random' in config_dict:
-            self._load_link_args('random',
+            self._set_link('random',
                                  PipelineRandom,
                                  link_prefix='random.',
                                  config=config_yaml,
