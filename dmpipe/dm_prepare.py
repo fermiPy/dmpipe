@@ -200,10 +200,10 @@ class PrepareTargets(Link):
                         if write_sim_config:
                             cls._write_sim_target_config(target_config,
                                                          target_dir, sim_target_dir)
-                            write_sim_config = False
                         cls._write_profile_yaml(target, sim_profile_path,
                                                 ver_key, spatial)
-
+                    write_sim_config = False
+ 
         roster_file = os.path.join(ttype, 'roster_list.yaml')
         target_file = os.path.join(ttype, 'target_list.yaml')
 
