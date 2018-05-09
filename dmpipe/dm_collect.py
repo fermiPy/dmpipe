@@ -38,9 +38,8 @@ def summarize_limits_results(limit_table):
 
 
 class CollectLimits(Link):
-    """Small class wrap an analysis script.
+    """Small class to collect limit results from a series of simulations.
 
-    This is useful for parallelizing analysis using the fermipy.jobs module.
     """
     appname = 'dmpipe-collect-limits'
     linkname_default = 'collect-limits'
@@ -54,6 +53,8 @@ class CollectLimits(Link):
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
                            dry_run=defaults.common['dry_run'])
+
+    __doc__ += Link.construct_docstring(default_options)
 
     def run_analysis(self, argv):
         """Run this analysis"""
@@ -88,9 +89,9 @@ class CollectLimits(Link):
 
 
 class CollectLimits_SG(ScatterGather):
-    """Small class to generate configurations for this script
+    """Small class to generate configurations for `CollectLimits`
 
-    This adds the following arguments:
+    This does a triple loop over all targets, profiles and j-factor priors.
     """
     appname = 'dmpipe-collect-limits-sg'
     usage = "%s [options]" % (appname)
@@ -109,6 +110,8 @@ class CollectLimits_SG(ScatterGather):
                            write_full=defaults.collect['write_full'],
                            dry_run=defaults.common['dry_run'])
 
+    __doc__ += Link.construct_docstring(default_options)
+
     def build_job_configs(self, args):
         """Hook to build job configurations
         """
@@ -123,10 +126,13 @@ class CollectLimits_SG(ScatterGather):
         specconfig = NAME_FACTORY.resolve_specconfig(args)
 
         jpriors = args['jpriors']
-
         write_full = args.get('write_full', False)
 
         targets = load_yaml(targets_yaml)
+        base_config = dict(nsims=args['nsims'],
+                           seed=args['seed'],
+                           specconfig=specconfig)
+
         for target_name, profile_list in targets.items():
             for profile in profile_list:
                 for jprior in jpriors:
@@ -152,15 +158,12 @@ class CollectLimits_SG(ScatterGather):
                     summaryfile = limitfile.replace(
                         '_SEED.fits', '_summary_%06i_%06i.fits' %
                         (first, last))
-                    job_config = dict(limitfile=limitfile,
-                                      specconfig=specconfig,
-                                      jprior=jprior,
-                                      outfile=outfile,
-                                      summaryfile=summaryfile,
-                                      logfile=logfile,
-                                      nsims=args['nsims'],
-                                      seed=args['seed'],
-                                      dry_run=args['dry_run'])
+                    job_config = base_config.copy()
+                    job_config.update(dict(limitfile=limitfile,
+                                           jprior=jprior,
+                                           outfile=outfile,
+                                           summaryfile=summaryfile,
+                                           logfile=logfile))
                     job_configs[full_key] = job_config
 
         return job_configs
@@ -188,6 +191,8 @@ class CollectStackedLimits_SG(ScatterGather):
                            write_summary=defaults.collect['write_summary'],
                            dry_run=defaults.common['dry_run'])
 
+    __doc__ += Link.construct_docstring(default_options)
+
     def build_job_configs(self, args):
         """Hook to build job configurations
         """
@@ -202,8 +207,12 @@ class CollectStackedLimits_SG(ScatterGather):
         specconfig = NAME_FACTORY.resolve_specconfig(args)
 
         jpriors = args['jpriors']
-
         write_full = args['write_full']
+        first = args['seed']
+        last = first + args['nsims'] - 1
+
+        base_config = dict(nsims=args['nsims'],
+                           seed=args['seed'])
 
         roster_dict = load_yaml(roster_yaml)
         for roster_name in roster_dict.keys():
@@ -218,8 +227,6 @@ class CollectStackedLimits_SG(ScatterGather):
                                  fullpath=True)
 
                 limitfile = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
-                first = args['seed']
-                last = first + args['nsims'] - 1
                 outfile = limitfile.replace(
                     '_SEED.fits', '_collected_%06i_%06i.fits' %
                     (first, last))
@@ -229,15 +236,14 @@ class CollectStackedLimits_SG(ScatterGather):
                 summaryfile = limitfile.replace(
                     '_SEED.fits', '_summary_%06i_%06i.fits' %
                     (first, last))
-                job_config = dict(limitfile=limitfile,
-                                  specconfig=specconfig,
-                                  jprior=jprior,
-                                  outfile=outfile,
-                                  summaryfile=summaryfile,
-                                  logfile=logfile,
-                                  nsims=args['nsims'],
-                                  seed=args['seed'],
-                                  dry_run=args['dry_run'])
+
+                job_config = base_config.copy()
+                job_config.update(dict(limitfile=limitfile,
+                                       specconfig=specconfig,
+                                       jprior=jprior,
+                                       outfile=outfile,
+                                       summaryfile=summaryfile,
+                                       logfile=logfile))
                 job_configs[full_key] = job_config
 
         return job_configs

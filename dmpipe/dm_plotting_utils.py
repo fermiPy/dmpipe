@@ -12,7 +12,7 @@ from fermipy import stats_utils
 from fermipy import sed_plotting
 from fermipy.spectrum import DMFitFunction
 
-from dmpipe.dm_spectral import DMSpecTable
+from dmpipe.dm_spectral_utils import DMSpecTable
 
 
 def plot_dm_spectra_by_channel(dm_spec_table, mass=100,

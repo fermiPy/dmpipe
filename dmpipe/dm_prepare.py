@@ -28,9 +28,8 @@ NAME_FACTORY = NameFactory(basedir=('.'))
 
 
 class PrepareTargets(Link):
-    """Small class wrap an analysis script.
+    """Small class to preprare analysis pipeline.
 
-    This is useful for parallelizing analysis using the fermipy.jobs module.
     """
     appname = 'dmpipe-prepare-targets'
     linkname_default = 'prepare-targets'
@@ -44,8 +43,32 @@ class PrepareTargets(Link):
                            sims=defaults.sims['sims'],
                            dry_run=defaults.common['dry_run'])
 
+    __doc__ += Link.construct_docstring(default_options)
+
     @classmethod
     def _write_data_target_config(cls, base_config, target, target_dir):
+        """ Write a fermipy configuration file for one target.
+
+        Parameters
+        ----------
+
+        base_config : dict
+            Baseline configuration
+
+        target : `dmsky.targets.Target`
+            Specific target
+
+        target_dir : str
+            Directory to write to
+
+        Returns
+        -------
+
+        output : dict
+            The configuration for this specific target
+
+        """
+
         target_config_path = os.path.join(target_dir, 'config.yaml')
         target_config = base_config.copy()
         target_config['selection']['ra'] = target.ra
@@ -55,6 +78,34 @@ class PrepareTargets(Link):
 
     @classmethod
     def _write_sim_target_config(cls, target_config, target_dir, sim_target_dir):
+        """ Write a fermipy configurate file for one target
+        for simulated analysis.
+
+        This largely copies the configuration for flight data.
+        It does make a few changes to point some of the input
+        files (like the exposure map) to the flight data verions
+        to avoid having to re-compute them.
+
+        Parameters
+        ----------
+
+        target_config : dict
+            Configuration for flight data analysis for this target
+
+        target_dir : str
+            Analysis directory for flight data for this target
+
+        sim_target_dir : str
+            Directory to write to
+
+
+        Returns
+        -------
+
+        output : dict
+            The configuration for this specific target
+
+        """
         sim_target_config_path = os.path.join(sim_target_dir, 'config.yaml')
         sim_target_config = copy.deepcopy(target_config)
 
@@ -69,6 +120,30 @@ class PrepareTargets(Link):
 
     @classmethod
     def _write_profile_yaml(cls, target, profile_path, targ_ver, spatial):
+        """ Write a yaml file describing the spatial profile of the target.
+
+        Parameters
+        ----------
+
+        target : `dmsky.targets.Target`
+            Specific target
+
+        profile_path : str
+            Path for the output file
+
+        targ_ver : str
+            Version of the target, used for bookkeeping
+
+        spatial : str
+            Spatial model, one of ['point', 'radial', 'map']
+
+        Returns
+        -------
+
+        output : dict
+            The description of the target spatial profile
+
+        """
 
         source_model = dict(SpectrumType='PowerLaw',
                             RA=target.ra,
@@ -77,6 +152,9 @@ class PrepareTargets(Link):
         if spatial in [None, 'point']:
             source_model.update(dict(SpatialModel='PointSource'))
         elif spatial in ['map']:
+            if target.j_map_file is None:
+                j_map_file = profile_path.replace('.yaml', '.fits')
+                target.write_jmap_wcs(j_map_file)
             source_model.update(dict(SpatialModel='DiffuseSource',
                                      SpatialType='SpatialMap',
                                      Spatial_Filename=target.j_map_file))
@@ -97,7 +175,24 @@ class PrepareTargets(Link):
 
     @classmethod
     def _write_j_value_yaml(cls, target, j_val_path):
+        """Write a yaml file describing the J-factor of one target.
 
+        Parameters
+        ----------
+
+        target : `dmsky.targets.Target`
+            Specific target
+
+        j_val_path : str
+            Path for the output file
+
+        Returns
+        -------
+
+        output : dict
+            The description of the target J-factor
+
+        """
         j_profile_data = target.profile.copy()
         j_profile_data['j_integ'] = target.j_integ
         j_profile_data['j_sigma'] = target.j_sigma
@@ -107,6 +202,31 @@ class PrepareTargets(Link):
 
     @classmethod
     def _write_sim_yaml(cls, target, sim, sim_target_dir, target_key):
+        """Write a yaml file describing the 'True' target parameters
+        for simulated data.
+
+        Parameters
+        ----------
+
+        target : `dmsky.targets.Target`
+            Specific target
+
+        sim : str
+            Name of the simulation scenario.
+
+        sim_target_dir : str
+            Directory to write to
+
+        target_key : str
+            Version of the target to write
+
+        Returns
+        -------
+
+        output : dict
+            The description of the 'True' target parameters
+
+        """
 
         sim_profile_yaml = os.path.join('config', 'sim_%s.yaml' % sim)
         sim_profile = load_yaml(sim_profile_yaml)
@@ -122,7 +242,28 @@ class PrepareTargets(Link):
 
     @classmethod
     def _write_target_dirs(cls, ttype, roster_dict, base_config, sims, spatial_models):
-        """ Create and populate directoris for target analysis
+        """ Create and populate directoris for target analysis.
+
+        Parameters
+        ----------
+
+        ttype : str
+            Target type, used for bookeeping and directory naming
+
+        roster_dict : dict
+            Dictionary of `dmsky.roster.Roster` objects with the analysis targets
+
+        base_config : dict
+            Baseline configuration
+
+        sims : list
+            List of names of simulation scenarios
+
+        spatial_models : list
+            List of types of spatial models to use in analysis
+
+
+
         """
         target_dict = {}
 
@@ -203,7 +344,7 @@ class PrepareTargets(Link):
                         cls._write_profile_yaml(target, sim_profile_path,
                                                 ver_key, spatial)
                     write_sim_config = False
- 
+
         roster_file = os.path.join(ttype, 'roster_list.yaml')
         target_file = os.path.join(ttype, 'target_list.yaml')
 
