@@ -39,8 +39,43 @@ def _get_plot_config(plotting_dict, key,
 
 
 class PipelineData(Chain):
-    """Small class to chain together the steps of the dSphs pipeline
+    """Chain together the steps of the dSphs pipeline
+
+    This chain consists of:
+
+    analyze-roi : `AnalyzeROI_SG`
+        Do the baseline analysis for each target in the target list.
+
+    analyze-sed : `AnalyzeSED_SG`
+        Extract the SED for each profile for each target in the target list.
+
+    convert-castro : `ConvertCastro_SG`
+        Convert the SED to DM-space for each target, profile and J-factor prior type
+
+    stack-likelihood : `StackLikelihood_SG`
+        Stack the likelihoods for each roster in the analysis, for each
+        J-factor prior type.
+
+    Optional plotting modules includde
+
+    plot-castro : `PlotCastro`
+        Make 'Castro' plots of the SEDs for each profile for each target
+        in the target list.
+
+    plot-dm : `PlotDM_SG`
+        Make DM 'Castro' plots for each profile, target, J-factor prior type and channel.
+
+    plot-limits : `PlotLimits_SG`
+        Make DM 'Castro' plots for each profile, target, J-factor prior type and channel.
+
+    plot-stacked-dm : `PlotStackedDM_SG`
+        Make DM 'Castro' plots for each roster, J-factor prior type and channel.
+
+    plot-stacked-limits : `PlotStackedLimits_SG`
+        Make DM 'Castro' plots for each roster, J-factor prior type and channel.
+
     """
+
     appname = 'dmpipe-pipeline-data'
     linkname_default = 'pipeline-data'
     usage = '%s [options]' % (appname)
@@ -49,6 +84,8 @@ class PipelineData(Chain):
     default_options = dict(config=defaults.common['config'],
                            sim=defaults.sims['sim'],
                            dry_run=defaults.common['dry_run'])
+
+    __doc__ += Link.construct_docstring(default_options)
 
     def _map_arguments(self, args):
         """Map from the top-level arguments to the arguments provided to
@@ -134,7 +171,45 @@ class PipelineData(Chain):
 
 
 class PipelineSim(Chain):
-    """Small class to chain together the steps of the dSphs pipeline
+    """Chain together the steps of the dSphs pipeline for simulations
+
+    This chain consists of:
+
+    copy-base-roi : `CopyBaseROI_SG`
+        Copy the baseline analysis directory files for each target.
+
+    simulate-roi : `AnalyzeROI_SG`
+        Simulate the SED analysis for each target and profile in the target list.
+
+    convert-castro : `ConvertCastro_SG`
+        Convert the SED to DM-space for each target, profile and J-factor prior type
+
+    stack-likelihood : `StackLikelihood_SG`
+        Stack the likelihoods for each roster in the analysis, for each
+        J-factor prior type.
+
+    collect-sed : `CollectSED_SG`
+        Collect and summarize the SED results for all the simulations.
+
+    collect-limits : `CollectLimits_SG`
+        Collect and summarize the limits for all the targets for all
+        the simulations.
+
+    collect-stacked-limits : `CollectStackedLimits_SG`
+        Collect and summarize the stacked imits for all the targets
+        for all the simulations.
+
+
+    Optional plotting modules includde
+
+
+    plot-stacked-dm : `PlotStackedDM_SG`
+        Make DM 'Castro' plots for each roster, J-factor prior type and channel.
+
+    plot-stacked-limits : `PlotStackedLimits_SG`
+        Make DM 'Castro' plots for each roster, J-factor prior type and channel.
+
+
     """
     appname = 'dmpipe-pipeline-sim'
     linkname_default = 'pipeline-sim'
@@ -145,6 +220,8 @@ class PipelineSim(Chain):
                            sim=defaults.sims['sim'],
                            dry_run=defaults.common['dry_run'])
 
+    __doc__ += Link.construct_docstring(default_options)
+
     def _map_arguments(self, args):
         """Map from the top-level arguments to the arguments provided to
         the indiviudal links """
@@ -153,6 +230,7 @@ class PipelineSim(Chain):
 
         sim_name = args['sim']
         sim_dict = config_dict['sims'][sim_name]
+        sim_profile = sim_dict['profile']
 
         ttype = config_dict.get('ttype')
         config_template = config_dict.get('config_template', None)
@@ -165,6 +243,8 @@ class PipelineSim(Chain):
         enumbins = config_dict.get('enumbins', 12)
         sim_values = config_dict['sim_defaults']
         sim_values.update(sim_dict)
+
+
         seed = sim_values.get('seed', 0)
         nsims = sim_values.get('nsims', 20)
 
@@ -182,6 +262,7 @@ class PipelineSim(Chain):
                        SimulateROI_SG,
                        ttype=ttype,
                        sim=sim_name,
+                       sim_profile=sim_profile,
                        targetlist=targetlist,
                        config=config_localpath,
                        seed=seed, nsims=nsims)
@@ -245,7 +326,49 @@ class PipelineSim(Chain):
 
 
 class PipelineRandom(Chain):
-    """Small class to chain together the steps of the dSphs pipeline
+    """Chain together the steps of the dSphs pipeline for random 
+    direction studies.
+
+    This chain consists of:
+
+    copy-base-roi : `CopyBaseROI_SG`
+        Copy the baseline analysis directory files for each target.
+
+    random-dir-gen : `RandomDirGen_SG`
+        Select random directions inside the ROI and generate approriate target files.
+
+    analyze-sed : `AnalyzeSED_SG`
+        Extract the SED for each profile for each target in the target list.
+
+    convert-castro : `ConvertCastro_SG`
+        Convert the SED to DM-space for each target, profile and J-factor prior type
+
+    stack-likelihood : `StackLikelihood_SG`
+        Stack the likelihoods for each roster in the analysis, for each
+        J-factor prior type.
+
+    collect-sed : `CollectSED_SG`
+        Collect and summarize the SED results for all the simulations.
+
+    collect-limits : `CollectLimits_SG`
+        Collect and summarize the limits for all the targets for all
+        the simulations.
+
+    collect-stacked-limits : `CollectStackedLimits_SG`
+        Collect and summarize the stacked imits for all the targets
+        for all the simulations.
+
+
+    Optional plotting modules includde
+
+
+    plot-stacked-dm : `PlotStackedDM_SG`
+        Make DM 'Castro' plots for each roster, J-factor prior type and channel.
+
+    plot-stacked-limits : `PlotStackedLimits_SG`
+        Make DM 'Castro' plots for each roster, J-factor prior type and channel.
+
+
     """
     appname = 'dmpipe-pipeline-random'
     linkname_default = 'pipeline-random'
@@ -254,6 +377,8 @@ class PipelineRandom(Chain):
 
     default_options = dict(config=defaults.common['config'],
                            dry_run=defaults.common['dry_run'])
+
+    __doc__ += Link.construct_docstring(default_options)
 
     def _map_arguments(self, args):
         """Map from the top-level arguments to the arguments provided to
@@ -362,7 +487,26 @@ class PipelineRandom(Chain):
 
 
 class Pipeline(Chain):
-    """Small class to chain together the steps of the dSphs pipeline
+    """Top level DM pipeline analysis chain.
+
+    This chain consists of:
+
+    prepare-targets : `PrepareTargets`
+        Make the input files need for all the targets in the analysis.
+
+    spec-table : `SpecTable`
+        Build the FITS table with the DM spectra for all the channels 
+        being analyzed.
+
+    data : `PipelineData`
+        Data analysis pipeline
+
+    sim_{sim_name} : `PipelineSim`
+        Simulation pipeline for each simulation scenario
+
+    random : `PipelineRandom`
+        Analysis pipeline for random direction control studies
+
     """
     appname = 'dmpipe-pipeline'
     linkname_default = 'pipeline'
