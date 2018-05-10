@@ -179,6 +179,36 @@ class DMCastroData(castro.CastroData_Base):
     def create_from_stack(components, nystep=200, ylims=(1e-30, 1e-20),
                           weights=None, ref_j=REF_J, ref_sigmav=REF_SIGV):
         """ Create a DMCastroData object by stacking a series of DMCastroData objects
+
+        Parameters
+        ----------
+        components : list
+           List of `DMCastroData` objects we are stacking
+
+        Keyword Arguments
+        -----------------
+        
+        nystep : int
+            Number of steps in <sigmav> to take in sampling.
+
+        ylims : tuple
+            Limits of range of <sigmav> to scan
+
+        weights : list or None
+            List of weights to apply to components
+
+        ref_j : float
+            Refernce J-factor value
+
+        ref_sigmav : float
+            Refernec <sigmav> value
+
+        Returns
+        -------
+
+        output : `DMCastroData`
+            Object with the DM-space likelihoods
+        
         """
         if not components:
             return None
@@ -192,6 +222,22 @@ class DMCastroData(castro.CastroData_Base):
     @staticmethod
     def create_from_tables(tab_s, tab_m):
         """ Create a DMCastroData object from likelihood scan and mass tables
+
+        Parameters
+        ----------
+
+        tab_s : `astropy.table.Table`
+            Table with likelihood scan data
+
+        tab_s : `astropy.table.Table`
+            Table with masses of corresponding spectra
+
+        Returns
+        -------
+
+        output : `DMCastroData`
+            Object with the DM-space likelihoods
+
         """
         ref_j = np.squeeze(np.array(tab_s['REF_J']))
         ref_sigmav = np.squeeze(np.array(tab_s['REF_SIGMAV']))
@@ -228,14 +274,48 @@ class DMCastroData(castro.CastroData_Base):
 
     @staticmethod
     def create_from_fitsfile(filepath, channel):
-        """ Create a DMCastroData object likelihood scan and mass tables in FITS file """
+        """ Create a DMCastroData object likelihood scan and mass tables in FITS file 
+
+        Parameters
+        ----------
+
+        filepath : str
+            Path to likelihood scan data.
+
+        channel : str
+            DM interaction channel
+
+        Returns
+        -------
+
+        output : `DMCastroData`
+            Object with the DM-space likelihoods
+
+        """
         tab_s = Table.read(filepath, hdu=channel)
         tab_m = Table.read(filepath, hdu='MASSES')
         return DMCastroData.create_from_tables(tab_s, tab_m)
 
     def build_lnl_fn(self, normv, nllv):
         """ Build a function to return the likelihood value arrays of
-        normalization and likelihood values
+        normalization and likelihood values.
+
+        Parameters
+        ----------
+
+        normv : `numpy.array`
+            Set of test normalization values  
+
+        nllv : `numpy.array`
+            Corresponding set of negative log-likelihood values
+
+        Returns
+        -------
+
+        output : FIXME
+            Object that can compute the negative log-likelihood with 
+            the prior included.
+
         """
         lnlfn = castro.LnLFn(normv, nllv, self._norm_type)
         if self._astro_prior is None:
@@ -246,6 +326,27 @@ class DMCastroData(castro.CastroData_Base):
 
     def build_scandata_table(self):
         """Build a FITS table with likelihood scan data
+
+        Returns
+        -------
+
+        table : `astropy.table.Table`
+            The table has these columns
+
+        NORM : float
+            The normalization value
+        ASTRO_VALUE : float
+            The astrophysical J-factor for this target
+        REF_J : float
+            The reference J-factor used to build `DMSpecTable` 
+        REF_SIGMAV : float
+            The reference <sigmav> used to build `DMSpecTable` 
+        
+        NORM_SCAN : array
+            The test values of <sigmav>         
+        DLOGLIKE_SCAN : array
+            The corresponding values of the negative log-likelihood
+
         """
         shape = self._norm_vals.shape
         #dtype = 'f%i'%self._norm_vals.size
@@ -292,6 +393,18 @@ class DMCastroData(castro.CastroData_Base):
 
     def build_mass_table(self):
         """Build a FITS table with mass values
+
+        Returns
+        -------
+
+        table : `astropy.table.Table`
+            The table has these columns
+
+        MASSES : array
+            The masses of the spectra, in GeV
+        CHANNEL : int
+            The index of the channel of the DM interaction
+
         """
         col_masses = Column(name="MASSES", dtype=float,
                             shape=self._masses.shape)
@@ -304,6 +417,42 @@ class DMCastroData(castro.CastroData_Base):
 
     def build_limits_table(self, limit_dict):
         """Build a FITS table with limits data
+
+        Paramters
+        ---------
+
+        limit_dict : dict
+            Dictionary from limit names to values
+
+
+        Returns
+        -------
+
+        table : `astropy.table.Table`
+            The table has these columns
+
+        NORM : float
+            The normalization value
+        ASTRO_VALUE : float
+            The astrophysical J-factor for this target
+        REF_J : float
+            The reference J-factor used to build `DMSpecTable` 
+        REF_SIGMAV : float
+            The reference <sigmav> used to build `DMSpecTable` 
+        <LIMIT> : array
+            The upper limits 
+        
+        If a prior was applied these additional colums will be present
+
+        PRIOR_TYPE : str
+            Key specifying what kind of prior was applied
+        PRIOR_MEAN : float
+            Central value for the prior
+        PRIOR_SIGMA : float
+            Width of the prior
+        PRIOR_APPLIED : bool
+            Flag to indicate that the prior was applied
+
         """
         col_norm = Column(name="NORM", dtype=float)
         col_astro_val = Column(name="ASTRO_VALUE", dtype=float)
@@ -369,6 +518,23 @@ class DMSpecTable(object):
     @staticmethod
     def make_ebounds_table(emin, emax, eref):
         """ Construct the energy bounds table
+
+        Returns
+        -------
+
+        table : `astropy.table.Table`
+            The table has these columns and one row per energy bin
+
+        E_MIN : float
+            Energy bin lower edge
+
+        E_MAX : float
+            Energy bin upper edge
+
+        E_REF : float
+            Reference energy for bin, typically geometric mean
+            of bin edges
+
         """
         from astropy import table
 
@@ -384,7 +550,29 @@ class DMSpecTable(object):
 
     @staticmethod
     def make_spectra_table(nebins, spec_dict):
-        """ Construct the spectral values table
+        """Construct the spectral values table
+
+        Returns
+        -------
+
+        table : `astropy.table.Table`
+            The table has these columns
+
+        ref_mass : float
+            The DM mass for this row in the table
+
+        ref_chan : int
+            The index of the DM interaction channel for this row 
+
+        ref_dnde : array
+            The reference differential photon flux fpr each energy [ph / (MeV cm2 s)]
+
+        ref_flux : array
+            The reference integral photon flux for each energy [ph / (cm2 s)]
+
+        ref_eflux : array
+            The reference integral energy flux for each energy [MeV / (cm2 s)]
+
         """
         from astropy import table
 
@@ -405,31 +593,31 @@ class DMSpecTable(object):
 
     @property
     def ebounds_table(self):
-        """ Return the energy binning table """
+        """Return the energy binning table """
         return self._e_table
 
     @property
     def spectra_table(self):
-        """ Return the spectral values table """
+        """Return the spectral values table """
         return self._s_table
 
     @property
     def ref_vals(self):
-        """ Return the spectral reference values """
+        """Return the spectral reference values """
         return self._ref_vals
 
     @property
     def channel_map(self):
-        """ Return the channel to index mapping """
+        """Return the channel to index mapping """
         return self._channel_map
 
     @property
     def channel_names(self):
-        """ Return the channel to index mapping """
+        """Return the channel to index mapping """
         return self._channel_names
 
     def spectrum(self, chan, mass, spec_type):
-        """ Return the spectrum for a particular channel an mass
+        """Return the spectrum for a particular channel, mass and spectral type
         """
         mask = (self._s_table["ref_chan"] == chan) & (
             np.abs(self._s_table["ref_mass"] - mass) < 1e-9)
@@ -437,24 +625,34 @@ class DMSpecTable(object):
         return spec_vals
 
     def masses(self, chan):
-        """ Return the array of masses for a given channel
+        """Return the array of masses for a given channel
         """
         mask = (self._s_table["ref_chan"] == chan)
         return self._s_table[mask]["ref_mass"]
 
     def ebin_edges(self):
-        """ Return an array with the energy bin edges
+        """Return an array with the energy bin edges
         """
         return np.hstack([self._e_table["E_MIN"].data,
                           self._e_table["E_MAX"].data])
 
     def ebin_refs(self):
-        """ Return an array with the energy bin reference energies
+        """Return an array with the energy bin reference energies
         """
         return self._e_table["E_REF"].data
 
     def write_fits(self, filepath, clobber=False):
         """ Write this object to a FITS file
+
+        Paramters
+        ---------
+
+        filepath : str
+            Path to output file
+
+        clobber : bool 
+            Flag to allow overwriting existing files
+
         """
         fits_utils.write_tables_to_fits(filepath, [self._e_table, self._s_table],
                                         clobber=clobber,
@@ -463,7 +661,25 @@ class DMSpecTable(object):
 
     @staticmethod
     def get_ref_vals(filepath):
-        """ Extract the reference values from a FITS header """
+        """ Extract the reference values from a FITS header
+
+        Paramters
+        ---------
+
+        filepath : str
+            Path to input file
+
+        
+        Returns
+        -------
+
+        ref_sigv : float
+            Reference value of <sigmav>
+
+        ref_j : float
+            Refernce value of J-factor
+            
+        """
         import astropy.io.fits as pf
         fin = pf.open(filepath)
         hdu = fin["SPECDATA"]
@@ -476,6 +692,19 @@ class DMSpecTable(object):
     @staticmethod
     def create_from_fits(filepath):
         """ Build a DMSpecTable object from a FITS file
+
+        Paramters
+        ---------
+        
+        filepath : str
+            Path to the input file
+
+        Returns
+        -------
+
+        output : `DMSpecTable`
+            The newly created object
+
         """
         from astropy import table
         e_table = table.Table.read(filepath, "EBOUNDS")
@@ -497,14 +726,25 @@ class DMSpecTable(object):
 
         Parameters
         ----------
+
         emin : `~numpy.ndarray`
-        Low bin edges.
+            Low bin edges.
+
         emax : `~numpy.ndarray`
-        High bin edges.
+            High bin edges.
+        
         channels : list
-        List of channel names.
+            List of channel names.
+
         masses : `~numpy.ndarray`
-        Mass points at which to evaluate the spectrum.
+            Mass points at which to evaluate the spectrum.
+
+        Returns
+        -------
+
+        output : `DMSpecTable`
+            The newly created object
+
         """
         ebin_edges = np.concatenate((emin, emax[-1:]))
         evals = np.sqrt(ebin_edges[:-1] * ebin_edges[1:])
@@ -545,6 +785,25 @@ class DMSpecTable(object):
     @classmethod
     def create_from_config(cls, configfile, channels, masses):
         """ Build a DMSpecTable object from a yaml config file
+       
+        Parameters
+        ----------
+
+        configfile : str
+            Fermipy yaml configuration file
+
+        channels : list
+            List of str with the names of the channels to consider
+
+        masses : numpy.array
+            DM masses to test, in GeV
+
+        Returns
+        -------
+
+        output : `DMSpecTable`
+            The newly created object
+        
         """
         config = yaml.safe_load(open(configfile))
 
@@ -560,6 +819,23 @@ class DMSpecTable(object):
 
     def check_energy_bins(self, ref_spec, tol=1e-3):
         """ Make sure that the energy binning matches the reference spectrum
+
+        Parameters
+        ----------
+
+        ref_spec : 
+            The reference spectrum
+
+        tol : float
+            The maximum allowed relative difference in bin edges
+
+        
+        Returns
+        -------
+
+        status : bool
+            True if the energy binnings match
+
         """
         emin_local = self._e_table['E_MIN']
         emax_local = self._e_table['E_MAX']
@@ -589,6 +865,33 @@ class DMSpecTable(object):
         """ Convert CastroData object, i.e., Likelihood as a function of
         flux and energy flux, to a DMCastroData object, i.e., Likelihood as
         a function of DM mass and sigmav
+
+        Parameters
+        ----------
+
+        castro_data : `CastroData`
+            Input data
+
+        channel : int
+            Index for the DM interaction channel
+
+        norm_type : str
+            Type of spectral normalization to use for the conversion
+
+        jfactor : dict or float or None
+            J-factor used to make the conversion.
+
+            If jfactor is None, it will use the reference value
+            If jfactor is a float, it will use that
+            If jfactor is a dict, it will use that to create a prior
+
+        Returns
+        -------
+        
+        output : `DMCastroData`
+            The DM-space likelihood curves
+        
+
         """
         if not self.check_energy_bins(castro_data.refSpec):
             raise ValueError("CastroData energy binning does not match")
@@ -677,6 +980,38 @@ class DMSpecTable(object):
         """ Convert TSCube object, i.e., Likelihood as a function of
         flux and energy flux for a set of pixels to a set of DMCastroData objects,
         i.e., Likelihood as a function of DM mass and sigmav for those pixels.
+
+        Parameters
+        ----------
+
+        tscube : 
+            Input data
+
+        channel : int
+            Index for the DM interaction channel
+
+        norm_type : str
+            Type of spectral normalization to use for the conversion
+
+        Returns
+        -------
+
+        dm_table : `astropy.table.Table`
+            Table with the log-likelihood data.
+            One row per pixel.
+        
+        mass_table : `astropy.table.Table`
+            Table with the DM masses used
+
+        dm_ts_cube : `skymap.Map`
+            Maps of the TS per pixel in each energy bin
+        
+        dm_ul_cube : `skymap.Map`
+            Maps of the upper limit on <sigma v> per pixel in each energy bin.
+        
+        dm_mle_cube : `skymap.Map`
+            Maps of the maximum likelihood estimate per pixel in each energy bin.
+
         """
         if not self.check_energy_bins(tscube.refSpec):
             raise ValueError("TSCube energy binning does not match")

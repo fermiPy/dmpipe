@@ -35,7 +35,7 @@ REF_SIGV = 1.0e-26
 
 
 class ConvertCastro(Link):
-    """Small class to convert SED to DM space
+    """Small class to convert SED to DM space.
 
     """
 
@@ -153,9 +153,6 @@ class ConvertCastro(Link):
         name_list : list
             List of names
 
-
-
-
         """
         l_list = []
         t_list = []
@@ -181,7 +178,37 @@ class ConvertCastro(Link):
     @staticmethod
     def convert_sed(spec_table, sed_file, norm_type, channels,
                     j_factor, outfile, limitfile, clobber):
-        """Convert a single SED to DM"""
+        """Convert a single SED to DM space.
+
+        Parameters
+        ----------
+
+        spec_table : `DMSpecTable`
+            Object with all the DM spectra
+
+        sedFile : str
+            Path to the SED file
+
+        norm_type : str
+            Normalization type to use
+
+        channels : list
+            List of the channels to convert
+
+        j_factor : dict
+            Dictionary with information about the J-factor
+
+        outfile : str
+            Path to write the output `DMCastroData` object to
+
+        limitfile : str
+            Path to write the output limits to.
+
+        clobber : bool
+            Flag to overwrite existing files.
+
+        """
+
         sed = CastroData.create_from_sedfile(sed_file, norm_type)
         c_list, t_list, n_list = ConvertCastro.convert_sed_to_dm(
             spec_table, sed, channels, norm_type, j_factor)
@@ -331,6 +358,34 @@ class StackLikelihood(Link):
     def stack_roster(rost, ttype,
                      channels, jprior_key, sim, seed):
         """ Stack all of the DMCastroData in a roster
+
+        Parameters
+        ----------
+
+        rost : list
+            List of the targets
+
+        ttype : str
+            Type of target, used for bookkeeping and file names
+
+        channels : list
+            List of the channels to convert
+
+        j_prior_key : str
+            String that identifies the type of prior on the J-factor
+
+        sim : str
+            String that specifies the simulation scenario
+
+        seed : int or None
+            Key for the simulation instance, used for bookkeeping and file names
+
+        Returns
+        -------
+
+        output : dict
+            Dictionary of `DMCastroData' objects, keyed by channel
+
         """
         component_dict = {}
         out_dict = {}
@@ -375,6 +430,31 @@ class StackLikelihood(Link):
     def write_stacked(ttype, roster_name, stacked_dict,
                       jprior_key, sim, seed, clobber):
         """ Write the stacked DMCastroData object to a FITS file
+
+        Parameters
+        ----------
+
+        ttype : str
+            Type of target, used for bookkeeping and file names
+
+        roster_name : str
+            Name of the roster, used for bookkeeping and file names
+
+        stacked_dict : dict
+            Dictionary of `DMCastroData' objects, keyed by channel
+
+        j_prior_key : str
+            String that identifies the type of prior on the J-factor
+
+        sim : str
+            String that specifies the simulation scenario
+
+        seed : int or None
+            Key for the simulation instance, used for bookkeeping and file names
+
+        clobber : bool
+            Flag to overwrite existing files.
+
         """
         name_keys = dict(target_type=ttype,
                          target_name="stacked",
@@ -433,6 +513,31 @@ class StackLikelihood(Link):
     def stack_rosters(roster_dict, ttype, channels,
                       jprior_key, sim, seed, clobber):
         """ Stack all of the DMCastroData in a dictionary of rosters
+
+        Parameters
+        ----------
+
+        roster_dict : dict
+            Dictionary of all the roster being used.
+
+        ttype : str
+            Type of target, used for bookkeeping and file names
+
+        channels : list
+            List of the channels to convert
+
+        j_prior_key : str
+            String that identifies the type of prior on the J-factor
+
+        sim : str
+            String that specifies the simulation scenario
+
+        seed : int or None
+            Key for the simulation instance, used for bookkeeping and file names
+
+        clobber : bool
+            Flag to overwrite existing files.
+
         """
         for roster_name, rost in roster_dict.items():
             stacked_dict = StackLikelihood.stack_roster(rost, ttype,
@@ -587,9 +692,9 @@ class ConvertCastro_SG(ScatterGather):
 
 
 class StackLikelihood_SG(ScatterGather):
-    """Small class to generate configurations for this script
+    """Small class to generate configurations for `StackLikelihood`
 
-    This adds the following arguments:
+    This loops over the types of priors on the J-factor
     """
     appname = 'dmpipe-stack-likelihood-sg'
     usage = "%s [options]" % (appname)
