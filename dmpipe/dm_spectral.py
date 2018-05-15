@@ -588,14 +588,8 @@ class StackLikelihood(Link):
             jprior = 'none'
 
         for seed in seedlist:
-            StackLikelihood.stack_rosters(
-                roster_dict,
-                args.ttype,
-                channels,
-                jprior,
-                sim_name,
-                seed,
-                args.clobber)
+            StackLikelihood.stack_rosters(roster_dict, args.ttype, channels,
+                                          jprior, sim_name, seed, args.clobber)
 
 
 class ConvertCastro_SG(ScatterGather):
@@ -741,7 +735,7 @@ class StackLikelihood_SG(ScatterGather):
                            clobber=clobber)
 
         for jprior in jpriors:
-            full_key = "%s:%s" % (jprior, sim)
+            
             name_keys = dict(target_type=args['ttype'],
                              target_name='stacked',
                              jprior=jprior,
@@ -749,12 +743,13 @@ class StackLikelihood_SG(ScatterGather):
                              fullpath=True)
             if is_sim:
                 target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
+                full_key = "%s:%s" % (jprior, sim)
             else:
                 target_dir = NAME_FACTORY.targetdir(**name_keys)
+                full_key = jprior
 
-            logfile = os.path.join(
-                target_dir, 'stack_%s_%s.log' %
-                (jprior, sim))
+            logfile = os.path.join(target_dir, 'stack_%s.log' % jprior )
+
             job_config = base_config.copy()
             job_config.update(dict(jprior=jprior,
                                    logfile=logfile))
