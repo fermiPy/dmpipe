@@ -15,6 +15,7 @@ common = {
     'roster': (None, 'Name of a dmsky target roster.', str),
     'rosters': ([], 'Name of a dmsky target roster.', list),
     'rosterlist': (None, 'Path to the roster list.', str),
+    'alias_dict': (None, 'File to rename target version keys.', str),
     'specconfig': (None, 'Path to DM yaml file defining DM spectra of interest.', str),
     'specfile': (None, 'Path to DM spectrum file.', str),
     'j_value_file': (None, 'Path to yaml file with target j_value', str),
