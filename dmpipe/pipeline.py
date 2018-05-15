@@ -9,6 +9,7 @@ from __future__ import absolute_import, division, print_function
 from fermipy.utils import load_yaml
 
 from fermipy.jobs.job_archive import JobStatus, JobDetails
+from fermipy.jobs.link import Link
 from fermipy.jobs.chain import Chain, purge_dict
 from fermipy.jobs.target_analysis import AnalyzeROI_SG, AnalyzeSED_SG
 from fermipy.jobs.target_collect import CollectSED_SG
@@ -240,7 +241,6 @@ class PipelineSim(Chain):
         targetlist = config_dict.get('targetlist')
         jpriors = config_dict.get('jpriors')
 
-        enumbins = config_dict.get('enumbins', 12)
         sim_values = config_dict['sim_defaults']
         sim_values.update(sim_dict)
 
@@ -286,7 +286,7 @@ class PipelineSim(Chain):
                        CollectSED_SG,
                        ttype=ttype,
                        sim=sim_name,
-                       enumbins=enumbins,
+                       config=config_localpath,
                        targetlist=targetlist,
                        seed=seed, nsims=nsims)
         self._set_link('collect-limits',
@@ -394,7 +394,6 @@ class PipelineRandom(Chain):
         targetlist = config_dict.get('targetlist')
         jpriors = config_dict.get('jpriors')
         random = config_dict.get('random')
-        enumbins = config_dict.get('enumbins', 12)
 
         rand_dirs = random.get('rand_dirs')
         sim_values = config_dict['sim_defaults']
@@ -446,7 +445,7 @@ class PipelineRandom(Chain):
                        CollectSED_SG,
                        ttype=ttype,
                        sim='random',
-                       enumbins=enumbins,
+                       config=config_localpath,
                        targetlist=targetlist,
                        seed=seed, nsims=nsims)
         self._set_link('collect-limits',
@@ -533,6 +532,7 @@ class Pipeline(Chain):
         self.link_prefix = "%s." % ttype
         config_template = config_dict.get('config_template', None)
         rosters = config_dict.get('rosters')
+        alias_dict = config_dict.get('alias_dict', None)
         spatial_models = config_dict.get('spatial_models')
         sims = config_dict.get('sims', {})
         sim_names = []
@@ -545,6 +545,7 @@ class Pipeline(Chain):
                        ttype=ttype,
                        rosters=rosters,
                        spatial_models=spatial_models,
+                       alias_dict=alias_dict,
                        sims=sim_names,
                        config=config_template)
         link = self['prepare-targets']
