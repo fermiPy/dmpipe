@@ -40,6 +40,7 @@ class PrepareTargets(Link):
                            rosters=defaults.common['rosters'],
                            config=defaults.common['config'],
                            spatial_models=defaults.common['spatial_models'],
+                           alias_dict=defaults.common['alias_dict'],
                            sims=defaults.sims['sims'],
                            dry_run=defaults.common['dry_run'])
 
@@ -241,7 +242,9 @@ class PrepareTargets(Link):
         return sim_profile
 
     @classmethod
-    def _write_target_dirs(cls, ttype, roster_dict, base_config, sims, spatial_models):
+    def _write_target_dirs(cls, ttype, roster_dict,
+                           base_config, sims, spatial_models,
+                           aliases):
         """ Create and populate directoris for target analysis.
 
         Parameters
@@ -262,7 +265,8 @@ class PrepareTargets(Link):
         spatial_models : list
             List of types of spatial models to use in analysis
 
-
+        aliases : dict
+            Optional dictionary to remap target verion keys
 
         """
         target_dict = {}
@@ -272,8 +276,13 @@ class PrepareTargets(Link):
 
         for roster_name, rost in roster_dict.items():
             for target_name, target in rost.items():
-                ver_key = target.ver_key
-                if ver_key is None:
+                                
+                if aliases is not None:
+                    try:
+                        ver_key = aliases[target.version]
+                    except KeyError:
+                        ver_key = target.version
+                else:
                     ver_key = target.version
                 target_key = "%s:%s" % (target_name, ver_key)
                 print("Writing %s" % (target_key))
@@ -379,6 +388,11 @@ class PrepareTargets(Link):
         else:
             sims = args.sims
 
+        if is_null(args.alias_dict):
+            aliases = None
+        else:
+            aliases = load_yaml(args.alias_dict)
+
         name_keys = dict(target_type=args.ttype,
                          fullpath=True)
         config_file = NAME_FACTORY.ttypeconfig(**name_keys)
@@ -391,7 +405,8 @@ class PrepareTargets(Link):
             roster_dict[roster] = rost
 
         base_config = load_yaml(config_file)
-        self._write_target_dirs(args.ttype, roster_dict, base_config, sims, args.spatial_models)
+        self._write_target_dirs(args.ttype, roster_dict, base_config, 
+                                sims, args.spatial_models, aliases)
 
 
 def register_classes():
