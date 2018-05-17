@@ -1,0 +1,5 @@
+.. _dmpipe:
+
+dmpipe package
+==============
+
