@@ -928,7 +928,7 @@ class DMSpecTable(object):
                 (jfactor, type(jfactor)))
 
         norm_limits = castro_data.getLimits(1e-5)
-        spec_vals *= norm_factor
+        #spec_vals *= norm_factor
         n_scan_pt = 200
 
         norm_vals = np.ndarray((nmass, n_scan_pt))
