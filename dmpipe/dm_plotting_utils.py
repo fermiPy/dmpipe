@@ -257,7 +257,6 @@ def plot_limits_from_arrays(ldict, xlims, ylims, bands=None):
         plot_expected_limit_bands(axis, bands)
 
     for key, val in ldict.items():
-        print (key, val)
         xvals = val[0]
         yvals = val[1]
         if key.lower() == "stacked":
@@ -272,8 +271,6 @@ def plot_limits_from_arrays(ldict, xlims, ylims, bands=None):
 def plot_expected_limit_bands(axis, bands):
     """ Plot the expected limit bands """
     masses = bands['MASSES']
-    print (masses.shape, bands['q02'].shape, bands['q16'].shape,
-           bands['median'].shape, bands['q84'].shape, bands['q97'].shape)
 
     axis.fill_between(masses, bands['q02'], bands['q97'], color='yellow')
     axis.fill_between(masses, bands['q16'], bands['q84'], color='green')
