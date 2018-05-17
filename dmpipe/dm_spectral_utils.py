@@ -13,14 +13,16 @@ import numpy as np
 
 from astropy.table import Table, Column
 
+from dmsky.priors import create_prior_functor
+
 from fermipy import castro
 from fermipy import fits_utils
-from fermipy import stats_utils
 from fermipy import skymap
 from fermipy.jobs.utils import is_null, is_not_null
 
-
 from fermipy.spectrum import DMFitFunction
+
+from dmpipe.lnl_norm_prior import LnLFn_norm_prior
 
 REF_J = 1.0e19
 REF_SIGV = 1.0e-26
@@ -32,7 +34,7 @@ class DMCastroData(castro.CastroData_Base):
     series of DM masses
     """
 
-    def __init__(self, norm_vals, nll_vals, norm_value, channel, masses, astro_value,
+    def __init__(self, norm_vals, nll_vals, channel, masses, astro_value,
                  astro_prior=None, prior_applied=True, ref_j=REF_J, ref_sigmav=REF_SIGV):
         """ C'tor
 
@@ -45,9 +47,6 @@ class DMCastroData(castro.CastroData_Base):
         nll_vals : `~numpy.ndarray`
            The log-likelihood values ( n_mass X N array, where N is
            the number of sampled values for each bin )
-
-        norm_value : float
-           The normalization value
 
         channel : int or str
            The DM decay or annihilation channel
@@ -71,23 +70,11 @@ class DMCastroData(castro.CastroData_Base):
            Reference value for sigma
         """
         self._masses = masses
-        self._norm_value = norm_value
-        if self._norm_value is None:
-            self._norm_value = 1.0
         self._astro_value = astro_value
         self._astro_prior = astro_prior
         self._prior_applied = prior_applied
         self._ref_j = ref_j
         self._ref_sigmav = ref_sigmav
-
-        if self._astro_value is not None:
-            test_norm = self._ref_j / self._astro_value
-        else:
-            test_norm = self._norm_value
-        if np.fabs(test_norm - self._norm_value) > 0.01:
-            sys.stderr.write(
-                "WARNING, normalization value does not match expected value: %.2E %.2E\n" %
-                (self._norm_value, test_norm))
 
         if isinstance(channel, str):
             self._channel = DMFitFunction.channel_rev_map[channel]
@@ -106,13 +93,6 @@ class DMCastroData(castro.CastroData_Base):
     def masses(self):
         """ The masses tested (in GeV) """
         return self._masses
-
-    @property
-    def norm_value(self):
-        """ The global normalization value
-
-        The array off normalization values should be multiplied by this factor """
-        return self._norm_value
 
     @property
     def astro_value(self):
@@ -187,7 +167,7 @@ class DMCastroData(castro.CastroData_Base):
 
         Keyword Arguments
         -----------------
-        
+
         nystep : int
             Number of steps in <sigmav> to take in sampling.
 
@@ -208,15 +188,14 @@ class DMCastroData(castro.CastroData_Base):
 
         output : `DMCastroData`
             Object with the DM-space likelihoods
-        
+
         """
         if not components:
             return None
         shape = (components[0].nx, nystep)
         norm_vals, nll_vals = castro.CastroData_Base.stack_nll(shape, components,
                                                                ylims, weights)
-        return DMCastroData(norm_vals, nll_vals, 1.0,
-                            components[0].channel, components[0].masses,
+        return DMCastroData(norm_vals, nll_vals, components[0].channel, components[0].masses,
                             astro_value=None, ref_j=ref_j, ref_sigmav=ref_sigmav)
 
     @staticmethod
@@ -242,8 +221,7 @@ class DMCastroData(castro.CastroData_Base):
         ref_j = np.squeeze(np.array(tab_s['REF_J']))
         ref_sigmav = np.squeeze(np.array(tab_s['REF_SIGMAV']))
 
-        norm = np.squeeze(np.array(tab_s['NORM']))
-        norm_vals = np.squeeze(np.array(tab_s['NORM_SCAN'])) * norm
+        norm_vals = np.squeeze(np.array(tab_s['NORM_SCAN']))
         nll_vals = -np.squeeze(np.array(tab_s['DLOGLIKE_SCAN']))
 
         masses = np.squeeze(np.array(tab_m['MASSES']))
@@ -263,18 +241,18 @@ class DMCastroData(castro.CastroData_Base):
                               mu=prior_mean,
                               sigma=prior_sigma,
                               j_ref=astro_value)
-            prior = stats_utils.create_prior_functor(prior_dict)
+            prior = create_prior_functor(prior_dict)
         else:
             prior = None
             prior_applied = True
 
-        return DMCastroData(norm_vals, nll_vals, norm, channel,
+        return DMCastroData(norm_vals, nll_vals, channel,
                             masses, astro_value, prior, prior_applied,
                             ref_j=ref_j, ref_sigmav=ref_sigmav)
 
     @staticmethod
     def create_from_fitsfile(filepath, channel):
-        """ Create a DMCastroData object likelihood scan and mass tables in FITS file 
+        """ Create a DMCastroData object likelihood scan and mass tables in FITS file
 
         Parameters
         ----------
@@ -304,7 +282,7 @@ class DMCastroData(castro.CastroData_Base):
         ----------
 
         normv : `numpy.array`
-            Set of test normalization values  
+            Set of test normalization values
 
         nllv : `numpy.array`
             Corresponding set of negative log-likelihood values
@@ -313,7 +291,7 @@ class DMCastroData(castro.CastroData_Base):
         -------
 
         output : FIXME
-            Object that can compute the negative log-likelihood with 
+            Object that can compute the negative log-likelihood with
             the prior included.
 
         """
@@ -322,7 +300,7 @@ class DMCastroData(castro.CastroData_Base):
             return lnlfn
         if self._prior_applied:
             return lnlfn
-        return stats_utils.LnLFn_norm_prior(lnlfn, self._astro_prior)
+        return LnLFn_norm_prior(lnlfn, self._astro_prior)
 
     def build_scandata_table(self):
         """Build a FITS table with likelihood scan data
@@ -333,17 +311,15 @@ class DMCastroData(castro.CastroData_Base):
         table : `astropy.table.Table`
             The table has these columns
 
-        NORM : float
-            The normalization value
         ASTRO_VALUE : float
             The astrophysical J-factor for this target
         REF_J : float
-            The reference J-factor used to build `DMSpecTable` 
+            The reference J-factor used to build `DMSpecTable`
         REF_SIGMAV : float
-            The reference <sigmav> used to build `DMSpecTable` 
-        
+            The reference <sigmav> used to build `DMSpecTable`
+
         NORM_SCAN : array
-            The test values of <sigmav>         
+            The test values of <sigmav>
         DLOGLIKE_SCAN : array
             The corresponding values of the negative log-likelihood
 
@@ -351,7 +327,6 @@ class DMCastroData(castro.CastroData_Base):
         shape = self._norm_vals.shape
         #dtype = 'f%i'%self._norm_vals.size
 
-        col_norm = Column(name="NORM", dtype=float)
         col_normv = Column(name="NORM_SCAN", dtype=float,
                            shape=shape)
         col_dll = Column(name="DLOGLIKE_SCAN", dtype=float,
@@ -362,14 +337,12 @@ class DMCastroData(castro.CastroData_Base):
         col_ref_sigmav = Column(name="REF_SIGMAV", dtype=float)
 
         collist = [
-            col_norm,
             col_normv,
             col_dll,
             col_astro_val,
             col_ref_j,
             col_ref_sigmav]
-        valdict = {"NORM": self._norm_value,
-                   "NORM_SCAN": self._norm_vals * self._norm_value,
+        valdict = {"NORM_SCAN": self._norm_vals,
                    "DLOGLIKE_SCAN": -1 * self._nll_vals,
                    "ASTRO_VALUE": self.astro_value,
                    "REF_J": self.ref_j,
@@ -431,17 +404,15 @@ class DMCastroData(castro.CastroData_Base):
         table : `astropy.table.Table`
             The table has these columns
 
-        NORM : float
-            The normalization value
         ASTRO_VALUE : float
             The astrophysical J-factor for this target
         REF_J : float
-            The reference J-factor used to build `DMSpecTable` 
+            The reference J-factor used to build `DMSpecTable`
         REF_SIGMAV : float
-            The reference <sigmav> used to build `DMSpecTable` 
+            The reference <sigmav> used to build `DMSpecTable`
         <LIMIT> : array
-            The upper limits 
-        
+            The upper limits
+
         If a prior was applied these additional colums will be present
 
         PRIOR_TYPE : str
@@ -454,13 +425,11 @@ class DMCastroData(castro.CastroData_Base):
             Flag to indicate that the prior was applied
 
         """
-        col_norm = Column(name="NORM", dtype=float)
         col_astro_val = Column(name="ASTRO_VALUE", dtype=float)
         col_ref_j = Column(name="REF_J", dtype=float)
         col_ref_sigmav = Column(name="REF_SIGMAV", dtype=float)
-        collist = [col_norm, col_astro_val, col_ref_j, col_ref_sigmav]
-        valdict = {"NORM": self._norm_value,
-                   "ASTRO_VALUE": self.astro_value,
+        collist = [col_astro_val, col_ref_j, col_ref_sigmav]
+        valdict = {"ASTRO_VALUE": self.astro_value,
                    "REF_J": self.ref_j,
                    "REF_SIGMAV": self.ref_sigmav}
 
@@ -562,7 +531,7 @@ class DMSpecTable(object):
             The DM mass for this row in the table
 
         ref_chan : int
-            The index of the DM interaction channel for this row 
+            The index of the DM interaction channel for this row
 
         ref_dnde : array
             The reference differential photon flux fpr each energy [ph / (MeV cm2 s)]
@@ -650,7 +619,7 @@ class DMSpecTable(object):
         filepath : str
             Path to output file
 
-        clobber : bool 
+        clobber : bool
             Flag to allow overwriting existing files
 
         """
@@ -669,7 +638,7 @@ class DMSpecTable(object):
         filepath : str
             Path to input file
 
-        
+
         Returns
         -------
 
@@ -678,7 +647,7 @@ class DMSpecTable(object):
 
         ref_j : float
             Refernce value of J-factor
-            
+
         """
         import astropy.io.fits as pf
         fin = pf.open(filepath)
@@ -695,7 +664,7 @@ class DMSpecTable(object):
 
         Paramters
         ---------
-        
+
         filepath : str
             Path to the input file
 
@@ -732,7 +701,7 @@ class DMSpecTable(object):
 
         emax : `~numpy.ndarray`
             High bin edges.
-        
+
         channels : list
             List of channel names.
 
@@ -785,7 +754,7 @@ class DMSpecTable(object):
     @classmethod
     def create_from_config(cls, configfile, channels, masses):
         """ Build a DMSpecTable object from a yaml config file
-       
+
         Parameters
         ----------
 
@@ -803,7 +772,7 @@ class DMSpecTable(object):
 
         output : `DMSpecTable`
             The newly created object
-        
+
         """
         config = yaml.safe_load(open(configfile))
 
@@ -823,13 +792,13 @@ class DMSpecTable(object):
         Parameters
         ----------
 
-        ref_spec : 
+        ref_spec :
             The reference spectrum
 
         tol : float
             The maximum allowed relative difference in bin edges
 
-        
+
         Returns
         -------
 
@@ -887,10 +856,10 @@ class DMSpecTable(object):
 
         Returns
         -------
-        
+
         output : `DMCastroData`
             The DM-space likelihood curves
-        
+
 
         """
         if not self.check_energy_bins(castro_data.refSpec):
@@ -914,21 +883,21 @@ class DMSpecTable(object):
             j_value = jfactor
             norm_factor = ref_norm / jfactor
         elif isinstance(jfactor, dict):
-            jfactor['j_ref'] = ref_norm
+            jfactor['scale'] = ref_norm
             j_value = jfactor.get('j_value')
             norm_factor = ref_norm / j_value
             j_functype = jfactor.get('functype', None)
             if is_null(j_functype):
                 j_prior = None
             else:
-                j_prior = stats_utils.create_prior_functor(jfactor)
+                j_prior = create_prior_functor(jfactor)
         else:
             sys.stderr.write(
                 "Did not recoginize J factor %s %s\n" %
                 (jfactor, type(jfactor)))
 
         norm_limits = castro_data.getLimits(1e-5)
-        #spec_vals *= norm_factor
+        spec_vals *= norm_factor
         n_scan_pt = 200
 
         norm_vals = np.ndarray((nmass, n_scan_pt))
@@ -961,7 +930,7 @@ class DMSpecTable(object):
             if is_not_null(j_prior):
                 try:
                     lnlfn = castro.LnLFn(norm_vals[i], dll_vals[i], 'dummy')
-                    lnlfn_prior = stats_utils.LnLFn_norm_prior(lnlfn, j_prior)
+                    lnlfn_prior = LnLFn_norm_prior(lnlfn, j_prior)
                     dll_vals[i, 0:] = lnlfn_prior(norm_vals[i])
                 except ValueError:
                     print (
@@ -971,7 +940,7 @@ class DMSpecTable(object):
                     dll_vals[i, 0:] = np.nan * np.ones((n_scan_pt))
 
         norm_vals *= (ref_sigmav)
-        dm_castro = DMCastroData(norm_vals[mass_mask], dll_vals[mass_mask], norm_factor,
+        dm_castro = DMCastroData(norm_vals[mass_mask], dll_vals[mass_mask],
                                  channel, masses[mass_mask], j_value, j_prior,
                                  ref_j=ref_norm, ref_sigmav=ref_sigmav)
         return dm_castro
@@ -984,7 +953,7 @@ class DMSpecTable(object):
         Parameters
         ----------
 
-        tscube : 
+        tscube :
             Input data
 
         channel : int
@@ -999,16 +968,16 @@ class DMSpecTable(object):
         dm_table : `astropy.table.Table`
             Table with the log-likelihood data.
             One row per pixel.
-        
+
         mass_table : `astropy.table.Table`
             Table with the DM masses used
 
         dm_ts_cube : `skymap.Map`
             Maps of the TS per pixel in each energy bin
-        
+
         dm_ul_cube : `skymap.Map`
             Maps of the upper limit on <sigma v> per pixel in each energy bin.
-        
+
         dm_mle_cube : `skymap.Map`
             Maps of the maximum likelihood estimate per pixel in each energy bin.
 
@@ -1026,7 +995,6 @@ class DMSpecTable(object):
         ref_sigmav = self._ref_vals["ref_sigv"]
         ref_norm = self._ref_vals["ref_J"]
         j_ref = ref_norm
-        norm_factor = 1.
 
         nvals = tscube.nvals
         cube_shape = (
@@ -1072,13 +1040,8 @@ class DMSpecTable(object):
                 dll_vals[i] -= mle_ll
 
             norm_vals *= (ref_sigmav)
-            dm_castro = DMCastroData(
-                norm_vals,
-                dll_vals,
-                norm_factor,
-                channel,
-                masses,
-                j_ref)
+            dm_castro = DMCastroData(norm_vals, dll_vals,
+                                     channel, masses, j_ref)
             tab = dm_castro.build_scandata_table()
             if dm_table is None:
                 dm_table = tab

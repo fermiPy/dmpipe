@@ -59,7 +59,7 @@ class ConvertCastro(Link):
 
     @staticmethod
     def convert_sed_to_dm(spec_table, sed, channels, norm_type, j_val):
-        """ Convert an SED file to a DMCastroData object 
+        """ Convert an SED file to a DMCastroData object
 
         Parameters
         ----------
@@ -120,7 +120,7 @@ class ConvertCastro(Link):
 
     @staticmethod
     def extract_dm_limits(dm_castro_list, channels, alphas, mass_table):
-        """Extract limits from a series of `DMCastroData` objects 
+        """Extract limits from a series of `DMCastroData` objects
         for a set of channels and masses
 
         Parameters
@@ -131,7 +131,7 @@ class ConvertCastro(Link):
 
         channels : list
             List of the channels to convert
-            
+
         alphas : list
             List of the confidence level threshold to extract limits
 
@@ -159,11 +159,10 @@ class ConvertCastro(Link):
         n_list = []
 
         for castro_data, chan in zip(dm_castro_list, channels):
-            norm = castro_data.norm_value
-            mles = norm * castro_data.mles()
+            mles = castro_data.mles()
             limit_dict = dict(MLES=mles)
             for alpha in alphas:
-                limits = norm * castro_data.getLimits(alpha)
+                limits = castro_data.getLimits(alpha)
                 limit_dict['UL_%.02f' % alpha] = limits
 
             tab_limits = castro_data.build_limits_table(limit_dict)
@@ -487,11 +486,10 @@ class StackLikelihood(Link):
         alphas = [0.68, 0.95]
         for chan in channels:
             stacked = stacked_dict[chan]
-            norm = stacked.norm_value
-            mles = norm * stacked.mles()
+            mles = stacked.mles()
             limit_dict = dict(MLES=mles)
             for alpha in alphas:
-                limits = norm * stacked.getLimits(alpha)
+                limits = stacked.getLimits(alpha)
                 limit_dict['UL_%.02f' % alpha] = limits
             tab_limits = stacked.build_limits_table(limit_dict)
             if mass_table is None:
@@ -735,7 +733,7 @@ class StackLikelihood_SG(ScatterGather):
                            clobber=clobber)
 
         for jprior in jpriors:
-            
+
             name_keys = dict(target_type=args['ttype'],
                              target_name='stacked',
                              jprior=jprior,
@@ -748,7 +746,7 @@ class StackLikelihood_SG(ScatterGather):
                 target_dir = NAME_FACTORY.targetdir(**name_keys)
                 full_key = jprior
 
-            logfile = os.path.join(target_dir, 'stack_%s.log' % jprior )
+            logfile = os.path.join(target_dir, 'stack_%s.log' % jprior)
 
             job_config = base_config.copy()
             job_config.update(dict(jprior=jprior,
