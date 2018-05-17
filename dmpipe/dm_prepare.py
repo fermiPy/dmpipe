@@ -276,7 +276,7 @@ class PrepareTargets(Link):
 
         for roster_name, rost in roster_dict.items():
             for target_name, target in rost.items():
-                                
+
                 if aliases is not None:
                     try:
                         ver_key = aliases[target.version]
@@ -405,7 +405,7 @@ class PrepareTargets(Link):
             roster_dict[roster] = rost
 
         base_config = load_yaml(config_file)
-        self._write_target_dirs(args.ttype, roster_dict, base_config, 
+        self._write_target_dirs(args.ttype, roster_dict, base_config,
                                 sims, args.spatial_models, aliases)
 
 

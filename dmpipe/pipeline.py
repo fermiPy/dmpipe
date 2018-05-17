@@ -326,7 +326,7 @@ class PipelineSim(Chain):
 
 
 class PipelineRandom(Chain):
-    """Chain together the steps of the dSphs pipeline for random 
+    """Chain together the steps of the dSphs pipeline for random
     direction studies.
 
     This chain consists of:
@@ -494,7 +494,7 @@ class Pipeline(Chain):
         Make the input files need for all the targets in the analysis.
 
     spec-table : `SpecTable`
-        Build the FITS table with the DM spectra for all the channels 
+        Build the FITS table with the DM spectra for all the channels
         being analyzed.
 
     data : `PipelineData`
