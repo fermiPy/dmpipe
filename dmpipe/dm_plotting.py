@@ -268,7 +268,7 @@ class PlotStackedLimits_SG(ScatterGather):
     job_time = 60
 
     default_options = dict(ttype=defaults.common['ttype'],
-                           rosterlist=defaults.common['targetlist'],
+                           rosterlist=defaults.common['rosterlist'],
                            bands=defaults.collect['bands'],
                            channels=defaults.common['channels'],
                            jpriors=defaults.common['jpriors'],
@@ -412,7 +412,7 @@ class PlotStackedDM_SG(ScatterGather):
     job_time = 60
 
     default_options = dict(ttype=defaults.common['ttype'],
-                           rosterlist=defaults.common['targetlist'],
+                           rosterlist=defaults.common['rosterlist'],
                            channels=defaults.common['channels'],
                            jpriors=defaults.common['jpriors'],
                            sim=defaults.sims['sim'],
@@ -478,6 +478,144 @@ class PlotStackedDM_SG(ScatterGather):
         return job_configs
 
 
+
+class PlotControlLimits_SG(ScatterGather):
+    """Small class to generate configurations for `PlotLimits`
+
+    This does a quadruple loop over rosters, j-factor priors, channels, and expectation bands
+    """
+    appname = 'dmpipe-plot-control-limits-sg'
+    usage = "%s [options]" % (appname)
+    description = "Make limits plots for positve controls"
+    clientclass = PlotLimits
+
+    job_time = 60
+
+    default_options = dict(ttype=defaults.common['ttype'],
+                           rosterlist=defaults.common['targetlist'],
+                           channels=defaults.common['channels'],
+                           jpriors=defaults.common['jpriors'],
+                           sim=defaults.sims['sim'],
+                           dry_run=defaults.common['dry_run'])
+
+    __doc__ += Link.construct_docstring(default_options)
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+
+        ttype = args['ttype']
+
+        try:
+            os.makedirs(os.path.join(ttype, 'results'))
+        except OSError:
+            pass
+
+        (roster_yaml, sim) = NAME_FACTORY.resolve_rosterfile(args)
+        if roster_yaml is None:
+            return job_configs
+
+        roster_dict = load_yaml(roster_yaml)
+
+        jpriors = args['jpriors']
+        channels = args['channels']
+
+        sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
+
+        for roster_name in roster_dict.keys():
+            for jprior in jpriors:                
+                name_keys = dict(target_type=ttype,
+                                 roster_name=roster_name,
+                                 jprior=jprior,
+                                 sim_name=sim,
+                                 seed='summary',
+                                 fullpath=True)
+                bands_path = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
+
+                for chan in channels:
+                    targ_key = "%s:%s:%s:%s" % (roster_name, jprior, sim, chan)
+                    output_path = os.path.join(ttype, 'results', "control_%s_%s_%s_%s.png" % (roster_name, jprior, sim, chan))
+                    logfile = make_nfs_path(output_path.replace('.png', '.log'))
+                    job_config = dict(bands=bands_path,
+                                      outfile=output_path,
+                                      sim=sim_path,
+                                      logfile=logfile,
+                                      chan=chan)
+                    job_configs[targ_key] = job_config
+        return job_configs
+
+
+
+class PlotFinalLimits_SG(ScatterGather):
+    """Small class to generate configurations for `PlotLimits`
+
+    This does a quadruple loop over rosters, j-factor priors, channels, and expectation bands
+    """
+    appname = 'dmpipe-plot-final-limits-sg'
+    usage = "%s [options]" % (appname)
+    description = "Make final limits plots"
+    clientclass = PlotLimits
+
+    job_time = 60
+
+    default_options = dict(ttype=defaults.common['ttype'],
+                           rosterlist=defaults.common['rosterlist'],
+                           channels=defaults.common['channels'],
+                           jpriors=defaults.common['jpriors'],
+                           sims=defaults.sims['sims'],
+                           dry_run=defaults.common['dry_run'])
+
+    __doc__ += Link.construct_docstring(default_options)
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+
+        ttype = args['ttype']
+        (roster_yaml, sim) = NAME_FACTORY.resolve_rosterfile(args)
+        if roster_yaml is None:
+            return job_configs
+        if sim is not None:
+            raise ValueError("Sim argument set of plotting data results")
+
+        roster_dict = load_yaml(roster_yaml)
+
+        jpriors = args['jpriors']
+        channels = args['channels']
+
+        sims = args['sims']
+        for roster_name in roster_dict.keys():
+            for jprior in jpriors:
+                name_keys = dict(target_type=ttype,
+                                 roster_name=roster_name,
+                                 jprior=jprior,
+                                 fullpath=True)
+                input_path = NAME_FACTORY.stackedlimitsfile(**name_keys)
+                for sim in sims:
+                    name_keys.update(sim_name=sim,
+                                     seed='summary')
+                    bands_path = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
+
+                    for chan in channels:
+                        targ_key = "%s:%s:%s:%s" % (roster_name, jprior, sim, chan)
+                        output_path = os.path.join(ttype, 'results', "final_%s_%s_%s_%s.png" % (roster_name, jprior, sim, chan))
+                        logfile = make_nfs_path(output_path.replace('.png', '.log'))
+                        job_config = dict(infile=input_path,
+                                          outfile=output_path,
+                                          bands=bands_path,
+                                          logfile=logfile,
+                                          chan=chan)
+                        job_configs[targ_key] = job_config
+
+        return job_configs
+
+
+
+
+
+
 def register_classes():
     """Register these classes with the `LinkFactory` """
     PlotDMSpectra.register_class()
@@ -487,3 +625,5 @@ def register_classes():
     PlotDM_SG.register_class()
     PlotStackedDM_SG.register_class()
     PlotStackedLimits_SG.register_class()
+    PlotControlLimits_SG.register_class()
+    PlotFinalLimits_SG.register_class()
