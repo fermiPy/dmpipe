@@ -233,9 +233,7 @@ class CollectStackedLimits_SG(ScatterGather):
                 logfile = make_nfs_path(outfile.replace('.fits', '.log'))
                 if not write_full:
                     outfile = None
-                summaryfile = limitfile.replace(
-                    '_SEED.fits', '_summary_%06i_%06i.fits' %
-                    (first, last))
+                summaryfile = limitfile.replace('_SEED.fits', '_summary.fits')
 
                 job_config = base_config.copy()
                 job_config.update(dict(limitfile=limitfile,
