@@ -270,7 +270,7 @@ def plot_limits_from_arrays(ldict, xlims, ylims, bands=None):
 
 def plot_expected_limit_bands(axis, bands):
     """ Plot the expected limit bands """
-    masses = bands['MASSES']
+    masses = bands['masses']
 
     axis.fill_between(masses, bands['q02'], bands['q97'], color='yellow')
     axis.fill_between(masses, bands['q16'], bands['q84'], color='green')
