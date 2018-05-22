@@ -20,7 +20,8 @@ from fermipy.jobs.target_plotting import PlotCastro_SG
 from dmpipe.dm_spectral import ConvertCastro_SG, StackLikelihood_SG
 from dmpipe.dm_collect import CollectLimits_SG, CollectStackedLimits_SG
 from dmpipe.dm_plotting import PlotDM_SG, PlotLimits_SG,\
-    PlotStackedDM_SG, PlotStackedLimits_SG
+    PlotStackedDM_SG, PlotStackedLimits_SG, PlotControlLimits_SG,\
+    PlotFinalLimits_SG
 from dmpipe.dm_prepare import PrepareTargets
 from dmpipe.dm_spectral import SpecTable
 
@@ -209,7 +210,9 @@ class PipelineSim(Chain):
 
     plot-stacked-limits : `PlotStackedLimits_SG`
         Make DM 'Castro' plots for each roster, J-factor prior type and channel.
-
+ 
+    plot-control-limits : `PlotControlLimits_SG`
+        Make DM 'Castro' plots for each roster, J-factor prior type and channel.
 
     """
     appname = 'dmpipe-pipeline-sim'
@@ -323,6 +326,16 @@ class PipelineSim(Chain):
                            sim=sim_name,
                            rosterlist=rosterlist,
                            **config_plot_stacked_limits)
+
+        config_plot_control_limits = _get_plot_config(sim_plotting, 'plot-control-limits',
+                                                      plot_channels_default, jpriors)
+        if config_plot_control_limits is not None:
+            self._set_link('plot-control-limits',
+                           PlotControlLimits_SG,
+                           ttype=ttype,
+                           sim=sim_name,
+                           rosterlist=rosterlist,
+                           **config_plot_control_limits)
 
 
 class PipelineRandom(Chain):
@@ -506,6 +519,9 @@ class Pipeline(Chain):
     random : `PipelineRandom`
         Analysis pipeline for random direction control studies
 
+    final-plots : `PlotFinalLimits_SG`
+        Make the final analysis results plots
+
     """
     appname = 'dmpipe-pipeline'
     linkname_default = 'pipeline'
@@ -571,6 +587,8 @@ class Pipeline(Chain):
         ttype = config_dict.get('ttype')
         config_template = config_dict.get('config_template', None)
         rosters = config_dict.get('rosters')
+        rosterlist = config_dict.get('rosterlist')
+        jpriors = config_dict.get('jpriors')
         spatial_models = config_dict.get('spatial_models')
         specfile = config_dict.get('specfile')
         sims = config_dict.get('sims', {})
@@ -578,6 +596,9 @@ class Pipeline(Chain):
         sim_names += sims.keys()
         if 'random' in config_dict:
             sim_names += ['random']
+
+        plot_channels = config_dict.get('plot_channels', [])
+
         dry_run = args.get('dry_run', False)
 
         self._set_link('prepare-targets',
@@ -600,7 +621,11 @@ class Pipeline(Chain):
                        config=config_yaml,
                        dry_run=dry_run)
 
+        final_plot_sims = []
+
         for sim in sims.keys():
+            if sim in ['null']:
+                final_plot_sims.append(sim)
             linkname = 'sim_%s' % sim
             self._set_link(linkname,
                            PipelineSim,
@@ -610,8 +635,18 @@ class Pipeline(Chain):
                            dry_run=dry_run)
 
         if 'random' in config_dict:
+            final_plot_sims.append('random')
             self._set_link('random',
                            PipelineRandom,
                            link_prefix='random.',
                            config=config_yaml,
                            dry_run=dry_run)
+
+        self._set_link('final-plots',
+                       PlotFinalLimits_SG,
+                       ttype=ttype,
+                       rosterlist=rosterlist,
+                       channels=plot_channels,
+                       jpriors=jpriors,                       
+                       sims=final_plot_sims,
+                       dry_run=dry_run)

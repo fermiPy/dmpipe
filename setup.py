@@ -6,8 +6,8 @@ setup(
     name='dmpipe',
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
-    author='Matthew Wood',
-    author_email='mdwood@slac.stanford.edu',
+    author='Eric Charles',
+    author_email='echarles@slac.stanford.edu',
     description='Pipeline Scripts for LAT DM Analysis',
     license='BSD',
     packages=find_packages(),
@@ -42,6 +42,8 @@ setup(
         'dmpipe-plot-limits = dmpipe.dm_plotting:PlotLimits.main', 
         'dmpipe-plot-limits-sg = dmpipe.dm_plotting:PlotLimits_SG.main', 
         'dmpipe-plot-stacked-limits-sg = dmpipe.dm_plotting:PlotStackedLimits_SG.main', 
+        'dmpipe-plot-control-limits-sg = dmpipe.dm_plotting:PlotControlLimits_SG.main', 
+        'dmpipe-plot-final-limits-sg = dmpipe.dm_plotting:PlotFinalLimits_SG.main', 
         'dmpipe-calc-sed-limits = dmpipe.scripts.calc_sed_limits:main', 
     ]},
     install_requires=[
@@ -52,7 +54,7 @@ setup(
         'fermipy >= 0.14.0',
         'pyyaml',
         'healpy',
-        'dmsky'
+        'dmsky >= 0.2.1'
     ],
     extras_require=dict(
         all=[],

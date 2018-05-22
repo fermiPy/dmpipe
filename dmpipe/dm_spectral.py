@@ -160,10 +160,10 @@ class ConvertCastro(Link):
 
         for castro_data, chan in zip(dm_castro_list, channels):
             mles = castro_data.mles()
-            limit_dict = dict(MLES=mles)
+            limit_dict = dict(mles=mles)
             for alpha in alphas:
                 limits = castro_data.getLimits(alpha)
-                limit_dict['UL_%.02f' % alpha] = limits
+                limit_dict['ul_%.02f' % alpha] = limits
 
             tab_limits = castro_data.build_limits_table(limit_dict)
             l_list.append(limit_dict)
@@ -207,8 +207,14 @@ class ConvertCastro(Link):
             Flag to overwrite existing files.
 
         """
-
-        sed = CastroData.create_from_sedfile(sed_file, norm_type)
+        exttype = os.path.splitext(sed_file)[-1]
+        if exttype in ['.fits', '.npy']:
+            sed = CastroData.create_from_sedfile(sed_file, norm_type)
+        elif exttype in ['.yaml']:
+            sed = CastroData.create_from_yamlfile(sed_file)
+        else:
+            raise ValueError("Can not read file type %s for SED" % extype)
+        
         c_list, t_list, n_list = ConvertCastro.convert_sed_to_dm(
             spec_table, sed, channels, norm_type, j_factor)
 
@@ -303,7 +309,7 @@ class SpecTable(Link):
             spec_file = None
 
         if is_not_null(args.config):
-            config_file = args.config_file
+            config_file = args.config
         if is_not_null(args.specconfig):
             spec_config = args.specconfig
         if is_not_null(args.specfile):
@@ -323,9 +329,13 @@ class SpecTable(Link):
 
         spec_config = load_yaml(spec_config)
         channels = spec_config['channels']
-        masses = np.logspace(np.log10(spec_config['masses']['mass_min']),
-                             np.log10(spec_config['masses']['mass_max']),
-                             spec_config['masses']['mass_nstep'])
+        
+        if isinstance(spec_config['masses'], dict):
+            masses = np.logspace(np.log10(spec_config['masses']['mass_min']),
+                                 np.log10(spec_config['masses']['mass_max']),
+                                 spec_config['masses']['mass_nstep'])
+        elif isinstance(spec_config['masses'], list):
+            masses = spec_config['masses']
 
         dm_spec_table = DMSpecTable.create_from_config(
             config_file, channels, masses)
@@ -413,7 +423,7 @@ class StackLikelihood(Link):
                     tab_s = Table.read(dmlike_path, hdu=chan)
                 except KeyError:
                     continue
-                dm_castro = DMCastroData.create_from_tables(tab_s, tab_m)
+                dm_castro = DMCastroData.create_from_tables(tab_s, tab_m, 'sigmav')
                 component_dict[chan].append(dm_castro)
 
         for chan, comps in component_dict.items():
@@ -487,10 +497,10 @@ class StackLikelihood(Link):
         for chan in channels:
             stacked = stacked_dict[chan]
             mles = stacked.mles()
-            limit_dict = dict(MLES=mles)
+            limit_dict = dict(mles=mles)
             for alpha in alphas:
                 limits = stacked.getLimits(alpha)
-                limit_dict['UL_%.02f' % alpha] = limits
+                limit_dict['ul_%.02f' % alpha] = limits
             tab_limits = stacked.build_limits_table(limit_dict)
             if mass_table is None:
                 mass_table = stacked.build_mass_table()
