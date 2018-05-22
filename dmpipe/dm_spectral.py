@@ -160,7 +160,7 @@ class ConvertCastro(Link):
 
         for castro_data, chan in zip(dm_castro_list, channels):
             mles = castro_data.mles()
-            limit_dict = dict(MLES=mles)
+            limit_dict = dict(mles=mles)
             for alpha in alphas:
                 limits = castro_data.getLimits(alpha)
                 limit_dict['ul_%.02f' % alpha] = limits
@@ -497,7 +497,7 @@ class StackLikelihood(Link):
         for chan in channels:
             stacked = stacked_dict[chan]
             mles = stacked.mles()
-            limit_dict = dict(MLES=mles)
+            limit_dict = dict(mles=mles)
             for alpha in alphas:
                 limits = stacked.getLimits(alpha)
                 limit_dict['ul_%.02f' % alpha] = limits
