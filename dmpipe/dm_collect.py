@@ -28,8 +28,8 @@ NAME_FACTORY = NameFactory(basedir=('.'))
 
 def summarize_limits_results(limit_table):
     """Build a stats summary table for a table that has all the SED results """
-    del_cols = ['UL_0.68', 'UL_0.95', 'MLES']
-    stats_cols = ['UL_0.95', 'MLES']
+    del_cols = ['ul_0.68', 'ul_0.95', 'mles']
+    stats_cols = ['ul_0.95', 'mles']
 
     table_out = Table(limit_table[0])
     table_out.remove_columns(del_cols)

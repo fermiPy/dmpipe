@@ -8,6 +8,7 @@ Top level scripts to make castro plot and limits plots in mass / sigmav space
 from __future__ import absolute_import, division, print_function
 
 import os
+from os.path import splitext
 import numpy as np
 
 from astropy.table import Table
@@ -118,20 +119,20 @@ class PlotLimits(Link):
         args = self._parser.parse_args(argv)
 
         if is_not_null(args.infile):
-            tab_m = Table.read(args.infile, hdu="MASSES")
+            tab_m = Table.read(args.infile, hdu="masses")
             tab_s = Table.read(args.infile, hdu=args.chan)
 
-            xvals = tab_m['MASSES'][0]
-            yvals = tab_s['UL_0.95'][0]
+            xvals = tab_m['masses'][0]
+            yvals = tab_s['ul_0.95'][0]
             ldict = dict(limits=(xvals, yvals))
         else:
             ldict = {}
 
         if is_not_null(args.bands):
             tab_b = Table.read(args.bands, hdu=args.chan)
-            tab_bm = Table.read(args.bands, hdu="MASSES")
-            bands = get_ul_bands(tab_b, 'UL_0.95')
-            bands['MASSES'] = tab_bm['MASSES'][0]
+            tab_bm = Table.read(args.bands, hdu="masses")
+            bands = get_ul_bands(tab_b, 'ul_0.95')
+            bands['masses'] = tab_bm['masses'][0]
         else:
             bands = None
 
@@ -174,9 +175,13 @@ class PlotDM(Link):
     def run_analysis(self, argv):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
-        tab_m = Table.read(args.infile, hdu="MASSES")
-        tab_s = Table.read(args.infile, hdu=args.chan)
-        dm_castro = DMCastroData.create_from_tables(tab_s, tab_m)
+        exttype = splitext(args.infile)[-1]
+        if exttype in ['.fits']:
+            dm_castro = DMCastroData.create_from_fitsfile(args.infile, args.chan)
+        elif exttype in ['.yaml']:
+            dm_castro = DMCastroData.create_from_yamlfile(args.infile, args.chan)
+        else:
+            raise ValueError("Can not read file type %s for SED" % extype)
 
         dm_plot = plot_dm_castro(dm_castro)
         if args.outfile:
