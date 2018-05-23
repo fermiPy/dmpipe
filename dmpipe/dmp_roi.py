@@ -44,8 +44,7 @@ def extract_map_data_from_file(fitsfile, lons, lats, **kwargs):
         nbin = kwargs.get('nbin', None)
         if nbin is None:
             return np.zeros((len(lons)))
-        else:
-            return np.zeros((len(lons), nbin))
+        return np.zeros((len(lons), nbin))
 
     ibin = kwargs.get('ibin', None)
     vals = mdata.get_map_values(lons, lats, ibin)
@@ -123,8 +122,7 @@ def extract_column_data_from_file(fitsfile, lons, lats, **kwargs):
         nbin = kwargs.get('nbin', None)
         if nbin is None:
             return np.zeros((len(lons)))
-        else:
-            return np.zeros((len(lons), nbin))
+        return np.zeros((len(lons), nbin))
     pix_idxs = mdata.get_pixel_indices(lons, lats)
     out_table = tab[colname][pix_idxs]
     return out_table
@@ -139,14 +137,14 @@ def merge_and_sort_table(tdict, klist):
 
     # Sort the rows
     for key in klist:
-        if kdict.has_key(key):
+        if key in kdict:
             kdict[key] += 1
         else:
             kdict[key] = 0
         ilocal = kdict[key]
         rlist.append(tdict[key][ilocal])
 
-    if len(rlist) == 0:
+    if not rlist:
         return None
 
     # This builds the columns from the first entry, and removes all the rows
@@ -437,7 +435,8 @@ class DMROISetWCS(DMROISet):
         DMROISet.__init__(self, prefix)
         self.__roisize_deg = roisize_deg
 
-        glats_rad, glons_rad, self.__nroi_per_ring = get_roi_centers(np.radians(self.__roisize_deg))
+        glats_rad, glons_rad, self.__nroi_per_ring = get_roi_centers(
+            np.radians(self.__roisize_deg))
         self.__ring_idx = np.zeros((len(self.__nroi_per_ring)), 'i')
         self.__ring_idx[1:] = self.__nroi_per_ring.cumsum()[0:-1]
         self._glats = np.degrees(glats_rad)
@@ -507,10 +506,18 @@ class DMROISetWCS(DMROISet):
         """
         skydir = coordinates.SkyCoord(self._glons[roi_idx], self._glats[roi_idx],
                                       frame=coordinates.Galactic, unit="deg")
-        wcs = wcs_utils.create_wcs(skydir, coordsys, projection, cdelt, crpix, naxis, energies)
+        wcs = wcs_utils.create_wcs(
+            skydir,
+            coordsys,
+            projection,
+            cdelt,
+            crpix,
+            naxis,
+            energies)
         return wcs
 
-    def extract_map_data(self, shape, sky_crds, filestr, basedir=".", **kwargs):
+    def extract_map_data(self, shape, sky_crds, filestr,
+                         basedir=".", **kwargs):
         """ Extract data from files built as an roi_set
 
         The data are assumed to be in a set of files with names like
@@ -576,12 +583,16 @@ class DMROISetWCS(DMROISet):
                 continue
 
             # Open the corresonding file
-            filepath = os.path.join(basedir, "%s%05i" % (self.prefix, iroi), filestr)
+            filepath = os.path.join(
+                basedir, "%s%05i" %
+                (self.prefix, iroi), filestr)
 
             # Extract the data for this ROI
             copy_array[local_mask] = extract_map_data_from_file(filepath,
-                                                                good_sky[0:, 0][local_mask],
-                                                                good_sky[0:, 1][local_mask],
+                                                                good_sky[0:, 0][
+                                                                    local_mask],
+                                                                good_sky[0:, 1][
+                                                                    local_mask],
                                                                 **kwargs)
 
         # Copy the data into the full map
@@ -639,7 +650,9 @@ class DMROISetWCS(DMROISet):
                 continue
 
             # Open the corresonding file
-            filepath = os.path.join(basedir, "%s%05i" % (self.prefix, iroi), filestr)
+            filepath = os.path.join(
+                basedir, "%s%05i" %
+                (self.prefix, iroi), filestr)
 
             # Extract the data for this ROI
             table_data = extract_table_data_from_file(filepath,
@@ -652,7 +665,8 @@ class DMROISetWCS(DMROISet):
         out_table = merge_and_sort_table(table_dict, rois)
         return out_table
 
-    def extract_column_from_tables(self, shape, sky_crds, filestr, basedir=".", **kwargs):
+    def extract_column_from_tables(
+            self, shape, sky_crds, filestr, basedir=".", **kwargs):
         """
         Extract data from files built as an roi_set
 
@@ -723,12 +737,16 @@ class DMROISetWCS(DMROISet):
                 continue
 
             # Open the corresonding file
-            filepath = os.path.join(basedir, "%s%05i" % (self.prefix, iroi), filestr)
+            filepath = os.path.join(
+                basedir, "%s%05i" %
+                (self.prefix, iroi), filestr)
 
             # Extract the data for this ROI
             copy_array[local_mask] = extract_column_data_from_file(filepath,
-                                                                   good_sky[0:, 0][local_mask],
-                                                                   good_sky[0:, 1][local_mask],
+                                                                   good_sky[0:, 0][
+                                                                       local_mask],
+                                                                   good_sky[0:, 1][
+                                                                       local_mask],
                                                                    **kwargs)
 
         out_array.flat[full_mask] = copy_array.flat
@@ -755,7 +773,9 @@ class DMROISetWCS(DMROISet):
         """
         # Open the corresonding file
         iroi = 0
-        filepath = os.path.join(basedir, "%s%05i" % (self.prefix, iroi), filestr)
+        filepath = os.path.join(
+            basedir, "%s%05i" %
+            (self.prefix, iroi), filestr)
         hdu = kwargs.get('table', 'EBOUNDS')
         tab = table.Table.read(filepath, hdu)
         return tab
@@ -773,7 +793,8 @@ class DMROISetHPX(DMROISet):
         self.__nest = nest
         self.__nroi = 12 * nside * nside
 
-        thetas, phis = healpy.pixelfunc.pix2ang(self.__nside, np.arange(self.__nroi), self.__nest)
+        thetas, phis = healpy.pixelfunc.pix2ang(
+            self.__nside, np.arange(self.__nroi), self.__nest)
         self._glats = np.degrees(0.5 * np.pi - thetas)
         self._glons = np.degrees(phis)
 
