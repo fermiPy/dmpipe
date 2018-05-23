@@ -86,7 +86,7 @@ class ConvertCastro(Link):
             List of the `DMCastroData` objects with the Likelihood data
 
         table_list : list
-            List of `astropy.table.Table objects with the Likelihood data
+            List of `astropy.table.Table` objects with the Likelihood data
 
         name_list : list
             List of names
@@ -148,7 +148,7 @@ class ConvertCastro(Link):
             List of the `DMCastroData` objects with the Likelihood data
 
         table_list : list
-            List of `astropy.table.Table objects with the Likelihood data
+            List of `astropy.table.Table` objects with the Likelihood data
 
         name_list : list
             List of names
@@ -393,7 +393,7 @@ class StackLikelihood(Link):
         -------
 
         output : dict
-            Dictionary of `DMCastroData' objects, keyed by channel
+            Dictionary of `DMCastroData` objects, keyed by channel
 
         """
         component_dict = {}
@@ -450,7 +450,7 @@ class StackLikelihood(Link):
             Name of the roster, used for bookkeeping and file names
 
         stacked_dict : dict
-            Dictionary of `DMCastroData' objects, keyed by channel
+            Dictionary of `DMCastroData` objects, keyed by channel
 
         j_prior_key : str
             String that identifies the type of prior on the J-factor
