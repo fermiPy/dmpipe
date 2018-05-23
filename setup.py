@@ -51,7 +51,7 @@ setup(
         'astropy >= 1.2.1',
         'matplotlib >= 1.5.0',
         'scipy >= 0.14',
-        'fermipy >= 0.14.0',
+        'fermipy >= 0.17.1',
         'pyyaml',
         'healpy',
         'dmsky >= 0.2.1'
