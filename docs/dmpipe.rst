@@ -5,7 +5,7 @@ dmpipe package
 
        
 Module contents
----------------
+===============
 
 .. automodule:: dmpipe
     :members:
@@ -14,7 +14,7 @@ Module contents
 
 
 Standalone Analysis Classes
----------------------------
+===========================
 
 
 class PrepareTargets
@@ -63,8 +63,8 @@ class CollectLimits
 
 
 
-Analysis job-dispatch Classes
------------------------------
+Job-dispatch Analysis Classes
+=============================
 
 class ConvertCastro_SG
 ----------------------
@@ -104,7 +104,7 @@ class CollectStackedLimits_SG
 
 
 Standalone Plotting Classes
----------------------------
+===========================
 
 
 class PlotDMSpectra
@@ -135,4 +135,98 @@ class PlotLimits
 
     
 Job-dispatch Plotting Classes
------------------------------
+=============================
+
+class PlotLimits_SG
+-------------------
+
+.. autoclass:: PlotLimits_SG
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+class PlotStackedLimits_SG
+--------------------------
+
+.. autoclass:: PlotStackedLimits_SG
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+class PlotDM_SG
+-------------------
+
+.. autoclass:: PlotDM_SG
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+    
+class PlotStackedDM_SG
+----------------------
+
+.. autoclass:: PlotStackedDM_SG
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+    
+class PlotControlLimits_SG
+--------------------------
+
+.. autoclass:: PlotControlLimits_SG
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+class PlotFinalLimits_SG
+--------------------------
+
+.. autoclass:: PlotFinalLimits_SG
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+        
+Pipeline Classes
+================
+
+class PipelineData
+------------------
+
+.. autoclass:: PipelineData
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+class PipelineSim
+-----------------
+
+.. autoclass:: PipelineSim
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+class PipelineRandom
+--------------------
+
+.. autoclass:: PipelineRandom
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+class Pipeline
+--------------
+
+.. autoclass:: Pipeline
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
