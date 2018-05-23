@@ -6,7 +6,7 @@ del get_versions
 
 from .dm_collect import CollectLimits, CollectLimits_SG, CollectStackedLimits_SG
 from .dm_plotting import PlotDMSpectra, PlotLimits, PlotDM, PlotLimits_SG, PlotStackedLimits_SG,\
-     PlotDM_SG, PlotStackedDM_SG
+     PlotDM_SG, PlotStackedDM_SG, PlotControlLimits_SG, PlotFinalLimits_SG
 from .dm_prepare import PrepareTargets
 from .dm_spectral import ConvertCastro, SpecTable, StackLikelihood, ConvertCastro_SG, StackLikelihood_SG
 from .dm_spectral_utils import DMCastroData, DMSpecTable
