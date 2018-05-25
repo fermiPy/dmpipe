@@ -436,6 +436,58 @@ class StackLikelihood(Link):
         return out_dict
 
     @staticmethod
+    def write_fits_files(stacked_dict, resultsfile, limitfile, clobber=False):
+        """ Write the stacked DMCastroData object and limits a FITS files
+
+        Parameters
+        ----------
+
+        stacked_dict : dict
+            Dictionary of `DMCastroData` objects, keyed by channel
+
+        resultsfile : str
+            Path to the output file to write the `DMCastroData` objects to
+
+        limitfile : str
+            Path to write the upper limits to
+
+        clobber : bool
+            Overwrite existing files
+
+        """
+        channels = stacked_dict.keys()
+        t_list = []
+        n_list = []
+        lim_list = []
+        lim_table_list = []
+        mass_table = None
+        alphas = [0.68, 0.95]
+        for chan in channels:
+            stacked = stacked_dict[chan]
+            mles = stacked.mles()
+            limit_dict = dict(mles=mles)
+            for alpha in alphas:
+                limits = stacked.getLimits(alpha)
+                limit_dict['ul_%.02f' % alpha] = limits
+            tab_limits = stacked.build_limits_table(limit_dict)
+            if mass_table is None:
+                mass_table = stacked.build_mass_table()
+            t_list.append(stacked.build_scandata_table())
+            n_list.append(chan)
+            lim_list.append(limit_dict)
+            lim_table_list.append(tab_limits)
+
+        t_list.append(mass_table)
+        lim_table_list.append(mass_table)
+        n_list.append("MASSES")
+        fits_utils.write_tables_to_fits(resultsfile, t_list,
+                                        clobber=clobber, namelist=n_list)
+        fits_utils.write_tables_to_fits(limitfile, lim_table_list,
+                                        clobber=clobber, namelist=n_list)
+       
+
+
+    @staticmethod
     def write_stacked(ttype, roster_name, stacked_dict,
                       jprior_key, sim, seed, clobber):
         """ Write the stacked DMCastroData object to a FITS file
@@ -487,35 +539,8 @@ class StackLikelihood(Link):
 
         limitfile = outpath.replace('results', 'limits')
         print("Writing stacked results %s" % outpath)
-        channels = stacked_dict.keys()
-        t_list = []
-        n_list = []
-        lim_list = []
-        lim_table_list = []
-        mass_table = None
-        alphas = [0.68, 0.95]
-        for chan in channels:
-            stacked = stacked_dict[chan]
-            mles = stacked.mles()
-            limit_dict = dict(mles=mles)
-            for alpha in alphas:
-                limits = stacked.getLimits(alpha)
-                limit_dict['ul_%.02f' % alpha] = limits
-            tab_limits = stacked.build_limits_table(limit_dict)
-            if mass_table is None:
-                mass_table = stacked.build_mass_table()
-            t_list.append(stacked.build_scandata_table())
-            n_list.append(chan)
-            lim_list.append(limit_dict)
-            lim_table_list.append(tab_limits)
-
-        t_list.append(mass_table)
-        lim_table_list.append(mass_table)
-        n_list.append("MASSES")
-        fits_utils.write_tables_to_fits(outpath, t_list,
-                                        clobber=clobber, namelist=n_list)
-        fits_utils.write_tables_to_fits(limitfile, lim_table_list,
-                                        clobber=clobber, namelist=n_list)
+        StackLikelihood.write_fits_files(stacked_dict, outpath, limitfile, clobber)
+        
 
     @staticmethod
     def stack_rosters(roster_dict, ttype, channels,
