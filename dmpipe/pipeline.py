@@ -234,7 +234,6 @@ class PipelineSim(Chain):
 
         sim_name = args['sim']
         sim_dict = config_dict['sims'][sim_name]
-        sim_profile = sim_dict['profile']
 
         ttype = config_dict.get('ttype')
         config_template = config_dict.get('config_template', None)
@@ -247,7 +246,7 @@ class PipelineSim(Chain):
         sim_values = config_dict['sim_defaults']
         sim_values.update(sim_dict)
 
-
+        sim_profile = sim_values['profile']
         seed = sim_values.get('seed', 0)
         nsims = sim_values.get('nsims', 20)
 
