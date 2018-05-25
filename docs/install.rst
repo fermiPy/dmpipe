@@ -5,7 +5,7 @@ Installation
 
 .. note:: 
 
-   Fermipy is only compatible with Science Tools v10r0p5 or later.  If
+   dmpipe is only compatible with Science Tools 10-00-07 or later.  If
    you are using an earlier version, you will need to download and
    install the latest version from the `FSSC
    <http://fermi.gsfc.nasa.gov/ssc/data/analysis/software/>`_.  Note
@@ -21,7 +21,7 @@ For Unix/Linux users we currently recommend following the
 following the :ref:`pipinstall` instructions.  The
 :ref:`dockerinstall` instructions can be used to install the STs on
 OSX and Linux machines that are new enough to support Docker.  To
-install the development version of Fermipy follow the
+install the development version of dmpipe follow the
 :ref:`devinstall` instructions.
 
 .. _stinstall:
@@ -29,7 +29,7 @@ install the development version of Fermipy follow the
 Installing the Fermi Science Tools
 ----------------------------------
 
-The Fermi STs are a prerequisite for fermipy.  To install the STs we
+The Fermi STs are a prerequisite for dmpipe.  To install the STs we
 recommend using one of the non-ROOT binary distributions available
 from the `FSSC
 <http://fermi.gsfc.nasa.gov/ssc/data/analysis/software/>`_.  The
@@ -54,7 +54,7 @@ Installing with pip
 -------------------
 
 These instructions cover installation with the ``pip`` package
-management tool.  This will install fermipy and its dependencies into
+management tool.  This will install dmpipe and its dependencies into
 the python distribution that comes with the Fermi Science Tools.
 First verify that you're running the python from the Science Tools
 
@@ -84,11 +84,11 @@ Check if pip is correctly installed:
    $ which pip
 
 Once again, if this isn't the pip in the Science Tools, something went
-wrong.  Now install fermipy by running
+wrong.  Now install dmpipe by running
 
 .. code-block:: bash
 
-   $ pip install fermipy
+   $ pip install dmpipe
 
 To run the ipython notebook examples you will also need to install
 jupyter notebook:
@@ -100,10 +100,10 @@ jupyter notebook:
 .. Running pip and setup.py with the ``user`` flag is recommended if you do not
 .. have write access to your python installation (for instance if you are
 .. running in a UNIX/Linux environment with a shared python
-.. installation).  To install fermipy into the common package directory
+.. installation).  To install dmpipe into the common package directory
 .. of your python installation the ``user`` flag should be ommitted.
 
-Finally, check that fermipy imports:
+Finally, check that dmpipe imports:
 
 .. code-block:: bash
 
@@ -111,7 +111,7 @@ Finally, check that fermipy imports:
    Python 2.7.8 (default, Aug 20 2015, 11:36:15)
    [GCC 4.2.1 Compatible Apple LLVM 6.0 (clang-600.0.56)] on darwin
    Type "help", "copyright", "credits" or "license" for more information. 
-   >>> from fermipy.gtanalysis import GTAnalysis
+   >>> from dmpipe.gtanalysis import GTAnalysis
    >>> help(GTAnalysis)
 
 .. _condainstall:
@@ -126,49 +126,49 @@ Installing with Anaconda Python
    or you have installed the STs from source you should follow the
    :ref:`pipinstall` thread above.
 
-These instructions cover how to use fermipy with a new or existing
+These instructions cover how to use dmpipe with a new or existing
 anaconda python installation.  These instructions assume that you have
 already downloaded and installed the Fermi STs from the FSSC and you
 have set the ``FERMI_DIR`` environment variable to point to the location
 of this installation.
 
-If you already have an existing anaconda python installation then fermipy
+If you already have an existing anaconda python installation then dmpipe
 can be installed from the conda-forge channel as follows:
 
 .. code-block:: bash
 
    $ conda config --append channels conda-forge
-   $ conda install fermipy
+   $ conda install dmpipe
    
 If you do not have an anaconda installation, the ``condainstall.sh``
 script can be used to create a minimal anaconda installation from
 scratch.  First download and source the ``condainstall.sh`` script
-from the fermipy repository:
+from the dmpipe repository:
 
 .. code-block:: bash
 
-   $ curl -OL https://raw.githubusercontent.com/fermiPy/fermipy/master/condainstall.sh
+   $ curl -OL https://raw.githubusercontent.com/dmpipe/dmpipe/master/condainstall.sh
    $ source condainstall.sh
 
 If you do not already have anaconda python installed on your system
 this script will create a new installation under ``$HOME/miniconda``.
 If you already have anaconda installed and the ``conda`` command is in
 your path the script will use your existing installation.  After
-running ``condainstall.sh`` fermipy can be installed with conda:
+running ``condainstall.sh`` dmpipe can be installed with conda:
 
 .. code-block:: bash
 
-   $ conda install fermipy
+   $ conda install dmpipe
 
-Once fermipy is installed you can initialize the ST/fermipy
+Once dmpipe is installed you can initialize the ST/dmpipe
 environment by running ``condasetup.sh``:
 
 .. code-block:: bash
 
-   $ curl -OL https://raw.githubusercontent.com/fermiPy/fermipy/master/condasetup.sh 
+   $ curl -OL https://raw.githubusercontent.com/dmpipe/dmpipe/master/condasetup.sh 
    $ source condasetup.sh
 
-If you installed fermipy in a specific conda environment you should
+If you installed dmpipe in a specific conda environment you should
 switch to this environment before running the script:
    
 .. code-block:: bash
@@ -206,10 +206,10 @@ Note that Docker is not supported by RHEL6 or its variants (CentOS6,
 Scientific Linux 6).
 
 These instructions describe how to create a docker-based ST
-installation that comes preinstalled with anaconda python and fermipy.
+installation that comes preinstalled with anaconda python and dmpipe.
 The installation is fully contained in a docker image that is roughly
-2GB in size.  To see a list of the available images go to the `fermipy
-Docker Hub page <https://hub.docker.com/r/fermipy/fermipy/tags/>`_.
+2GB in size.  To see a list of the available images go to the `dmpipe
+Docker Hub page <https://hub.docker.com/r/dmpipe/dmpipe/tags/>`_.
 Images are tagged with the release version of the STs that was used to
 build the image (e.g. 11-05-00).  The *latest* tag points to the image
 for the most recent ST release.
@@ -218,14 +218,14 @@ To install the *latest* image first download the image file:
 
 .. code-block:: bash
 
-   $ docker pull fermipy/fermipy
+   $ docker pull dmpipe/dmpipe
    
 Now switch to the directory where you plan to run your analysis and execute
 the following command to launch a docker container instance:
 
 .. code-block:: bash
    
-   $ docker run -it --rm -p 8888:8888 -v $PWD:/workdir -w /workdir fermipy/fermipy
+   $ docker run -it --rm -p 8888:8888 -v $PWD:/workdir -w /workdir dmpipe/dmpipe
 
 This will start an ipython notebook server that will be attached to
 port 8888.  Once you start the server it will print a URL that you can
@@ -240,9 +240,9 @@ shell by passing the command as an argument to ``docker run``:
 
 .. code-block:: bash
    
-   $ docker run -it --rm -v $PWD:/workdir -w /workdir fermipy/fermipy ipython
-   $ docker run -it --rm -v $PWD:/workdir -w /workdir fermipy/fermipy python
-   $ docker run -it --rm -v $PWD:/workdir -w /workdir fermipy/fermipy /bin/bash
+   $ docker run -it --rm -v $PWD:/workdir -w /workdir dmpipe/dmpipe ipython
+   $ docker run -it --rm -v $PWD:/workdir -w /workdir dmpipe/dmpipe python
+   $ docker run -it --rm -v $PWD:/workdir -w /workdir dmpipe/dmpipe /bin/bash
 
 By default interactive graphics will not be enabled.  The following
 commands can be used to enable X11 forwarding for interactive graphics
@@ -270,7 +270,7 @@ DISPLAY environment variable to the IP address of the host machine:
 
    $ export HOST_IP=`ifconfig en0 | grep "inet " | cut -d " " -f2`
    $ xhost +local:
-   $ docker run -it --rm -e DISPLAY=$HOST_IP:0 -v $PWD:/workdir -w /workdir fermipy ipython
+   $ docker run -it --rm -e DISPLAY=$HOST_IP:0 -v $PWD:/workdir -w /workdir dmpipe ipython
 
 
 .. _devinstall:
@@ -279,16 +279,16 @@ Installing Development Versions
 -------------------------------
 
 The instructions describe how to install development versions of
-Fermipy.  Before installing a development version we recommend first
+dmpipe.  Before installing a development version we recommend first
 installing a tagged release following the :ref:`pipinstall` or
 :ref:`condainstall` instructions above.
 
-The development version of Fermipy can be installed by running ``pip
+The development version of dmpipe can be installed by running ``pip
 install`` with the URL of the git repository:
 
 .. code-block:: bash
                 
-   $ pip install git+https://github.com/fermiPy/fermipy.git
+   $ pip install git+https://github.com/dmpipe/dmpipe.git
 
 This will install the most recent commit on the master branch.  Note
 that care should be taken when using development versions as
@@ -301,20 +301,20 @@ Running at SLAC
 
 This section provides specific installation instructions for running
 in the SLAC computing environment.  
-We suggest to follow these instruction if you are running Fermipy at SLAC. 
+We suggest to follow these instruction if you are running dmpipe at SLAC. 
 You will create your own conda installation in this way you will not depend on old version of programs present in the SLAC machines.  
-First grab the installation and setup scripts from the fermipy github repository:
+First grab the installation and setup scripts from the dmpipe github repository:
 
 .. code-block:: bash
 
-   $ curl -OL https://raw.githubusercontent.com/fermiPy/fermipy/master/condainstall.sh
-   $ curl -OL https://raw.githubusercontent.com/fermiPy/fermipy/master/slacsetup.sh
+   $ curl -OL https://raw.githubusercontent.com/dmpipe/dmpipe/master/condainstall.sh
+   $ curl -OL https://raw.githubusercontent.com/dmpipe/dmpipe/master/slacsetup.sh
    
 Now choose an installation path. This should be a new directory (e.g. $HOME/anaconda) that has at least 2-4 GB available. 
 We will assign this location to the ``CONDABASE`` environment variable which is used by the setup script to find the location of your python installation. 
 To avoid setting this every time you log in it's recommended to set ``CONDABASE`` into your .bashrc file.
 
-Now run the following commands to install anaconda and fermipy. This will take about 5-10 minutes.
+Now run the following commands to install anaconda and dmpipe. This will take about 5-10 minutes.
 
 .. code-block:: bash
 
@@ -341,15 +341,15 @@ The slacsetup function takes two optional arguments which can be used to overrid
    # Use ST 11-01-01 and python distribution located at <PATH>
    $ slacsetup 11-01-01 <PATH>
 
-The installation script only installs packages that are required by fermipy and the STs. 
+The installation script only installs packages that are required by dmpipe and the STs. 
 Once you've initialized your shell environment you are free to install additional python packages with the conda package manager tool with conda install <package name>. 
 Packages that are not available on conda can also be installed with pip.
 
-conda can also be used to upgrade packages. For instance you can upgrade fermipy to the newest version with the conda update command:
+conda can also be used to upgrade packages. For instance you can upgrade dmpipe to the newest version with the conda update command:
 
 .. code-block:: bash
 
-   $ conda update fermipy
+   $ conda update dmpipe
 
 You can verify that the installation has succeeded by importing ``GTAnalysis``:
 
@@ -361,46 +361,46 @@ You can verify that the installation has succeeded by importing ``GTAnalysis``:
    Type "help", "copyright", "credits" or "license" for more information.
    Anaconda is brought to you by Continuum Analytics.
    Please check out: http://continuum.io/thanks and https://binstar.org
-   >>> from fermipy.gtanalysis import GTAnalysis
+   >>> from dmpipe.gtanalysis import GTAnalysis
 
    
 Upgrading
 ---------
 
-By default installing fermipy with ``pip`` or ``conda`` will get the latest tagged
+By default installing dmpipe with ``pip`` or ``conda`` will get the latest tagged
 released available on the `PyPi <https://pypi.python.org/pypi>`_
 package respository.  You can check your currently installed version
-of fermipy with ``pip show``:
+of dmpipe with ``pip show``:
 
 .. code-block:: bash
 
-   $ pip show fermipy
+   $ pip show dmpipe
 
 or ``conda info``:
 
 .. code-block:: bash
 
-   $ conda info fermipy
+   $ conda info dmpipe
    
-To upgrade your fermipy installation to the latest version run the pip
+To upgrade your dmpipe installation to the latest version run the pip
 installation command with ``--upgrade --no-deps`` (remember to also
 include the ``--user`` option if you're running at SLAC):
    
 .. code-block:: bash
    
-   $ pip install fermipy --upgrade --no-deps
-   Collecting fermipy
-   Installing collected packages: fermipy
-     Found existing installation: fermipy 0.6.6
-       Uninstalling fermipy-0.6.6:
-         Successfully uninstalled fermipy-0.6.6
-   Successfully installed fermipy-0.6.7
+   $ pip install dmpipe --upgrade --no-deps
+   Collecting dmpipe
+   Installing collected packages: dmpipe
+     Found existing installation: dmpipe 0.6.6
+       Uninstalling dmpipe-0.6.6:
+         Successfully uninstalled dmpipe-0.6.6
+   Successfully installed dmpipe-0.6.7
 
-If you installed fermipy with ``conda`` the equivalent command is:
+If you installed dmpipe with ``conda`` the equivalent command is:
 
 .. code-block:: bash
 
-   $ conda update fermipy
+   $ conda update dmpipe
    
    
 .. _gitinstall:
@@ -408,20 +408,20 @@ If you installed fermipy with ``conda`` the equivalent command is:
 Developer Installation
 ----------------------
 
-These instructions describe how to install fermipy from its git source
+These instructions describe how to install dmpipe from its git source
 code repository using the ``setup.py`` script.  Installing from source
 can be useful if you want to make your own modifications to the
-fermipy source code.  Note that non-developers are recommended to
-install a tagged release of fermipy following the :ref:`pipinstall` or
+dmpipe source code.  Note that non-developers are recommended to
+install a tagged release of dmpipe following the :ref:`pipinstall` or
 :ref:`condainstall` instructions above.
 
-First clone the fermipy git repository and cd to the root directory of
+First clone the dmpipe git repository and cd to the root directory of
 the repository:
 
 .. code-block:: bash
 
-   $ git clone https://github.com/fermiPy/fermipy.git
-   $ cd fermipy
+   $ git clone https://github.com/dmpipe/dmpipe.git
+   $ cd dmpipe
    
 To install the latest commit in the master branch run ``setup.py
 install`` from the root directory:
@@ -437,7 +437,7 @@ your working copy of the package.  This will create an installation in
 your python distribution that is linked to the copy of the code in
 your local repository.  This allows you to run with any local
 modifications without having to reinstall the package each time you
-make a change.  To install your working copy of fermipy run with the
+make a change.  To install your working copy of dmpipe run with the
 ``develop`` argument:
 
 .. code-block:: bash
@@ -475,9 +475,9 @@ it working.  The `customizing matplotlib page
 instructions to modify your default matplotlibrc file (you can pick
 GTK or WX as an alternative).  Specifically the ``TkAgg`` and
 ``macosx`` backends currently do not work on OSX if you upgrade
-matplotlib to the version required by fermipy.  To get around this
+matplotlib to the version required by dmpipe.  To get around this
 issue you can switch to the ``Agg`` backend at runtime before
-importing fermipy:
+importing dmpipe:
 
 .. code-block:: bash
 
@@ -498,7 +498,7 @@ In this case you will need to disable the System Integrity Protections
 for instructions on disabling SIP on your machine.
 
 In some cases the setup.py script will fail to properly install the
-fermipy package dependecies.  If installation fails you can try
+dmpipe package dependecies.  If installation fails you can try
 running a forced upgrade of these packages with ``pip install --upgrade``:
 
 .. code-block:: bash
