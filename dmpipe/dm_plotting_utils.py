@@ -94,8 +94,6 @@ def plot_dm_castro(castro_dm, ylims=(1e-28, 1e-22), nstep=100, zlims=None):
     mass_label = r"$m_{\chi}$ [GeV]"
     sigmav_label = r'$\langle \sigma v \rangle$ [$cm^{3} s^{-1}$]'
     return sed_plotting.plotCastro_base(castro_dm,
-                                        xlims=(castro_dm.masses[0],
-                                               castro_dm.masses[-1]),
                                         ylims=ylims,
                                         xlabel=mass_label,
                                         ylabel=sigmav_label,
@@ -370,7 +368,6 @@ def test_func():
     masses = np.logspace(1, 4, 13)
 
     fig2_dm = sed_plotting.plotCastro_base(castro_dm,
-                                           xlims=(masses[0], masses[-1]),
                                            ylims=(1e-28, 1e-22),
                                            xlabel=mass_label,
                                            ylabel=sigmav_label,
