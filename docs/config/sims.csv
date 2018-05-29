@@ -1,0 +1,8 @@
+``extracopy``	[]	Extra files to copy
+``nsims``	20	Number of simulations to run.
+``rand_config``	None	Path to config file for genaration random sky dirs
+``seed``	0	Seed number for first simulation.
+``sim``	None	Name of the simulation scenario.
+``sim_profile``	default	Name of the profile to use for simulation.
+``sims``	[]	Names of the simulation scenario.
+``skydirs``	None	Yaml file with blank sky directions.
