@@ -1,0 +1,26 @@
+``alias_dict``	None	File to rename target version keys.
+``chan``	bb	DM annihilation channel
+``channels``	[]	DM annihilation channels
+``clobber``	False	Overwrite existing files.
+``config``	None	Path to fermipy config file.
+``dry_run``	False	Print commands but do not run them.
+``j_value_file``	None	Path to yaml file with target j_value
+``jprior``	None	Types of Prior on J-factor
+``jpriors``	[]	Types of Prior on J-factor
+``make_plots``	False	Make plots
+``mass``	100	DM particle mass
+``nsims``	-1	Number of simulations to run.
+``profile_file``	None	Path to yaml file with target profile
+``profiles``	[]	List of profiles to analyze
+``roi_baseline``	fit_baseline	Key for roi baseline file.
+``roster``	None	Name of a dmsky target roster.
+``rosterlist``	None	Path to the roster list.
+``rosters``	[]	Name of a dmsky target roster.
+``sed_file``	None	Path to SED file.
+``spatial_models``	[]	Types of spatial models to use
+``spec_type``	eflux	Type of flux to consider
+``specconfig``	None	Path to DM yaml file defining DM spectra of interest.
+``specfile``	None	Path to DM spectrum file.
+``target``	None	Name of analysis target.
+``targetlist``	None	Path to the target list.
+``ttype``	None	Type of target being analyzed.

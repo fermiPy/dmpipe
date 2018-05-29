@@ -1,5 +1,5 @@
 import re
-import fermipy.defaults as defaults
+import dmpipe.defaults as defaults
 
 def extract_typename(t):
 
