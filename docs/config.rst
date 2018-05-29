@@ -7,11 +7,6 @@ This page describes the configuration management scheme used within
 the dmpipe package and documents the configuration parameters
 that can be set in the configuration file.
 
-
-##################################
-Class Configuration
-##################################
-
 Analysis classes in the dmpipe package all inherit from the `fermipy.jobs.Link`
 class, which allow user to invoke the class either interactively within python
 or from the unix command line.
@@ -35,9 +30,9 @@ From python there are a number of ways to do it, we recommend this:
 
    
 
-##################################
-Configuration File
-##################################
+
+Master Configuration File
+=========================
 
 dmpipe uses `YAML <http://yaml.org/>`_ files to read and write its
 configuration in a persistent format.  The configuration file has a
@@ -84,9 +79,6 @@ are keyed to a section name (*data*, *binning*, etc.).
        plot-stacked-limits : {}
 
 
-     
-.. _config_top:
-
 Top level configuration
 -----------------------
 
@@ -127,8 +119,6 @@ Options at the top level apply to all parts of the analysis pipeline
 
 
   
-.. _config_sims:
-
 Simulation configuration
 ------------------------
 
@@ -177,7 +167,6 @@ random sky directions.
   This is a dictionary of the options to use for random sky direction control studies.
 
 
-_config_plotting
 
 Plotting configuration
 ----------------------
@@ -205,3 +194,117 @@ Plotting configuration
        plot-stacked-limits : {}
 
   
+
+
+Additional Configuration files
+==============================
+
+In addition to the master configuration file, the pipeline needs a few additional files.
+
+
+Fermipy Analysis Configuration Yaml
+-----------------------------------
+
+This is simply the a template of the `fermipy` configuration file to be used for the baseline analysis and SED fitting
+in each ROI.  Details of the syntax and options are `here <https://fermipy.readthedocs.io/en/latest/config.html>` _
+The actually direction and name of the target source in this file will be over written for each target.
+
+
+Dark Matter Spectral Configuration Yaml
+---------------------------------------
+
+This file specifies the masses and channels to analyze the DM spectra for.  Here is an example of
+this file:
+
+.. code-block yaml
+
+  # This is the list of channels we will analyze.
+  # These must match channel names in the DMFitFunction class
+  channels : ['ee', 'mumu', 'tautau', 'bb', 'tt', 'gg', 'ww', 'zz', 'cc', 'uu', 'dd', 'ss']
+
+  # This defines the array of mass points we use (in GeV)
+  # The points are sampled in log-space
+  masses : 
+    mass_min : 10.
+    mass_max : 10000.
+    mass_nstep : 13
+
+
+Simulation Scenario Configuration Yaml
+--------------------------------------
+
+This file specifies the DM signal to inject in the analysis (if any).  Here is a example, note
+that everything inside the 'injected_source' tag is in the format that `fermipy` expects to see
+source defintions.
+
+  .. code-block yaml
+
+    # For positive control tests we with injected source.
+    # In this case it is a DM annihilation spectrum.
+    injected_source:
+      name : dm
+      source_model :
+        SpatialModel : PointSource
+        SpectrumType : DMFitFunction
+        norm : 
+          value : nan # This is the J-factor and depend on the target
+        sigmav : 
+          value: 1.0E-25 # cm^3 s^-1.  (i.e., very large cross section)
+        mass : 
+          value: 100.0 # GeV
+        channel0 : 
+          value : 4 # annihilation to b-quarks
+
+
+For null simulations, you should include the 'injected_source' tag, but leave it blank
+        
+  .. code-block yaml
+
+  # For positive control tests we with injected source.
+  # In this case it is a DM annihilation spectrum.
+  injected_source:
+
+
+  
+Profile Alias Configuration Yaml
+--------------------------------
+
+This is a small file that remaps the target profile names used by dmsky to shorter names (without
+underscores in them).  Removing the underscores helps keep the file name fields more logical, and
+dmpipe generally uses underscores as a field seperator.  This also keeps file names shorter, and allow
+us to use roster with a mixed set of profile version to do simulations.  Here is an example:
+
+  .. code-block yaml
+
+  ackermann2016_photoj_0.6_nfw : ack2016
+  geringer-sameth2015_nfw : gs2015
+
+
+  
+Random Direction Control Sample Configuration Yaml
+--------------------------------------------------
+
+The file define how we select random directions for the random direction control studies.  Here is an example:
+
+  .. code-block yaml
+
+    # These are the parameters for the random direction selection
+    # The algorithm picks points on a grid 
+
+    # File key for the first direction
+    seed : 0
+    # Number of directions to select
+    nsims : 20
+
+    # Step size between grid points (in deg)
+    step_x : 1.0
+    step_y : 1.0
+    # Max distance from ROI center (in deg)
+    max_x : 3.0
+    max_y : 3.0
+
+
+
+
+
+       
