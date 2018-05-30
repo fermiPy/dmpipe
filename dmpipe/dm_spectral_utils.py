@@ -36,7 +36,8 @@ class DMCastroData(castro.CastroData_Base):
     """
 
     def __init__(self, norm_vals, nll_vals, channel, masses, astro_value,
-                 astro_prior=None, prior_applied=True, ref_j=REF_J, ref_sigmav=REF_SIGV):
+                 astro_prior=None, prior_applied=True, ref_j=REF_J, ref_sigmav=REF_SIGV, 
+                 norm_type='sigmav'):
         """ C'tor
 
         Parameters
@@ -86,7 +87,7 @@ class DMCastroData(castro.CastroData_Base):
             self._channel = channel
         super(DMCastroData, self).__init__(norm_vals,
                                            nll_vals,
-                                           norm_type="sigmav")
+                                           norm_type=norm_type)
 
     @property
     def n_masses(self):
@@ -184,8 +185,12 @@ class DMCastroData(castro.CastroData_Base):
         data = load_yaml(yamlfile)
         masses = np.array([float(v) for v in data['param']])
         if jprior is not None:
-            astro_value = data['rjvalues'][jprior]
-            jsigma = data['jsigma']
+            try:
+                astro_value = data['rjvalues'][jprior]
+                jsigma = data['jsigma']
+            except KeyError:
+                astro_value = 1.
+                jsigma = 1.
             lnlstr = 'p1lnl'
             prior_dict = dict(functype=jprior,
                               mu=astro_value,
@@ -193,7 +198,10 @@ class DMCastroData(castro.CastroData_Base):
                               j_ref=astro_value)
             prior = create_prior_functor(prior_dict)
         else:
-            astro_value = data['jvalue']
+            try:
+                astro_value = data['jvalue']
+            except KeyError:
+                astro_value = 1.            
             jsigma = None
             lnlstr = 'lnl'
             prior = None
@@ -202,7 +210,10 @@ class DMCastroData(castro.CastroData_Base):
         
         norm_list = []
         nll_list = []
-        for mass in data['param']:
+
+        masses =  np.array(sorted ([ float(v) for v in data['param'] ]))
+        masses_st =[ "%0.1f" % v for v in masses ]
+        for mass in masses_st:
             norm_list.append(data['lnldata'][mass]['norm'])
             ll_vals = data['lnldata'][mass][lnlstr]
             nll_vals = ll_vals.max() - ll_vals
@@ -256,7 +267,8 @@ class DMCastroData(castro.CastroData_Base):
         norm_vals, nll_vals = castro.CastroData_Base.stack_nll(shape, components,
                                                                ylims, weights)
         return cls(norm_vals, nll_vals, components[0].channel, components[0].masses,
-                   astro_value=None, ref_j=ref_j, ref_sigmav=ref_sigmav)
+                   astro_value=None, ref_j=ref_j, ref_sigmav=ref_sigmav, 
+                   norm_type='norm')
 
     @classmethod
     def create_from_tables(cls, tab_s, tab_m, norm_type):
@@ -543,6 +555,20 @@ class DMCastroData(castro.CastroData_Base):
         tab = Table(data=collist)
         tab.add_row(valdict)
         return tab
+
+    
+    def x_edges(self):
+        """ Make a reasonable set of bin edges for plotting 
+
+        To do this we expand relative to the mass points by half the bid width in either direction
+        """
+        log_masses = np.log10(self.masses)
+        log_half_widths = (log_masses[1:] - log_masses[0:-1]) /2
+        last_mass = log_masses[-1] + log_half_widths[-1]
+        log_masses[0:-1] -= log_half_widths
+        log_masses[-1] -= log_half_widths[-1]
+        log_masses = np.append(log_masses, last_mass)
+        return np.power(10, log_masses)
 
 
 

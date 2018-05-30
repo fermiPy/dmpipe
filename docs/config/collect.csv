@@ -1,0 +1,3 @@
+``bands``	None	Name of file with expected limit bands.
+``write_full``	False	Write file with full collected results
+``write_summary``	False	Write file with summary of collected results
