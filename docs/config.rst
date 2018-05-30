@@ -193,6 +193,39 @@ Plotting configuration
        plot-stacked-dm : {}
        plot-stacked-limits : {}
 
+
+* plot_channels : list
+
+  List of the DM interaction channels for which to plot results.
+
+  
+* data_plotting, sim_plotting, rand_plotting : dict
+
+  Dictionaries of which types of plots to make for data, simulations and random direction controls.   These dictionaries
+  can be used to override the default set of channels for any particular set of plots.
+
+  The various plot types are:
+
+  * plot-castro :
+    SED plots of a particular target, assuming a particular spatial profile.
+
+  * plot-dm :
+    Plots of the `DMCastroData` likelihoods in <sigmav> and mass space for each DM channel, assuming a particular J-factor
+    prior type.
+
+  * plot-limits :
+    Plots of the DM upper limits in <sigmav> and mass space for each DM channel, assumig a particular J-factor prior type.
+
+  * plot-stacked-dm:
+    Plots of the  `DMCastroData` likelihoods, stacked for each roster and assuing a particular J-factor prior type.
+
+  * plot-stacked-limits:
+    Plots of the DM upper limits in <sigmav> and mass space for the stacked analysis, for each roster, for each DM channel,
+    assumig a particular J-factor prior type.
+
+  * plot-control-limits
+    Plots of the DM upper limit expecteation bands in  <sigmav> and mass space for the stacked analysis, with the true
+    injected signal marked.
   
 
 
@@ -216,7 +249,7 @@ Dark Matter Spectral Configuration Yaml
 This file specifies the masses and channels to analyze the DM spectra for.  Here is an example of
 this file:
 
-.. code-block yaml
+.. code-block:: yaml
 
   # This is the list of channels we will analyze.
   # These must match channel names in the DMFitFunction class
@@ -237,7 +270,7 @@ This file specifies the DM signal to inject in the analysis (if any).  Here is a
 that everything inside the 'injected_source' tag is in the format that `fermipy` expects to see
 source defintions.
 
-  .. code-block yaml
+  .. code-block:: yaml
 
     # For positive control tests we with injected source.
     # In this case it is a DM annihilation spectrum.
@@ -256,13 +289,14 @@ source defintions.
           value : 4 # annihilation to b-quarks
 
 
+          
 For null simulations, you should include the 'injected_source' tag, but leave it blank
         
-  .. code-block yaml
+  .. code-block:: yaml
 
-  # For positive control tests we with injected source.
-  # In this case it is a DM annihilation spectrum.
-  injected_source:
+    # For positive control tests we with injected source.
+    # In this case it is a DM annihilation spectrum.
+    injected_source:
 
 
   
@@ -274,10 +308,10 @@ underscores in them).  Removing the underscores helps keep the file name fields 
 dmpipe generally uses underscores as a field seperator.  This also keeps file names shorter, and allow
 us to use roster with a mixed set of profile version to do simulations.  Here is an example:
 
-  .. code-block yaml
+  .. code-block:: yaml
 
-  ackermann2016_photoj_0.6_nfw : ack2016
-  geringer-sameth2015_nfw : gs2015
+    ackermann2016_photoj_0.6_nfw : ack2016
+    geringer-sameth2015_nfw : gs2015
 
 
   
@@ -286,7 +320,7 @@ Random Direction Control Sample Configuration Yaml
 
 The file define how we select random directions for the random direction control studies.  Here is an example:
 
-  .. code-block yaml
+  .. code-block:: yaml
 
     # These are the parameters for the random direction selection
     # The algorithm picks points on a grid 
@@ -302,6 +336,7 @@ The file define how we select random directions for the random direction control
     # Max distance from ROI center (in deg)
     max_x : 3.0
     max_y : 3.0
+
 
 
 

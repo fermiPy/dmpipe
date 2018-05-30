@@ -71,6 +71,7 @@ Documentation Contents
 
    install
    quickstart
+   overview
    config
    output
    dmpipe
