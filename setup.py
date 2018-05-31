@@ -51,10 +51,10 @@ setup(
         'astropy >= 1.2.1',
         'matplotlib >= 1.5.0',
         'scipy >= 0.14',
-        'fermipy >= 0.17.1',
+        'fermipy >= 0.17.2',
         'pyyaml',
         'healpy',
-        'dmsky >= 0.2.1'
+        'dmsky >= 0.2.2'
     ],
     extras_require=dict(
         all=[],
