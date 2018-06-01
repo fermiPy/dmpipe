@@ -21,7 +21,7 @@ from dmpipe.dm_spectral import ConvertCastro_SG, StackLikelihood_SG
 from dmpipe.dm_collect import CollectLimits_SG, CollectStackedLimits_SG
 from dmpipe.dm_plotting import PlotDM_SG, PlotLimits_SG,\
     PlotStackedDM_SG, PlotStackedLimits_SG, PlotControlLimits_SG,\
-    PlotFinalLimits_SG
+    PlotFinalLimits_SG, PlotControlMLEs_SG
 from dmpipe.dm_prepare import PrepareTargets
 from dmpipe.dm_spectral import SpecTable
 
@@ -214,6 +214,10 @@ class PipelineSim(Chain):
     plot-control-limits : `PlotControlLimits_SG`
         Make DM 'Castro' plots for each roster, J-factor prior type and channel.
 
+    plot-control-mles : `PlotControlMLEs_SG`
+        Make DM Maximum Likelihood estimate plots for each roster,
+        J-factor prior type and channel.
+
     """
     appname = 'dmpipe-pipeline-sim'
     linkname_default = 'pipeline-sim'
@@ -335,6 +339,16 @@ class PipelineSim(Chain):
                            sim=sim_name,
                            rosterlist=rosterlist,
                            **config_plot_control_limits)
+
+        config_plot_control_mles = _get_plot_config(sim_plotting, 'plot-control-mles',
+                                                      plot_channels_default, jpriors)
+        if config_plot_control_mles is not None:
+            self._set_link('plot-control-mles',
+                           PlotControlMLEs_SG,
+                           ttype=ttype,
+                           sim=sim_name,
+                           rosterlist=rosterlist,
+                           **config_plot_control_mles)
 
 
 class PipelineRandom(Chain):

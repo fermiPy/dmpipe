@@ -157,6 +157,68 @@ class PlotLimits(Link):
         return dm_plot
 
 
+class PlotMLEs(Link):
+    """Small class to Plot DM maximum likelihood estimate <sigma v> versus mass.
+
+    """
+    appname = 'dmpipe-plot-mles'
+    linkname_default = 'plot-mles'
+    usage = '%s [options]' % (appname)
+    description = "Plot DM maximum likelihood estimate on <sigma v> versus mass"
+
+    default_options = dict(infile=defaults.generic['infile'],
+                           outfile=defaults.generic['outfile'],
+                           chan=defaults.common['chan'],
+                           bands=defaults.collect['bands'],
+                           sim=defaults.sims['sim'])
+
+    __doc__ += Link.construct_docstring(default_options)
+
+    def run_analysis(self, argv):
+        """Run this analysis"""
+        args = self._parser.parse_args(argv)
+
+        if is_not_null(args.infile):
+            tab_m = Table.read(args.infile, hdu="masses")
+            tab_s = Table.read(args.infile, hdu=args.chan)
+
+            xvals = tab_m['masses'][0]
+            yvals = tab_s['ul_0.95'][0]
+            ldict = dict(limits=(xvals, yvals))
+        else:
+            ldict = {}
+
+        if is_not_null(args.bands):
+            tab_b = Table.read(args.bands, hdu=args.chan)
+            tab_bm = Table.read(args.bands, hdu="masses")
+            bands = get_ul_bands(tab_b, 'mles')
+            bands['masses'] = tab_bm['masses'][0]
+        else:
+            bands = None
+
+        if is_not_null(args.sim):
+            sim_srcs = load_yaml(args.sim)
+            injected_src = sim_srcs.get('injected_source', None)
+        else:
+            injected_src = None
+
+        xlims = (1e1, 1e4)
+        ylims = (1e-28, 1e-22)
+
+        dm_plot = plot_limits_from_arrays(ldict, xlims, ylims, bands)
+
+        if injected_src is not None:
+            mc_model = injected_src['source_model']
+            plot_mc_truth(dm_plot[1], mc_model)
+
+        if args.outfile:
+            dm_plot[0].savefig(args.outfile)
+            return None
+        return dm_plot
+
+
+
+
 class PlotDM(Link):
     """Small class to plot the likelihood vs <sigma v> and DM particle mass
 
@@ -546,6 +608,73 @@ class PlotControlLimits_SG(ScatterGather):
         return job_configs
 
 
+class PlotControlMLEs_SG(ScatterGather):
+    """Small class to generate configurations for `PlotMLEs`
+
+    This does a quadruple loop over rosters, j-factor priors, channels, and expectation bands
+    """
+    appname = 'dmpipe-plot-control-mles-sg'
+    usage = "%s [options]" % (appname)
+    description = "Make mle plots for positve controls"
+    clientclass = PlotMLEs
+
+    job_time = 60
+
+    default_options = dict(ttype=defaults.common['ttype'],
+                           rosterlist=defaults.common['targetlist'],
+                           channels=defaults.common['channels'],
+                           jpriors=defaults.common['jpriors'],
+                           sim=defaults.sims['sim'],
+                           dry_run=defaults.common['dry_run'])
+
+    __doc__ += Link.construct_docstring(default_options)
+
+    def build_job_configs(self, args):
+        """Hook to build job configurations
+        """
+        job_configs = {}
+
+        ttype = args['ttype']
+
+        try:
+            os.makedirs(os.path.join(ttype, 'results'))
+        except OSError:
+            pass
+
+        (roster_yaml, sim) = NAME_FACTORY.resolve_rosterfile(args)
+        if roster_yaml is None:
+            return job_configs
+
+        roster_dict = load_yaml(roster_yaml)
+
+        jpriors = args['jpriors']
+        channels = args['channels']
+
+        sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
+
+        for roster_name in roster_dict.keys():
+            for jprior in jpriors:                
+                name_keys = dict(target_type=ttype,
+                                 roster_name=roster_name,
+                                 jprior=jprior,
+                                 sim_name=sim,
+                                 seed='summary',
+                                 fullpath=True)
+                bands_path = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
+
+                for chan in channels:
+                    targ_key = "%s:%s:%s:%s" % (roster_name, jprior, sim, chan)
+                    output_path = os.path.join(ttype, 'results', "control_mle_%s_%s_%s_%s.png" % (roster_name, jprior, sim, chan))
+                    logfile = make_nfs_path(output_path.replace('.png', '.log'))
+                    job_config = dict(bands=bands_path,
+                                      outfile=output_path,
+                                      sim=sim_path,
+                                      logfile=logfile,
+                                      chan=chan)
+                    job_configs[targ_key] = job_config
+        return job_configs
+
+
 
 class PlotFinalLimits_SG(ScatterGather):
     """Small class to generate configurations for `PlotLimits`
@@ -621,9 +750,11 @@ def register_classes():
     PlotDMSpectra.register_class()
     PlotLimits.register_class()
     PlotLimits_SG.register_class()
+    PlotMLEs.register_class()
     PlotDM.register_class()
     PlotDM_SG.register_class()
     PlotStackedDM_SG.register_class()
     PlotStackedLimits_SG.register_class()
     PlotControlLimits_SG.register_class()
+    PlotControlMLEs_SG.register_class()
     PlotFinalLimits_SG.register_class()
