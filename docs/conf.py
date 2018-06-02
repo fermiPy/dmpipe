@@ -187,9 +187,9 @@ intersphinx_mapping = {
     'scipy': ('http://docs.scipy.org/doc/scipy/reference/', None),
     'matplotlib': ('http://matplotlib.org/', None),
     'astropy': ('http://docs.astropy.org/en/stable/', None),
-    'h5py': ('http://docs.h5py.org/en/latest/', None)
-    'dmsky': ('http://dmsky.readthedocs.io/en/latest/', None)
-    'fermipy': ('http://fermipy.readthedocs.io/en/latest/', None)
+    'h5py': ('http://docs.h5py.org/en/latest/', None),
+    'dmsky': ('http://dmsky.readthedocs.io/en/latest/', None),
+    'fermipy': ('http://fermipy.readthedocs.io/en/latest/', None),
     }
 
 
