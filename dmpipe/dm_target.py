@@ -9,7 +9,12 @@ import argparse
 
 from astropy import table
 
-from dmsky.roster import RosterLibrary
+try:
+    from dmsky.roster import RosterLibrary
+    DMSKY_ROSTER_LIB = True
+except AttributeError:
+    DMSKY_ROSTER_LIB = False
+
 from dmsky.file_io import table as dm_table
 
 
