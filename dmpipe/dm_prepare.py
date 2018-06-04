@@ -13,7 +13,11 @@ import copy
 
 from shutil import copyfile
 
-from dmsky.roster import RosterLibrary
+try:
+    from dmsky.roster import RosterLibrary
+    DMSKY_ROSTER_LIB = True
+except AttributeError:
+    DMSKY_ROSTER_LIB = False
 
 from fermipy.utils import load_yaml, write_yaml
 
@@ -374,8 +378,12 @@ class PrepareTargets(Link):
     def run_analysis(self, argv):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
-        roster_lib = RosterLibrary()
-        roster_dict = {}
+
+        if DMSKY_ROSTER_LIB:
+            roster_lib = RosterLibrary()
+            roster_dict = {}
+        else:
+            raise RuntimeError("Can't load roster library, probably b/c old version of yaml is not compatible with dmsky")
 
         if not args.rosters:
             raise RuntimeError("You must specify at least one target roster")
