@@ -54,7 +54,7 @@ setup(
         'matplotlib >= 1.5.0',
         'scipy >= 0.14',
         'fermipy >= 0.17.2',
-        'pyyaml >= 3.12,
+        'pyyaml >= 3.12',
         'healpy',
         'dmsky >= 0.2.2'
     ],
