@@ -169,6 +169,19 @@ class PrepareTargets(Link):
             source_model.update(dict(SpatialModel='DiffuseSource',
                                      SpatialType='RadialProfile',
                                      radialprofile=target.j_rad_file))
+        elif spatial in ['dmap']:
+            if target.d_map_file is None:
+                d_map_file = profile_path.replace('.yaml', '.fits')
+                target.write_dmap_wcs(d_map_file)
+            source_model.update(dict(SpatialModel='DiffuseSource',
+                                     SpatialType='SpatialMap',
+                                     Spatial_Filename=target.d_map_file))
+        elif spatial in ['dradial']:
+            target.d_rad_file = profile_path.replace('.yaml', '.dat')
+            target.write_d_rad_file()
+            source_model.update(dict(SpatialModel='DiffuseSource',
+                                     SpatialType='RadialProfile',
+                                     radialprofile=target.d_rad_file))
         else:
             raise ValueError('Did not recognize spatial type %s' % spatial)
 
@@ -179,8 +192,8 @@ class PrepareTargets(Link):
         return profile_dict
 
     @classmethod
-    def _write_j_value_yaml(cls, target, j_val_path):
-        """Write a yaml file describing the J-factor of one target.
+    def _write_astro_value_yaml(cls, target, astro_val_path):
+        """Write a yaml file describing the J-factor and D-factor of one target.
 
         Parameters
         ----------
@@ -188,7 +201,7 @@ class PrepareTargets(Link):
         target : `dmsky.targets.Target`
             Specific target
 
-        j_val_path : str
+        astro_val_path : str
             Path for the output file
 
         Returns
@@ -198,12 +211,14 @@ class PrepareTargets(Link):
             The description of the target J-factor
 
         """
-        j_profile_data = target.profile.copy()
-        j_profile_data['j_integ'] = target.j_integ
-        j_profile_data['j_sigma'] = target.j_sigma
+        astro_profile_data = target.profile.copy()
+        astro_profile_data['j_integ'] = target.j_integ
+        astro_profile_data['j_sigma'] = target.j_sigma
+        astro_profile_data['d_integ'] = target.d_integ
+        astro_profile_data['d_sigma'] = target.d_sigma
 
-        write_yaml(j_profile_data, j_val_path)
-        return j_profile_data
+        write_yaml(astro_profile_data, astro_val_path)
+        return astro_profile_data
 
     @classmethod
     def _write_sim_yaml(cls, target, sim, sim_target_dir, target_key):
@@ -266,8 +281,8 @@ class PrepareTargets(Link):
         sims : list
             List of names of simulation scenarios
 
-        spatial_models : list
-            List of types of spatial models to use in analysis
+        spatial_models : dict
+            Dictionary types of spatial models to use in analysis
 
         aliases : dict
             Optional dictionary to remap target verion keys
@@ -294,23 +309,23 @@ class PrepareTargets(Link):
                                  target_name=target_name,
                                  target_version=ver_key,
                                  fullpath=True)
-                j_val_path = NAME_FACTORY.j_valuefile(**name_keys)
+                astro_val_path = NAME_FACTORY.astro_valuefile(**name_keys)
                 target_dir = NAME_FACTORY.targetdir(**name_keys)
                 try:
                     os.makedirs(target_dir)
                 except OSError:
                     pass
-                cls._write_j_value_yaml(target, j_val_path)
+                cls._write_astro_value_yaml(target, astro_val_path)
 
                 for sim in sims:
                     name_keys['sim_name'] = sim
                     sim_target_dir = NAME_FACTORY.sim_targetdir(**name_keys)
-                    sim_j_val_path = NAME_FACTORY.sim_j_valuefile(**name_keys)
+                    sim_astro_val_path = NAME_FACTORY.sim_astro_valuefile(**name_keys)
                     try:
                         os.makedirs(sim_target_dir)
                     except OSError:
                         pass
-                    cls._write_j_value_yaml(target, sim_j_val_path)
+                    cls._write_astro_value_yaml(target, sim_astro_val_path)
                     cls._write_sim_yaml(target, sim, sim_target_dir, ver_key)
                 name_keys.pop('sim_name')
 

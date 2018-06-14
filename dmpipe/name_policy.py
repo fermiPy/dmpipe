@@ -28,36 +28,36 @@ class NameFactory(NameFactory_Base):
     # Simulated rosterlist  file format
     sim_rosterfile_format = '{target_type}_sim/sim_{sim_name}/{rosterlist}'
 
-    # Information about a particular target j factor
-    j_valuefile_format = '{target_type}/{target_name}/j_val_{target_version}.yaml'
+    # Information about a particular target astro factor
+    astro_valuefile_format = '{target_type}/{target_name}/astro_val_{target_version}.yaml'
 
-    # Information about a particular target j factor
-    sim_j_valuefile_format = '{target_type}_sim/sim_{sim_name}/{target_name}/j_val_{target_version}.yaml'
+    # Information about a particular target astro factor
+    sim_astro_valuefile_format = '{target_type}_sim/sim_{sim_name}/{target_name}/astro_val_{target_version}.yaml'
 
-    # DM likelilood file for a particular target (and j-factor prior)
-    dmlikefile_format = '{target_type}/{target_name}/dmlike_{profile}_{jprior}.fits'
+    # DM likelilood file for a particular target (and astro-factor prior)
+    dmlikefile_format = '{target_type}/{target_name}/dmlike_{profile}_{astro_prior}.fits'
 
-    # DM limits file for a particular target (and j-factor prior)
-    dmlimitsfile_format = '{target_type}/{target_name}/dmlimits_{profile}_{jprior}.fits'
+    # DM limits file for a particular target (and astro-factor prior)
+    dmlimitsfile_format = '{target_type}/{target_name}/dmlimits_{profile}_{astro_prior}.fits'
 
-    # Stacked DM limits file for a particular roster (and j-factor prior)
-    resultsfile_format = '{target_type}/stacked/results_{roster_name}_{jprior}.fits'
+    # Stacked DM limits file for a particular roster (and astro-factor prior)
+    resultsfile_format = '{target_type}/stacked/results_{roster_name}_{astro_prior}.fits'
 
-    # Stacked DM limits file for a particular roster (and j-factor prior)
-    stackedlimitsfile_format = '{target_type}/stacked/limits_{roster_name}_{jprior}.fits'
+    # Stacked DM limits file for a particular roster (and astro-factor prior)
+    stackedlimitsfile_format = '{target_type}/stacked/limits_{roster_name}_{astro_prior}.fits'
 
-    # Simulated DM likelilood file for a particular target (and j-factor prior)
-    sim_dmlikefile_format = '{target_type}_sim/sim_{sim_name}/{target_name}/dmlike_{profile}_{jprior}_{seed}.fits'
+    # Simulated DM likelilood file for a particular target (and astro-factor prior)
+    sim_dmlikefile_format = '{target_type}_sim/sim_{sim_name}/{target_name}/dmlike_{profile}_{astro_prior}_{seed}.fits'
 
-    # Simulated DM limits file for a particular target (and j-factor prior)
-    sim_dmlimitsfile_format = '{target_type}_sim/sim_{sim_name}/{target_name}/dmlimits_{profile}_{jprior}_{seed}.fits'
+    # Simulated DM limits file for a particular target (and astro-factor prior)
+    sim_dmlimitsfile_format = '{target_type}_sim/sim_{sim_name}/{target_name}/dmlimits_{profile}_{astro_prior}_{seed}.fits'
 
-    # Simulated Stacked DM limits file for a particular roster (and j-factor
+    # Simulated Stacked DM limits file for a particular roster (and astro-factor
     # prior)
-    sim_resultsfile_format = '{target_type}_sim/sim_{sim_name}/stacked/results_{roster_name}_{jprior}_{seed}.fits'
+    sim_resultsfile_format = '{target_type}_sim/sim_{sim_name}/stacked/results_{roster_name}_{astro_prior}_{seed}.fits'
 
-    # Stacked DM limits file for a particular roster (and j-factor prior)
-    sim_stackedlimitsfile_format = '{target_type}_sim/sim_{sim_name}/stacked/limits_{roster_name}_{jprior}_{seed}.fits'
+    # Stacked DM limits file for a particular roster (and astro-factor prior)
+    sim_stackedlimitsfile_format = '{target_type}_sim/sim_{sim_name}/stacked/limits_{roster_name}_{astro_prior}_{seed}.fits'
 
     def specconfig(self, **kwargs):
         """ return the name of the input configuration file
@@ -80,16 +80,16 @@ class NameFactory(NameFactory_Base):
         return self._format_from_dict(
             NameFactory.sim_rosterfile_format, **kwargs)
 
-    def j_valuefile(self, **kwargs):
-        """ return the name of the yaml file with information about a partiuclar target j factor
+    def astro_valuefile(self, **kwargs):
+        """ return the name of the yaml file with information about a partiuclar target astro factor
         """
-        return self._format_from_dict(NameFactory.j_valuefile_format, **kwargs)
+        return self._format_from_dict(NameFactory.astro_valuefile_format, **kwargs)
 
-    def sim_j_valuefile(self, **kwargs):
-        """ return the name of the yaml file with information about a partiuclar target j factor
+    def sim_astro_valuefile(self, **kwargs):
+        """ return the name of the yaml file with information about a partiuclar target astro factor
         """
         return self._format_from_dict(
-            NameFactory.sim_j_valuefile_format, **kwargs)
+            NameFactory.sim_astro_valuefile_format, **kwargs)
 
     def dmlikefile(self, **kwargs):
         """ return the name for the DM likelilood file for a particular target

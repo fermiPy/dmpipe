@@ -6,6 +6,8 @@ Collect information for simulated realizations of an analysis
 """
 from __future__ import absolute_import, division, print_function
 
+import os
+
 #from dmsky.roster import RosterLibrary
 from astropy.table import Table
 
@@ -26,10 +28,14 @@ init_matplotlib_backend('Agg')
 NAME_FACTORY = NameFactory(basedir=('.'))
 
 
-def summarize_limits_results(limit_table):
+def summarize_limits_results(limit_table, decay=False):
     """Build a stats summary table for a table that has all the SED results """
-    del_cols = ['ul_0.68', 'ul_0.95', 'mles']
-    stats_cols = ['ul_0.95', 'mles']
+    if decay:
+        del_cols = ['ll_0.68', 'll_0.95', 'mles']
+        stats_cols = ['ll_0.95', 'mles']
+    else:
+        del_cols = ['ul_0.68', 'ul_0.95', 'mles']
+        stats_cols = ['ul_0.95', 'mles']
 
     table_out = Table(limit_table[0])
     table_out.remove_columns(del_cols)
@@ -56,6 +62,32 @@ class CollectLimits(Link):
 
     __doc__ += Link.construct_docstring(default_options)
 
+    @staticmethod
+    def is_decay_limits(limitfile):
+        tokens = os.path.splitext(os.path.basename(limitfile))[0].split('_')
+        return tokens[2] in ['point', 'dmap', 'dradial']
+        
+    @staticmethod
+    def is_ann_limits(limitfile):
+        tokens = os.path.splitext(os.path.basename(limitfile))[0].split('_')
+        return tokens[2] in ['point', 'map', 'radial']
+
+    @staticmethod
+    def select_channels(channels, limitfile):
+        sed_ok_decay = CollectLimits.is_decay_limits(limitfile)
+        sed_ok_ann = CollectLimits.is_ann_limits(limitfile)
+        ochans = []
+        for chan in channels:
+            chan_is_decay = chan.find('_decay') >= 0
+            if chan_is_decay:
+                if sed_ok_decay:
+                    ochans.append(chan)
+            else:
+                if sed_ok_ann:
+                    ochans.append(chan)
+        return ochans
+    
+
     def run_analysis(self, argv):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
@@ -68,24 +100,30 @@ class CollectLimits(Link):
 
         spec_config = load_yaml(args.specconfig)
         channels = spec_config['channels']
+        sum_chans = CollectLimits.select_channels(channels, limitfile)
 
         outfile = args.outfile
         summaryfile = args.summaryfile
 
-        hdus = channels + ['MASSES']
+        hdus = sum_chans + ['MASSES']
 
         out_tables, out_names = vstack_tables(flist, hdus)
 
         if is_not_null(outfile):
-            fits_utils.write_tables_to_fits(
-                outfile, out_tables, namelist=out_names)
+            fits_utils.write_tables_to_fits(outfile,
+                                            out_tables,
+                                            namelist=out_names)
 
         if is_not_null(summaryfile):
-            summary_tables = [summarize_limits_results(
-                ot) for ot in out_tables[0:-1]]
+            summary_tables = []
+            for ot, chan in zip(out_tables[0:-1], sum_chans):
+                decay = chan.find('_decay') >= 0
+                summary_table = summarize_limits_results(ot, decay)
+                summary_tables.append(summary_table)
             summary_tables.append(Table(out_tables[-1][0]))
-            fits_utils.write_tables_to_fits(
-                summaryfile, summary_tables, namelist=out_names)
+            fits_utils.write_tables_to_fits(summaryfile,
+                                            summary_tables,
+                                            namelist=out_names)
 
 
 class CollectLimits_SG(ScatterGather):
@@ -103,7 +141,7 @@ class CollectLimits_SG(ScatterGather):
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            specconifg=defaults.common['specconfig'],
-                           jpriors=defaults.common['jpriors'],
+                           astro_priors=defaults.common['astro_priors'],
                            sim=defaults.sims['sim'],
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
@@ -125,7 +163,7 @@ class CollectLimits_SG(ScatterGather):
 
         specconfig = NAME_FACTORY.resolve_specconfig(args)
 
-        jpriors = args['jpriors']
+        astro_priors = args['astro_priors']
         write_full = args.get('write_full', False)
 
         targets = load_yaml(targets_yaml)
@@ -135,16 +173,16 @@ class CollectLimits_SG(ScatterGather):
 
         for target_name, profile_list in targets.items():
             for profile in profile_list:
-                for jprior in jpriors:
-                    if is_null(jprior):
-                        jprior = 'none'
+                for astro_prior in astro_priors:
+                    if is_null(astro_prior):
+                        astro_prior = 'none'
                     full_key = "%s:%s:%s:%s" % (
-                        target_name, profile, sim, jprior)
+                        target_name, profile, sim, astro_prior)
                     name_keys = dict(target_type=ttype,
                                      target_name=target_name,
                                      sim_name=sim,
                                      profile=profile,
-                                     jprior=jprior,
+                                     astro_prior=astro_prior,
                                      fullpath=True)
                     limitfile = NAME_FACTORY.sim_dmlimitsfile(**name_keys)
                     first = args['seed']
@@ -160,7 +198,7 @@ class CollectLimits_SG(ScatterGather):
                         (first, last))
                     job_config = base_config.copy()
                     job_config.update(dict(limitfile=limitfile,
-                                           jprior=jprior,
+                                           astro_prior=astro_prior,
                                            outfile=outfile,
                                            summaryfile=summaryfile,
                                            logfile=logfile))
@@ -183,7 +221,7 @@ class CollectStackedLimits_SG(ScatterGather):
 
     default_options = dict(ttype=defaults.common['ttype'],
                            rosterlist=defaults.common['targetlist'],
-                           jpriors=defaults.common['jpriors'],
+                           astro_priors=defaults.common['astro_priors'],
                            sim=defaults.sims['sim'],
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
@@ -206,7 +244,7 @@ class CollectStackedLimits_SG(ScatterGather):
 
         specconfig = NAME_FACTORY.resolve_specconfig(args)
 
-        jpriors = args['jpriors']
+        astro_priors = args['astro_priors']
         write_full = args['write_full']
         first = args['seed']
         last = first + args['nsims'] - 1
@@ -216,14 +254,14 @@ class CollectStackedLimits_SG(ScatterGather):
 
         roster_dict = load_yaml(roster_yaml)
         for roster_name in roster_dict.keys():
-            for jprior in jpriors:
-                if is_null(jprior):
-                    jprior = 'none'
-                full_key = "%s:%s:%s" % (roster_name, sim, jprior)
+            for astro_prior in astro_priors:
+                if is_null(astro_prior):
+                    astro_prior = 'none'
+                full_key = "%s:%s:%s" % (roster_name, sim, astro_prior)
                 name_keys = dict(target_type=ttype,
                                  roster_name=roster_name,
                                  sim_name=sim,
-                                 jprior=jprior,
+                                 astro_prior=astro_prior,
                                  fullpath=True)
 
                 limitfile = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
@@ -238,7 +276,7 @@ class CollectStackedLimits_SG(ScatterGather):
                 job_config = base_config.copy()
                 job_config.update(dict(limitfile=limitfile,
                                        specconfig=specconfig,
-                                       jprior=jprior,
+                                       astro_prior=astro_prior,
                                        outfile=outfile,
                                        summaryfile=summaryfile,
                                        logfile=logfile))

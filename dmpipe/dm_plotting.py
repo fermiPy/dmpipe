@@ -31,6 +31,29 @@ init_matplotlib_backend()
 NAME_FACTORY = NameFactory(basedir='.')
 
 
+def is_decay_profile(profile):
+    tokens = profile.split('_')
+    return tokens[-1] in ['point', 'dmap', 'dradial']
+
+def is_ann_profile(profile):
+    tokens = profile.split('_')
+    return tokens[-1] in ['point', 'map', 'radial']
+
+def select_channels(channels, profile):
+    sed_ok_decay = is_decay_profile(profile)
+    sed_ok_ann = is_ann_profile(profile)
+    ochans = []
+    for chan in channels:
+        chan_is_decay = chan.find('_decay') >= 0
+        if chan_is_decay:
+            if sed_ok_decay:
+                ochans.append(chan)
+        else:
+            if sed_ok_ann:
+                ochans.append(chan)
+    return ochans
+    
+
 def get_ul_bands(table, prefix):
     """ Get the upper limit bands a table
 
@@ -118,12 +141,20 @@ class PlotLimits(Link):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
 
+        if args.chan.find('_decay') >= 0:
+            decay = True
+            limit_col = 'll_0.95'
+            ylims = (1e+22, 1e+28)
+        else:
+            decay = False
+            limit_col = 'ul_0.95'
+            ylims = (1e-28, 1e-22)
+
         if is_not_null(args.infile):
             tab_m = Table.read(args.infile, hdu="masses")
             tab_s = Table.read(args.infile, hdu=args.chan)
-
             xvals = tab_m['masses'][0]
-            yvals = tab_s['ul_0.95'][0]
+            yvals = tab_s[limit_col][0]
             ldict = dict(limits=(xvals, yvals))
         else:
             ldict = {}
@@ -131,7 +162,7 @@ class PlotLimits(Link):
         if is_not_null(args.bands):
             tab_b = Table.read(args.bands, hdu=args.chan)
             tab_bm = Table.read(args.bands, hdu="masses")
-            bands = get_ul_bands(tab_b, 'ul_0.95')
+            bands = get_ul_bands(tab_b, limit_col)
             bands['masses'] = tab_bm['masses'][0]
         else:
             bands = None
@@ -143,9 +174,8 @@ class PlotLimits(Link):
             injected_src = None
 
         xlims = (1e1, 1e4)
-        ylims = (1e-28, 1e-22)
 
-        dm_plot = plot_limits_from_arrays(ldict, xlims, ylims, bands)
+        dm_plot = plot_limits_from_arrays(ldict, xlims, ylims, bands, decay=decay)
 
         if injected_src is not None:
             mc_model = injected_src['source_model']
@@ -178,12 +208,18 @@ class PlotMLEs(Link):
         """Run this analysis"""
         args = self._parser.parse_args(argv)
 
+        if args.chan.find('_decay') >= 0:
+            limit_col = 'll_0.95'
+            ylims = (1e+22, 1e+28)
+        else:
+            limit_col = 'ul_0.95'
+            ylims = (1e-28, 1e-22)
+
         if is_not_null(args.infile):
             tab_m = Table.read(args.infile, hdu="masses")
             tab_s = Table.read(args.infile, hdu=args.chan)
-
             xvals = tab_m['masses'][0]
-            yvals = tab_s['ul_0.95'][0]
+            yvals = tab_s[limit_col][0]
             ldict = dict(limits=(xvals, yvals))
         else:
             ldict = {}
@@ -203,8 +239,7 @@ class PlotMLEs(Link):
             injected_src = None
 
         xlims = (1e1, 1e4)
-        ylims = (1e-28, 1e-22)
-
+        
         dm_plot = plot_limits_from_arrays(ldict, xlims, ylims, bands)
 
         if injected_src is not None:
@@ -267,7 +302,7 @@ class PlotLimits_SG(ScatterGather):
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            channels=defaults.common['channels'],
-                           jpriors=defaults.common['jpriors'],
+                           astro_priors=defaults.common['astro_priors'],
                            dry_run=defaults.common['dry_run'])
 
     __doc__ += Link.construct_docstring(default_options)
@@ -282,7 +317,7 @@ class PlotLimits_SG(ScatterGather):
         if targets_yaml is None:
             return job_configs
 
-        jpriors = args['jpriors']
+        astro_priors = args['astro_priors']
         channels = args['channels']
 
         base_config = dict(bands=None,
@@ -291,16 +326,17 @@ class PlotLimits_SG(ScatterGather):
         targets = load_yaml(targets_yaml)
         for target_name, target_list in targets.items():
             for targ_prof in target_list:
-                for jprior in jpriors:
+                prof_chans = select_channels(channels, targ_prof)
+                for astro_prior in astro_priors:
                     name_keys = dict(target_type=ttype,
                                      target_name=target_name,
                                      profile=targ_prof,
-                                     jprior=jprior,
+                                     astro_prior=astro_prior,
                                      fullpath=True)
                     input_path = NAME_FACTORY.dmlimitsfile(**name_keys)
-                    for chan in channels:
+                    for chan in prof_chans:
                         targ_key = "%s:%s:%s:%s" % (
-                            target_name, targ_prof, jprior, chan)
+                            target_name, targ_prof, astro_prior, chan)
 
                         output_path = input_path.replace(
                             '.fits', '_%s.png' % chan)
@@ -309,7 +345,7 @@ class PlotLimits_SG(ScatterGather):
                         job_config = base_config.copy()
                         job_config.update(dict(infile=input_path,
                                                outfile=output_path,
-                                               jprior=jprior,
+                                               astro_prior=astro_prior,
                                                logfile=logfile,
                                                chan=chan))
                         job_configs[targ_key] = job_config
@@ -333,7 +369,7 @@ class PlotStackedLimits_SG(ScatterGather):
                            rosterlist=defaults.common['rosterlist'],
                            bands=defaults.collect['bands'],
                            channels=defaults.common['channels'],
-                           jpriors=defaults.common['jpriors'],
+                           astro_priors=defaults.common['astro_priors'],
                            sim=defaults.sims['sim'],
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
@@ -353,18 +389,19 @@ class PlotStackedLimits_SG(ScatterGather):
 
         roster_dict = load_yaml(roster_yaml)
 
-        jpriors = args['jpriors']
+        astro_priors = args['astro_priors']
         channels = args['channels']
 
         for roster_name in roster_dict.keys():
-            for jprior in jpriors:
+            rost_chans = select_channels(channels, roster_name)
+            for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,
                                  roster_name=roster_name,
-                                 jprior=jprior,
+                                 astro_prior=astro_prior,
                                  sim_name=sim,
                                  fullpath=True)
-                for chan in channels:
-                    targ_key = "%s:%s:%s" % (roster_name, jprior, chan)
+                for chan in rost_chans:
+                    targ_key = "%s:%s:%s" % (roster_name, astro_prior, chan)
                     if sim is not None:
                         seedlist = range(
                             args['seed'], args['seed'] + args['nsims'])
@@ -390,7 +427,7 @@ class PlotStackedLimits_SG(ScatterGather):
                             output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
-                                          jprior=jprior,
+                                          astro_prior=astro_prior,
                                           logfile=logfile,
                                           sim=sim_path,
                                           chan=chan)
@@ -415,7 +452,7 @@ class PlotDM_SG(ScatterGather):
     default_options = dict(ttype=defaults.common['ttype'],
                            targetlist=defaults.common['targetlist'],
                            channels=defaults.common['channels'],
-                           jpriors=defaults.common['jpriors'],
+                           astro_priors=defaults.common['astro_priors'],
                            dry_run=defaults.common['dry_run'])
 
     __doc__ += Link.construct_docstring(default_options)
@@ -432,28 +469,29 @@ class PlotDM_SG(ScatterGather):
 
         targets = load_yaml(targets_yaml)
 
-        jpriors = args['jpriors']
+        astro_priors = args['astro_priors']
         channels = args['channels']
 
         for target_name, target_list in targets.items():
             for targ_prof in target_list:
-                for jprior in jpriors:
+                prof_chans = select_channels(channels, targ_prof)
+                for astro_prior in astro_priors:
                     name_keys = dict(target_type=ttype,
                                      target_name=target_name,
                                      profile=targ_prof,
-                                     jprior=jprior,
+                                     astro_prior=astro_prior,
                                      fullpath=True)
                     input_path = NAME_FACTORY.dmlikefile(**name_keys)
-                    for chan in channels:
+                    for chan in prof_chans:
                         targ_key = "%s:%s:%s:%s" % (
-                            target_name, targ_prof, jprior, chan)
+                            target_name, targ_prof, astro_prior, chan)
                         output_path = input_path.replace(
                             '.fits', '_%s.png' % chan)
                         logfile = make_nfs_path(
                             output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
-                                          jprior=jprior,
+                                          astro_prior=astro_prior,
                                           logfile=logfile,
                                           chan=chan)
                         job_configs[targ_key] = job_config
@@ -476,7 +514,7 @@ class PlotStackedDM_SG(ScatterGather):
     default_options = dict(ttype=defaults.common['ttype'],
                            rosterlist=defaults.common['rosterlist'],
                            channels=defaults.common['channels'],
-                           jpriors=defaults.common['jpriors'],
+                           astro_priors=defaults.common['astro_priors'],
                            sim=defaults.sims['sim'],
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
@@ -496,19 +534,20 @@ class PlotStackedDM_SG(ScatterGather):
 
         roster_dict = load_yaml(roster_yaml)
 
-        jpriors = args['jpriors']
+        astro_priors = args['astro_priors']
         channels = args['channels']
 
         for roster_name in roster_dict.keys():
-            for jprior in jpriors:
+            rost_chans = select_channels(channels, roster_name)
+            for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,
                                  roster_name=roster_name,
-                                 jprior=jprior,
+                                 astro_prior=astro_prior,
                                  sim_name=sim,
                                  fullpath=True)
 
-                for chan in channels:
-                    targ_key = "%s:%s:%s" % (roster_name, jprior, chan)
+                for chan in rost_chans:
+                    targ_key = "%s:%s:%s" % (roster_name, astro_prior, chan)
 
                     if sim is not None:
                         seedlist = range(
@@ -532,7 +571,7 @@ class PlotStackedDM_SG(ScatterGather):
                             output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
-                                          jprior=jprior,
+                                          astro_prior=astro_prior,
                                           logfile=logfile,
                                           chan=chan)
                         job_configs[full_targ_key] = job_config
@@ -556,7 +595,7 @@ class PlotControlLimits_SG(ScatterGather):
     default_options = dict(ttype=defaults.common['ttype'],
                            rosterlist=defaults.common['targetlist'],
                            channels=defaults.common['channels'],
-                           jpriors=defaults.common['jpriors'],
+                           astro_priors=defaults.common['astro_priors'],
                            sim=defaults.sims['sim'],
                            dry_run=defaults.common['dry_run'])
 
@@ -580,24 +619,25 @@ class PlotControlLimits_SG(ScatterGather):
 
         roster_dict = load_yaml(roster_yaml)
 
-        jpriors = args['jpriors']
+        astro_priors = args['astro_priors']
         channels = args['channels']
 
         sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
 
         for roster_name in roster_dict.keys():
-            for jprior in jpriors:                
+            rost_chans = select_channels(channels, roster_name)
+            for astro_prior in astro_priors:                
                 name_keys = dict(target_type=ttype,
                                  roster_name=roster_name,
-                                 jprior=jprior,
+                                 astro_prior=astro_prior,
                                  sim_name=sim,
                                  seed='summary',
                                  fullpath=True)
                 bands_path = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
 
-                for chan in channels:
-                    targ_key = "%s:%s:%s:%s" % (roster_name, jprior, sim, chan)
-                    output_path = os.path.join(ttype, 'results', "control_%s_%s_%s_%s.png" % (roster_name, jprior, sim, chan))
+                for chan in rost_chans:
+                    targ_key = "%s:%s:%s:%s" % (roster_name, astro_prior, sim, chan)
+                    output_path = os.path.join(ttype, 'results', "control_%s_%s_%s_%s.png" % (roster_name, astro_prior, sim, chan))
                     logfile = make_nfs_path(output_path.replace('.png', '.log'))
                     job_config = dict(bands=bands_path,
                                       outfile=output_path,
@@ -623,7 +663,7 @@ class PlotControlMLEs_SG(ScatterGather):
     default_options = dict(ttype=defaults.common['ttype'],
                            rosterlist=defaults.common['targetlist'],
                            channels=defaults.common['channels'],
-                           jpriors=defaults.common['jpriors'],
+                           astro_priors=defaults.common['astro_priors'],
                            sim=defaults.sims['sim'],
                            dry_run=defaults.common['dry_run'])
 
@@ -647,24 +687,25 @@ class PlotControlMLEs_SG(ScatterGather):
 
         roster_dict = load_yaml(roster_yaml)
 
-        jpriors = args['jpriors']
+        astro_priors = args['astro_priors']
         channels = args['channels']
 
         sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
 
         for roster_name in roster_dict.keys():
-            for jprior in jpriors:                
+            rost_chans = select_channels(channels, roster_name)
+            for astro_prior in astro_priors:                
                 name_keys = dict(target_type=ttype,
                                  roster_name=roster_name,
-                                 jprior=jprior,
+                                 astro_prior=astro_prior,
                                  sim_name=sim,
                                  seed='summary',
                                  fullpath=True)
                 bands_path = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
 
-                for chan in channels:
-                    targ_key = "%s:%s:%s:%s" % (roster_name, jprior, sim, chan)
-                    output_path = os.path.join(ttype, 'results', "control_mle_%s_%s_%s_%s.png" % (roster_name, jprior, sim, chan))
+                for chan in rost_chans:
+                    targ_key = "%s:%s:%s:%s" % (roster_name, astro_prior, sim, chan)
+                    output_path = os.path.join(ttype, 'results', "control_mle_%s_%s_%s_%s.png" % (roster_name, astro_prior, sim, chan))
                     logfile = make_nfs_path(output_path.replace('.png', '.log'))
                     job_config = dict(bands=bands_path,
                                       outfile=output_path,
@@ -691,7 +732,7 @@ class PlotFinalLimits_SG(ScatterGather):
     default_options = dict(ttype=defaults.common['ttype'],
                            rosterlist=defaults.common['rosterlist'],
                            channels=defaults.common['channels'],
-                           jpriors=defaults.common['jpriors'],
+                           astro_priors=defaults.common['astro_priors'],
                            sims=defaults.sims['sims'],
                            dry_run=defaults.common['dry_run'])
 
@@ -711,15 +752,16 @@ class PlotFinalLimits_SG(ScatterGather):
 
         roster_dict = load_yaml(roster_yaml)
 
-        jpriors = args['jpriors']
+        astro_priors = args['astro_priors']
         channels = args['channels']
 
         sims = args['sims']
         for roster_name in roster_dict.keys():
-            for jprior in jpriors:
+            rost_chans = select_channels(channels, roster_name)
+            for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,
                                  roster_name=roster_name,
-                                 jprior=jprior,
+                                 astro_prior=astro_prior,
                                  fullpath=True)
                 input_path = NAME_FACTORY.stackedlimitsfile(**name_keys)
                 for sim in sims:
@@ -727,9 +769,9 @@ class PlotFinalLimits_SG(ScatterGather):
                                      seed='summary')
                     bands_path = NAME_FACTORY.sim_stackedlimitsfile(**name_keys)
 
-                    for chan in channels:
-                        targ_key = "%s:%s:%s:%s" % (roster_name, jprior, sim, chan)
-                        output_path = os.path.join(ttype, 'results', "final_%s_%s_%s_%s.png" % (roster_name, jprior, sim, chan))
+                    for chan in rost_chans:
+                        targ_key = "%s:%s:%s:%s" % (roster_name, astro_prior, sim, chan)
+                        output_path = os.path.join(ttype, 'results', "final_%s_%s_%s_%s.png" % (roster_name, astro_prior, sim, chan))
                         logfile = make_nfs_path(output_path.replace('.png', '.log'))
                         job_config = dict(infile=input_path,
                                           outfile=output_path,
