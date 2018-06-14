@@ -114,11 +114,15 @@ class PrepareTargets(Link):
         sim_target_config_path = os.path.join(sim_target_dir, 'config.yaml')
         sim_target_config = copy.deepcopy(target_config)
 
-        sim_target_config['gtlike']['bexpmap'] = os.path.abspath(
-            os.path.join(target_dir, 'bexpmap_00.fits'))
-        sim_target_config['gtlike']['srcmap'] = os.path.abspath(
-            os.path.join(target_dir, 'srcmap_00.fits'))
-        sim_target_config['gtlike']['use_external_srcmap'] = True
+        comps = sim_target_config.get('components', [sim_target_config])
+
+        for i, comp in enumerate(comps):
+            comp_name = "%02i" % i
+            if not comp.has_key('gtlike'):
+                comp['gtlike'] = {}
+            comp['gtlike']['bexpmap'] = os.path.abspath(os.path.join(target_dir, 'bexpmap_%s.fits' % comp_name))
+            comp['gtlike']['srcmap'] = os.path.abspath(os.path.join(target_dir, 'srcmap_%s.fits' % comp_name))
+            comp['gtlike']['use_external_srcmap'] = True
 
         write_yaml(sim_target_config, sim_target_config_path)
         return sim_target_config
