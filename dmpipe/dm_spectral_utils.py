@@ -1210,7 +1210,7 @@ class DMSpecTable(object):
             dll_vals[i, 0:] = castro_data(test_vals)
             mle_vals[i] = norm_vals[i][dll_vals[i].argmin()]
             nll_offsets[i] = dll_vals[i].min()
-            nll_vals[i] -= nll_offsets[i] 
+            dll_vals[i] -= nll_offsets[i] 
 
             msk = np.isfinite(dll_vals[i])
             if not msk.any():
