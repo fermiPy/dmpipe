@@ -265,7 +265,8 @@ class PlotDM(Link):
 
     default_options = dict(infile=defaults.generic['infile'],
                            outfile=defaults.generic['outfile'],
-                           chan=defaults.common['chan'])
+                           chan=defaults.common['chan'],
+                           global_min=defaults.common['global_min'])
 
     __doc__ += Link.construct_docstring(default_options)
 
@@ -280,7 +281,7 @@ class PlotDM(Link):
         else:
             raise ValueError("Can not read file type %s for SED" % extype)
 
-        dm_plot = plot_dm_castro(dm_castro)
+        dm_plot = plot_dm_castro(dm_castro, global_min=args.global_min)
         if args.outfile:
             dm_plot[0].savefig(args.outfile)
             return None
@@ -453,6 +454,7 @@ class PlotDM_SG(ScatterGather):
                            targetlist=defaults.common['targetlist'],
                            channels=defaults.common['channels'],
                            astro_priors=defaults.common['astro_priors'],
+                           global_min=defaults.common['global_min'],
                            dry_run=defaults.common['dry_run'])
 
     __doc__ += Link.construct_docstring(default_options)
@@ -471,6 +473,7 @@ class PlotDM_SG(ScatterGather):
 
         astro_priors = args['astro_priors']
         channels = args['channels']
+        global_min = args['global_min']
 
         for target_name, target_list in targets.items():
             for targ_prof in target_list:
@@ -493,6 +496,7 @@ class PlotDM_SG(ScatterGather):
                                           outfile=output_path,
                                           astro_prior=astro_prior,
                                           logfile=logfile,
+                                          global_min=global_min,
                                           chan=chan)
                         job_configs[targ_key] = job_config
 
@@ -518,6 +522,7 @@ class PlotStackedDM_SG(ScatterGather):
                            sim=defaults.sims['sim'],
                            nsims=defaults.sims['nsims'],
                            seed=defaults.sims['seed'],
+                           global_min=defaults.common['global_min'],
                            dry_run=defaults.common['dry_run'])
 
     __doc__ += Link.construct_docstring(default_options)
@@ -536,6 +541,7 @@ class PlotStackedDM_SG(ScatterGather):
 
         astro_priors = args['astro_priors']
         channels = args['channels']
+        global_min = args['global_min']
 
         for roster_name in roster_dict.keys():
             rost_chans = select_channels(channels, roster_name)
@@ -573,6 +579,7 @@ class PlotStackedDM_SG(ScatterGather):
                                           outfile=output_path,
                                           astro_prior=astro_prior,
                                           logfile=logfile,
+                                          global_min=global_min,
                                           chan=chan)
                         job_configs[full_targ_key] = job_config
 

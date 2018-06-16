@@ -26,6 +26,7 @@ common = {
     'chan': ('bb', 'DM annihilation channel', str),
     'mass': (100, 'DM particle mass', float),
     'spec_type': ('eflux', 'Type of flux to consider', str),
+    'global_min': (False, 'Use global min for castro plots.', bool),
     'clobber': (False, 'Overwrite existing files.', bool),
 }
 common.update(base_defaults.common)

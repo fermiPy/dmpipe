@@ -148,7 +148,7 @@ def plot_dm_spectra_by_mass(dm_spec_table, chan='bb',
     return fig, axis, leg
 
 
-def plot_dm_castro(castro_dm, ylims=None, nstep=100, zlims=None):
+def plot_dm_castro(castro_dm, ylims=None, nstep=100, zlims=None, global_min=False):
     """ Make a color plot (1castro plot) of the delta log-likelihood as a function of
     DM particle mass and cross section.
 
@@ -167,6 +167,9 @@ def plot_dm_castro(castro_dm, ylims=None, nstep=100, zlims=None):
     zlims      : tuple
         z-axis limits
 
+    global_min : bool
+        If True plot likelihood w.r.t. the global minimimum.
+
     """
     if castro_dm.decay:
         ylabel = TAU_AXIS_LABEL
@@ -182,7 +185,8 @@ def plot_dm_castro(castro_dm, ylims=None, nstep=100, zlims=None):
                                         xlabel=MASS_AXIS_LABEL,
                                         ylabel=ylabel,
                                         nstep=nstep,
-                                        zlims=zlims)
+                                        zlims=zlims,
+                                        global_min=global_min)
 
 
 def plot_castro_nuiscance(xlims, ylims, zvals, zlims=None, decay=False):
