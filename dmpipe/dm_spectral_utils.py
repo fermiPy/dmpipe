@@ -36,7 +36,7 @@ class DMCastroData(castro.CastroData_Base):
     series of DM masses
     """
 
-    def __init__(self, norm_vals, nll_vals,
+    def __init__(self, norm_vals, nll_vals, nll_offsets,
                  channel, masses, astro_value,
                  **kwargs):
         """ C'tor
@@ -53,6 +53,10 @@ class DMCastroData(castro.CastroData_Base):
         nll_vals : `~numpy.ndarray`
            The log-likelihood values ( n_mass X N array, where N is
            the number of sampled values for each bin )
+
+        nll_offsets : `~numpy.ndarray`
+           The maximum log-likelihood values for each mass ( n_mass array )
+           These can be used to compare the fit-quality between masses.
 
         channel : int or str
            The DM decay or annihilation channel
@@ -104,9 +108,8 @@ class DMCastroData(castro.CastroData_Base):
             self._channel = DMFitFunction.channel_rev_map[channel]
         else:
             self._channel = channel
-        super(DMCastroData, self).__init__(norm_vals,
-                                           nll_vals,
-                                           norm_type=norm_type)
+        super(DMCastroData, self).__init__(norm_vals, nll_vals,
+                                           nll_offsets, norm_type=norm_type)
 
     @property
     def n_masses(self):
@@ -251,19 +254,26 @@ class DMCastroData(castro.CastroData_Base):
         
         norm_list = []
         nll_list = []
+        ll_offset_list = []
 
         masses =  np.array(sorted ([ float(v) for v in data['param'] ]))
         masses_st =[ "%0.1f" % v for v in masses ]
+        
+
         for mass in masses_st:
             norm_list.append(data['lnldata'][mass]['norm'])
             ll_vals = data['lnldata'][mass][lnlstr]
-            nll_vals = ll_vals.max() - ll_vals
+            ll_offset = ll_vals.max() 
+            nll_vals = ll_offset - ll_vals
             nll_list.append(nll_vals)
+            ll_offset_list.append(ll_offset)
             
         norm_vals = np.vstack(norm_list)
         nll_vals = np.vstack(nll_list)
+        nll_offsets = -1. * np.vstack(ll_offset_list)
 
-        return cls(norm_vals, nll_vals, channel, masses, astro_value,
+        return cls(norm_vals, nll_vals, nll_offsets,
+                   channel, masses, astro_value,
                    astro_prior=prior, 
                    prior_applied=prior_applied,
                    ref_astro=astro_value,
@@ -325,9 +335,13 @@ class DMCastroData(castro.CastroData_Base):
             ylims = kwargs.get('nystep', (1e-30, 1e-20))
 
         shape = (components[0].nx, nystep)
-        norm_vals, nll_vals = castro.CastroData_Base.stack_nll(shape, components,
-                                                               ylims, weights)
-        return cls(norm_vals, nll_vals, components[0].channel, components[0].masses,
+        # FIXME
+        norm_vals, nll_vals, nll_offsets = castro.CastroData_Base.stack_nll(shape, components,
+                                                                            ylims, weights)
+
+
+        return cls(norm_vals, nll_vals, nll_offsets,
+                   components[0].channel, components[0].masses,
                    astro_value=None, ref_astro=ref_astro, ref_inter=ref_inter, 
                    norm_type='norm', decay=decay)
 
@@ -379,6 +393,7 @@ class DMCastroData(castro.CastroData_Base):
             raise ValueError('Unrecognized normalization type: %s' % norm_type)
 
         nll_vals = -np.squeeze(np.array(tab_s['dloglike_scan']))
+        nll_offsets = -np.squeeze(np.array(tab_s['dloglike_offset']))
 
         masses = np.squeeze(np.array(tab_m['masses']))
         channel = np.squeeze(np.array(tab_m['channel']))
@@ -402,8 +417,8 @@ class DMCastroData(castro.CastroData_Base):
             prior = None
             prior_applied = True
 
-        return cls(norm_vals, nll_vals, channel,
-                   masses, astro_value,
+        return cls(norm_vals, nll_vals, nll_offsets,
+                   channel, masses, astro_value,
                    astro_prior=prior, 
                    prior_applied=prior_applied,
                    ref_astro=ref_astro, ref_inter=ref_inter,
@@ -478,6 +493,7 @@ class DMCastroData(castro.CastroData_Base):
             return lnlfn
         return LnLFn_norm_prior(lnlfn, self._astro_prior)
 
+
     def build_scandata_table(self, norm_type=None):
         """Build a FITS table with likelihood scan data
 
@@ -528,12 +544,15 @@ class DMCastroData(castro.CastroData_Base):
                            shape=shape)
         col_dll = Column(name="dloglike_scan", dtype=float,
                          shape=shape)
+        col_offset = Column(name="dloglike_offset", dtype=float,
+                            shape=shape[0])
 
         col_astro_val = Column(name="astro_value", dtype=float)
         col_ref_astro = Column(name=astro_str, dtype=float)
         col_ref_inter = Column(name=inter_str, dtype=float)
 
-        collist = [col_normv, col_dll, col_astro_val, col_ref_astro,
+        collist = [col_normv, col_dll, col_offset, 
+                   col_astro_val, col_ref_astro,
                    col_ref_inter]
 
         if norm_type in ['sigmav', 'tau']:
@@ -545,6 +564,7 @@ class DMCastroData(castro.CastroData_Base):
 
         valdict = {"norm_scan": norm_vals,
                    "dloglike_scan": -1 * self._nll_vals,
+                   "dloglike_offset": -1 * self._nll_offsets,
                    "astro_value": self.astro_value,
                    astro_str: self.ref_astro,
                    inter_str: self.ref_inter}
@@ -1175,6 +1195,7 @@ class DMSpecTable(object):
         norm_vals = np.ndarray((nmass, n_scan_pt))
         dll_vals = np.ndarray((nmass, n_scan_pt))
         mle_vals = np.ndarray((nmass))
+        nll_offsets = np.ndarray((nmass))
 
         mass_mask = np.ones((nmass), bool)
         # for i, mass in enumerate(masses):
@@ -1188,8 +1209,8 @@ class DMSpecTable(object):
                 spec_vals[i], 1) * (np.expand_dims(norm_vals[i], 1).T))
             dll_vals[i, 0:] = castro_data(test_vals)
             mle_vals[i] = norm_vals[i][dll_vals[i].argmin()]
-            mle_ll = dll_vals[i].min()
-            dll_vals[i] -= mle_ll
+            nll_offsets[i] = dll_vals[i].min()
+            nll_vals[i] -= nll_offsets[i] 
 
             msk = np.isfinite(dll_vals[i])
             if not msk.any():
@@ -1204,17 +1225,19 @@ class DMSpecTable(object):
                     lnlfn = castro.LnLFn(norm_vals[i], dll_vals[i], 'dummy')
                     lnlfn_prior = LnLFn_norm_prior(lnlfn, astro_prior)
                     dll_vals[i, 0:] = lnlfn_prior(norm_vals[i])
+                    nll_offsets[i] = dll_vals[i].min()
                 except ValueError:
                     print (
                         "Skipping mass %0.2e for channel %s" %
                         (masses[i], channel))
                     mass_mask[i] = False
                     dll_vals[i, 0:] = np.nan * np.ones((n_scan_pt))
+                    nll_offsets[i] = np.nan
 
         # Here we convert the normalization values to standard units                    
         norm_vals *= (ref_inter)
         dm_castro = DMCastroData(norm_vals[mass_mask], dll_vals[mass_mask],
-                                 channel, masses[mass_mask], astro_value,
+                                 nll_offsets[mass_mask], channel, masses[mass_mask], astro_value,
                                  astro_prior=astro_prior, ref_astro=ref_norm,
                                  ref_inter=ref_inter, decay=is_decay)
         return dm_castro
