@@ -121,7 +121,7 @@ class PrepareTargets(Link):
             if not comp.has_key('gtlike'):
                 comp['gtlike'] = {}
             comp['gtlike']['bexpmap'] = os.path.abspath(os.path.join(target_dir, 'bexpmap_%s.fits' % comp_name))
-            comp['gtlike']['srcmap'] = os.path.abspath(os.path.join(target_dir, 'srcmap_%s.fits' % comp_name))
+            comp['gtlike']['srcmap'] = os.path.abspath(os.path.join(sim_target_dir, 'srcmap_%s.fits' % comp_name))
             comp['gtlike']['use_external_srcmap'] = True
 
         write_yaml(sim_target_config, sim_target_config_path)
