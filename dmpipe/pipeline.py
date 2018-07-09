@@ -29,15 +29,15 @@ from dmpipe import defaults
 
 
 def _get_plot_config(plotting_dict, key,
-                     plot_channels_default=None, jpriors_default=None):
+                     plot_channels_default=None, astro_priors_default=None):
     """ Get the configuration for a type of plot """
     sub_dict = plotting_dict.get(key, None)
     if sub_dict is None:
         return None
     channels = sub_dict.get('plot_channels', plot_channels_default)
-    jpriors = sub_dict.get('jpriors', jpriors_default)
+    astro_priors = sub_dict.get('astro_priors', astro_priors_default)
     return purge_dict(dict(channels=channels,
-                           jpriors=jpriors))
+                           astro_priors=astro_priors))
 
 
 class PipelineData(Chain):
@@ -99,7 +99,7 @@ class PipelineData(Chain):
         specfile = config_dict.get('specfile')
         rosterlist = config_dict.get('rosterlist')
         targetlist = config_dict.get('targetlist')
-        jpriors = config_dict.get('jpriors')
+        astro_priors = config_dict.get('astro_priors')
 
         data_plotting = config_dict.get('data_plotting')
         plot_channels_default = config_dict.get('plot_channels', [])
@@ -117,14 +117,14 @@ class PipelineData(Chain):
         self._set_link('convert-castro',
                        ConvertCastro_SG,
                        ttype=ttype,
-                       jpriors=jpriors,
+                       astro_priors=astro_priors,
                        targetlist=targetlist,
                        config=config_localpath,
                        specfile=specfile)
         self._set_link('stack-likelihood',
                        StackLikelihood_SG,
                        ttype=ttype,
-                       jpriors=jpriors,
+                       astro_priors=astro_priors,
                        rosterlist=rosterlist)
 
         config_plot_castro = _get_plot_config(data_plotting, 'plot-castro')
@@ -136,7 +136,7 @@ class PipelineData(Chain):
                            **config_plot_castro)
 
         config_plot_dm = _get_plot_config(data_plotting, 'plot-dm',
-                                          plot_channels_default, jpriors)
+                                          plot_channels_default, astro_priors)
         if config_plot_castro is not None:
             self._set_link('plot-dm-sg',
                            PlotDM_SG,
@@ -145,7 +145,7 @@ class PipelineData(Chain):
                            **config_plot_dm)
 
         config_plot_limits = _get_plot_config(data_plotting, 'plot-limits',
-                                              plot_channels_default, jpriors)
+                                              plot_channels_default, astro_priors)
         if config_plot_limits is not None:
             self._set_link('plot-limits-sg',
                            PlotLimits_SG,
@@ -154,7 +154,7 @@ class PipelineData(Chain):
                            **config_plot_limits)
 
         config_plot_stacked_dm = _get_plot_config(data_plotting, 'plot-stacked-dm',
-                                                  plot_channels_default, jpriors)
+                                                  plot_channels_default, astro_priors)
         if config_plot_stacked_dm is not None:
             self._set_link('plot-stacked-dm-sg',
                            PlotStackedDM_SG,
@@ -163,7 +163,7 @@ class PipelineData(Chain):
                            **config_plot_stacked_dm)
 
         config_plot_stacked_limits = _get_plot_config(data_plotting, 'plot-stacked-limits',
-                                                      plot_channels_default, jpriors)
+                                                      plot_channels_default, astro_priors)
         if config_plot_stacked_limits is not None:
             self._set_link('plot-stacked-limits-sg',
                            PlotStackedLimits_SG,
@@ -245,7 +245,7 @@ class PipelineSim(Chain):
         specfile = config_dict.get('specfile')
         rosterlist = config_dict.get('rosterlist')
         targetlist = config_dict.get('targetlist')
-        jpriors = config_dict.get('jpriors')
+        astro_priors = config_dict.get('astro_priors')
 
         sim_values = config_dict['sim_defaults']
         sim_values.update(sim_dict)
@@ -253,6 +253,7 @@ class PipelineSim(Chain):
         sim_profile = sim_values['profile']
         seed = sim_values.get('seed', 0)
         nsims = sim_values.get('nsims', 20)
+        nsims_job = sim_values.get('nsims_job', 0)
 
         sim_plotting = config_dict.get('sim_plotting')
         plot_channels_default = config_dict.get('plot_channels', [])
@@ -271,12 +272,13 @@ class PipelineSim(Chain):
                        sim_profile=sim_profile,
                        targetlist=targetlist,
                        config=config_localpath,
-                       seed=seed, nsims=nsims)
+                       seed=seed, nsims=nsims,
+                       nsims_job=nsims_job)
         self._set_link('convert-castro',
                        ConvertCastro_SG,
                        ttype=ttype,
                        sim=sim_name,
-                       jpriors=jpriors,
+                       astro_priors=astro_priors,
                        targetlist=targetlist,
                        config=config_localpath,
                        specfile=specfile,
@@ -285,7 +287,7 @@ class PipelineSim(Chain):
                        StackLikelihood_SG,
                        ttype=ttype,
                        sim=sim_name,
-                       jpriors=jpriors,
+                       astro_priors=astro_priors,
                        rosterlist=rosterlist,
                        seed=seed, nsims=nsims)
         self._set_link('collect-sed',
@@ -299,19 +301,19 @@ class PipelineSim(Chain):
                        CollectLimits_SG,
                        ttype=ttype,
                        sim=sim_name,
-                       jpriors=jpriors,
+                       astro_priors=astro_priors,
                        targetlist=targetlist,
                        seed=seed, nsims=nsims)
         self._set_link('collect-stacked-limits',
                        CollectStackedLimits_SG,
                        ttype=ttype,
                        sim=sim_name,
-                       jpriors=jpriors,
+                       astro_priors=astro_priors,
                        rosterlist=rosterlist,
                        seed=seed, nsims=nsims)
 
         config_plot_stacked_dm = _get_plot_config(sim_plotting, 'plot-stacked-dm',
-                                                  plot_channels_default, jpriors)
+                                                  plot_channels_default, astro_priors)
         if config_plot_stacked_dm is not None:
             self._set_link('plot-stacked-dm',
                            PlotStackedDM_SG,
@@ -321,7 +323,7 @@ class PipelineSim(Chain):
                            **config_plot_stacked_dm)
 
         config_plot_stacked_limits = _get_plot_config(sim_plotting, 'plot-stacked-limits',
-                                                      plot_channels_default, jpriors)
+                                                      plot_channels_default, astro_priors)
         if config_plot_stacked_limits is not None:
             self._set_link('plot-stacked-limits',
                            PlotStackedLimits_SG,
@@ -331,7 +333,7 @@ class PipelineSim(Chain):
                            **config_plot_stacked_limits)
 
         config_plot_control_limits = _get_plot_config(sim_plotting, 'plot-control-limits',
-                                                      plot_channels_default, jpriors)
+                                                      plot_channels_default, astro_priors)
         if config_plot_control_limits is not None:
             self._set_link('plot-control-limits',
                            PlotControlLimits_SG,
@@ -341,7 +343,7 @@ class PipelineSim(Chain):
                            **config_plot_control_limits)
 
         config_plot_control_mles = _get_plot_config(sim_plotting, 'plot-control-mles',
-                                                      plot_channels_default, jpriors)
+                                                      plot_channels_default, astro_priors)
         if config_plot_control_mles is not None:
             self._set_link('plot-control-mles',
                            PlotControlMLEs_SG,
@@ -418,7 +420,7 @@ class PipelineRandom(Chain):
         specfile = config_dict.get('specfile')
         rosterlist = config_dict.get('rosterlist')
         targetlist = config_dict.get('targetlist')
-        jpriors = config_dict.get('jpriors')
+        astro_priors = config_dict.get('astro_priors')
         random = config_dict.get('random')
 
         rand_dirs = random.get('rand_dirs')
@@ -455,7 +457,7 @@ class PipelineRandom(Chain):
                        ConvertCastro_SG,
                        ttype=ttype,
                        sim='random',
-                       jpriors=jpriors,
+                       astro_priors=astro_priors,
                        targetlist=targetlist,
                        config=config_localpath,
                        specfile=specfile,
@@ -464,7 +466,7 @@ class PipelineRandom(Chain):
                        StackLikelihood_SG,
                        ttype=ttype,
                        sim='random',
-                       jpriors=jpriors,
+                       astro_priors=astro_priors,
                        rosterlist=rosterlist,
                        seed=seed, nsims=nsims)
         self._set_link('collect-sed',
@@ -478,19 +480,19 @@ class PipelineRandom(Chain):
                        CollectLimits_SG,
                        ttype=ttype,
                        sim='random',
-                       jpriors=jpriors,
+                       astro_priors=astro_priors,
                        targetlist=targetlist,
                        seed=seed, nsims=nsims)
         self._set_link('collect-stacked-limits',
                        CollectStackedLimits_SG,
                        ttype=ttype,
                        sim='random',
-                       jpriors=jpriors,
+                       astro_priors=astro_priors,
                        rosterlist=rosterlist,
                        seed=seed, nsims=nsims)
 
         config_plot_stacked_dm = _get_plot_config(rand_plotting, 'plot-stacked-dm',
-                                                  plot_channels_default, jpriors)
+                                                  plot_channels_default, astro_priors)
         if config_plot_stacked_dm is not None:
             self._set_link('plot-stacked-dm',
                            PlotStackedDM_SG,
@@ -500,7 +502,7 @@ class PipelineRandom(Chain):
                            **config_plot_stacked_dm)
 
         config_plot_stacked_limits = _get_plot_config(rand_plotting, 'plot-stacked-limits',
-                                                      plot_channels_default, jpriors)
+                                                      plot_channels_default, astro_priors)
         if config_plot_stacked_limits is not None:
             self._set_link('plot-stacked-limits',
                            PlotStackedLimits_SG,
@@ -601,7 +603,7 @@ class Pipeline(Chain):
         config_template = config_dict.get('config_template', None)
         rosters = config_dict.get('rosters')
         rosterlist = config_dict.get('rosterlist')
-        jpriors = config_dict.get('jpriors')
+        astro_priors = config_dict.get('astro_priors')
         spatial_models = config_dict.get('spatial_models')
         specfile = config_dict.get('specfile')
         sims = config_dict.get('sims', {})
@@ -660,6 +662,6 @@ class Pipeline(Chain):
                        ttype=ttype,
                        rosterlist=rosterlist,
                        channels=plot_channels,
-                       jpriors=jpriors,                       
+                       astro_priors=astro_priors,                       
                        sims=final_plot_sims,
                        dry_run=dry_run)

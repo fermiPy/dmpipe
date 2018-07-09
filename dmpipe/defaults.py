@@ -18,14 +18,15 @@ common = {
     'alias_dict': (None, 'File to rename target version keys.', str),
     'specconfig': (None, 'Path to DM yaml file defining DM spectra of interest.', str),
     'specfile': (None, 'Path to DM spectrum file.', str),
-    'j_value_file': (None, 'Path to yaml file with target j_value', str),
-    'jprior': (None, 'Types of Prior on J-factor', str),
-    'jpriors': ([], 'Types of Prior on J-factor', list),
+    'astro_value_file': (None, 'Path to yaml file with target j_value or d_value', str),
+    'astro_prior': (None, 'Types of Prior on J-factor or D-factor', str),
+    'astro_priors': ([], 'Types of Prior on J-factor or D-factor', list),
     'spatial_models': ([], 'Types of spatial models to use', list),
     'channels': ([], 'DM annihilation channels', list),
     'chan': ('bb', 'DM annihilation channel', str),
     'mass': (100, 'DM particle mass', float),
     'spec_type': ('eflux', 'Type of flux to consider', str),
+    'global_min': (False, 'Use global min for castro plots.', bool),
     'clobber': (False, 'Overwrite existing files.', bool),
 }
 common.update(base_defaults.common)

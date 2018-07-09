@@ -15,13 +15,48 @@ from fermipy.spectrum import DMFitFunction
 from dmpipe.dm_spectral_utils import DMSpecTable
 
 
-def plot_dm_spectra_by_channel(dm_spec_table, mass=100,
+ENERGY_AXIS_LABEL = r'Energy [MeV]'
+ENERGY_FLUX_AXIS_LABEL = r'Energy Flux [MeV s$^{-1}$ cm$^{-2}$]'
+FLUX_AXIS_LABEL = r'Flux [ph s$^{-1}$ cm$^{-2}$]'
+MASS_AXIS_LABEL = r"$m_{\chi}$ [GeV]"
+SIGMAV_AXIS_LABEL = r'$\langle \sigma v \rangle$ [$cm^{3} s^{-1}$]'
+TAU_AXIS_LABEL = r'$\tau_{\chi}$ [$s$]'
+J_UNC_AXIS_LABEL = r'$\delta J / J$'
+DELTA_LOGLIKE_AXIS_LABEL = r'$\Delta \log\mathcal{L}$'
+
+
+def plot_dm_spectra_by_channel(dm_spec_table, mass=100.,
                                spec_type='eflux', ylims=(1e-12, 1e-8)):
     """ Make a plot of the DM spectra.
 
-    dm_spec_table : Object with the spectral table
-    mass       : Mass of the DM particle
-    ylims      : y-axis limits
+    Parameters
+    ----------
+
+    dm_spec_table : `DMSpecTable`
+        The object with the spectra
+
+    mass : float
+        The DM particle mass in GeV
+
+    spec_type : str
+        Spectral type, one of 'flux' or 'eflux'
+
+    ylims : tuple
+        Y-axis limits for plot
+
+
+    Returns
+    -------
+
+    fig : `matplotlib.Figure`
+        The figure
+
+    axis : `matplotlib.Axes`
+        The plot axes
+
+    leg : `matplotlib.Legend`
+        The figure legend
+
     """
     import matplotlib.pyplot as plt
 
@@ -36,8 +71,11 @@ def plot_dm_spectra_by_channel(dm_spec_table, mass=100,
     axis.set_yscale('log')
     axis.set_xlim((energies[0], energies[-1]))
     axis.set_ylim(ylims)
-    axis.set_xlabel(r'Energy [MeV]')
-    axis.set_ylabel(r'Energy Flux [MeV s$^{-1}$ cm$^{-2}$]')
+    axis.set_xlabel(ENERGY_AXIS_LABEL)
+    if spec_type == 'eflux':
+        axis.set_ylabel(ENERGY_FLUX_AXIS_LABEL)
+    elif spec_type == 'flux':
+        axis.set_ylabel(FLUX_AXIS_LABEL)
 
     for chan, chan_id, idx_list in zip(chan_names, chan_ids, chan_idx_list):
         chan_masses = dm_spec_table.masses(chan_id).data
@@ -54,9 +92,34 @@ def plot_dm_spectra_by_mass(dm_spec_table, chan='bb',
                             spec_type='eflux', ylims=(1e-12, 1e-6)):
     """ Make a plot of the DM spectra.
 
-    dm_spec_table : Object with the spectral table
-    mass       : Mass of the DM particle
-    ylims      : y-axis limits
+    Parameters
+    ----------
+
+    dm_spec_table : `DMSpecTable`
+        The object with the spectra
+
+    chan : str
+        The DM interaction channel
+
+    spec_type : str
+        Spectral type, one of 'flux' or 'eflux'
+
+    ylims : tuple
+        Y-axis limits for plot
+
+
+    Returns
+    -------
+
+    fig : `matplotlib.Figure`
+        The figure
+
+    axis : `matplotlib.Axes`
+        The plot axes
+
+    leg : `matplotlib.Legend`
+        The figure legend
+
     """
     import matplotlib.pyplot as plt
 
@@ -70,8 +133,11 @@ def plot_dm_spectra_by_mass(dm_spec_table, chan='bb',
     axis.set_yscale('log')
     axis.set_xlim((energies[0], energies[-1]))
     axis.set_ylim(ylims)
-    axis.set_xlabel(r'Energy [MeV]')
-    axis.set_ylabel(r'Energy Flux [MeV s$^{-1}$ cm$^{-2}$]')
+    axis.set_xlabel(ENERGY_AXIS_LABEL)
+    if spec_type == 'eflux':
+        axis.set_ylabel(ENERGY_FLUX_AXIS_LABEL)
+    else:
+        axis.set_ylabel(FLUX_AXIS_LABEL)
 
     masses = dm_spec_table.masses(chan_id)
     for table_idx, mass in zip(chan_idx_list, masses):
@@ -82,26 +148,48 @@ def plot_dm_spectra_by_mass(dm_spec_table, chan='bb',
     return fig, axis, leg
 
 
-def plot_dm_castro(castro_dm, ylims=(1e-28, 1e-22), nstep=100, zlims=None):
+def plot_dm_castro(castro_dm, ylims=None, nstep=100, zlims=None, global_min=False):
     """ Make a color plot (1castro plot) of the delta log-likelihood as a function of
     DM particle mass and cross section.
 
-    castro_dm  : A CastroData object, with the log-likelihood v. normalization for each energy bin
-    ylims      : y-axis limits
-    nstep      : Number of y-axis steps to plot for each energy bin
-    zlims      : z-axis limits
+    Parameters
+    ----------
+
+    castro_dm :  `DMCastroData`
+        Object with the log-likelihood v. normalization for each mass 
+
+    ylims      : tuple
+        Y-axis limits for the plot
+
+    nstep      : int
+        Number of y-axis steps to plot for each energy bin
+
+    zlims      : tuple
+        z-axis limits
+
+    global_min : bool
+        If True plot likelihood w.r.t. the global minimimum.
+
     """
-    mass_label = r"$m_{\chi}$ [GeV]"
-    sigmav_label = r'$\langle \sigma v \rangle$ [$cm^{3} s^{-1}$]'
+    if castro_dm.decay:
+        ylabel = TAU_AXIS_LABEL
+        if ylims is None:
+            ylims = (1e+22, 1e+28)
+    else:
+        ylabel = SIGMAV_AXIS_LABEL
+        if ylims is None:
+            ylims = (1e-28, 1e-22)
+
     return sed_plotting.plotCastro_base(castro_dm,
                                         ylims=ylims,
-                                        xlabel=mass_label,
-                                        ylabel=sigmav_label,
+                                        xlabel=MASS_AXIS_LABEL,
+                                        ylabel=ylabel,
                                         nstep=nstep,
-                                        zlims=zlims)
+                                        zlims=zlims,
+                                        global_min=global_min)
 
 
-def plot_castro_nuiscance(xlims, ylims, zvals, zlims=None):
+def plot_castro_nuiscance(xlims, ylims, zvals, zlims=None, decay=False):
     """ Make a castro plot including the effect of the nuisance parameter
     """
     import matplotlib.pyplot as plt
@@ -112,8 +200,12 @@ def plot_castro_nuiscance(xlims, ylims, zvals, zlims=None):
     axis.set_yscale('log')
     axis.set_xlim(xlims)
     axis.set_ylim(ylims)
-    axis.set_xlabel(r'$\delta J / J$')
-    axis.set_ylabel(r'$\langle \sigma v \rangle$ [cm$^3$ s$^{-1}$]')
+    axis.set_xlabel(J_UNC_AXIS_LABEL)
+    if decay:
+        axis.set_ylabel(TAU_AXIS_LABEL)
+    else:
+        axis.set_ylabel(SIGMAV_AXIS_LABEL)
+
     if zlims is None:
         zmin = 0
         zmax = 10.
@@ -127,7 +219,7 @@ def plot_castro_nuiscance(xlims, ylims, zvals, zlims=None):
     return fig, axis, image
 
 
-def plot_nll(nll_dict, xlims=None, nstep=50, ylims=None):
+def plot_nll(nll_dict, xlims=None, nstep=50, ylims=None, decay=False):
     """ Plot the -log(L) as a function of sigmav for each object in a dict
     """
     import matplotlib.pyplot as plt
@@ -147,8 +239,12 @@ def plot_nll(nll_dict, xlims=None, nstep=50, ylims=None):
     if ylims is not None:
         axis.set_ylim((ylims[0], ylims[1]))
 
-    axis.set_xlabel(r'$\langle \sigma v \rangle$ [cm$^3$ s$^{-1}$]')
-    axis.set_ylabel(r'$\Delta \log\mathcal{L}$')
+    if decay:
+        axis.set_xlabel(TAU_AXIS_LABEL)
+    else:
+        axis.set_xlabel(SIGMAV_AXIS_LABEL)
+
+    axis.set_ylabel(DELTA_LOGLIKE_AXIS_LABEL)
     axis.set_xscale('log')
 
     for lab, nll in nll_dict.items():
@@ -160,7 +256,7 @@ def plot_nll(nll_dict, xlims=None, nstep=50, ylims=None):
     return fig, axis, leg
 
 
-def plot_comparison(nll, nstep=25, xlims=None):
+def plot_comparison(nll, nstep=25, xlims=None, decay=False):
     """ Plot the comparison between differnt version of the -log(L)
     """
     import matplotlib.pyplot as plt
@@ -186,8 +282,11 @@ def plot_comparison(nll, nstep=25, xlims=None):
     axis.set_xlim((xmin, xmax))
     axis.set_ylim((ymin, ymax))
 
-    axis.set_xlabel(r'$\langle \sigma v \rangle$ [cm$^3$ s$^{-1}$]')
-    axis.set_ylabel(r'$\Delta \log\mathcal{L}$')
+    if decay:
+        axis.set_xlabel(SIGMAV_AXIS_LABEL)
+    else:
+        axis.set_xlabel(SIGMAV_AXIS_LABEL)
+    axis.set_ylabel(DELTA_LOGLIKE_AXIS_LABEL)
 
     axis.plot(xvals, yvals_0, 'r', label=r'Simple $\log\mathcal{L}$')
     axis.plot(xvals, yvals_1, 'g', label=r'Profile $\log\mathcal{L}$')
@@ -198,7 +297,7 @@ def plot_comparison(nll, nstep=25, xlims=None):
     return fig, axis, leg
 
 
-def plot_stacked(sdict, xlims, ibin=0):
+def plot_stacked(sdict, xlims, ibin=0, decay=False):
     """ Stack a set of -log(L) curves and plot the stacked curve
     as well as the individual curves
     """
@@ -216,8 +315,11 @@ def plot_stacked(sdict, xlims, ibin=0):
     xvals = np.linspace(xlims[0], xlims[-1], 100)
 
     axis.set_xlim((xvals[0], xvals[-1]))
-    axis.set_xlabel(r'$\langle \sigma v \rangle$ [cm$^3$ s$^{-1}$]')
-    axis.set_ylabel(r'$\Delta \log\mathcal{L}$')
+    if decay:
+        axis.set_xlabel(SIGMAV_AXIS_LABEL)
+    else:
+        axis.set_xlabel(SIGMAV_AXIS_LABEL)
+    axis.set_ylabel(DELTA_LOGLIKE_AXIS_LABEL)
 
     for key, val in ndict.items():
         yvals = val.interp(xvals)
@@ -230,21 +332,51 @@ def plot_stacked(sdict, xlims, ibin=0):
     return fig, axis, leg
 
 
-def plot_limits_from_arrays(ldict, xlims, ylims, bands=None):
+def plot_limits_from_arrays(ldict, xlims, ylims, bands=None, decay=False):
     """ Plot the upper limits as a function of DM particle mass and cross section.
 
-    ldict      : A dictionary of strings pointing to pairs of `np.array` objects,
-                 The keys will be used as labels
-    xlims      : x-axis limits for the plot
-    ylims      : y-axis limits for the plot
-    bands      : Dictionary with the expected limit bands
+    Parameters
+    ----------
+
+    ldict      : dict
+        A dictionary of strings pointing to pairs of `np.array` objects,
+        The keys will be used as labels
+
+    xlims      : tuple
+        x-axis limits for the plot
+
+    ylims      : tupel
+        y-axis limits for the plot
+
+    bands      : dict
+        Dictionary with the expected limit bands
+
+    decay : bool
+        Plot limits for decay instead of annihilation
+    
+
+    Returns
+    -------
+
+    fig : `matplotlib.Figure`
+        The figure
+
+    axis : `matplotlib.Axes`
+        The plot axes
+
+    leg : `matplotlib.Legend`
+        The figure legend
+
     """
     import matplotlib.pyplot as plt
 
     fig = plt.figure()
     axis = fig.add_subplot(111)
-    axis.set_xlabel(r'$m_{\chi}$ [GeV]')
-    axis.set_ylabel(r'$\langle \sigma v \rangle$ [cm$^3$ s$^{-1}$]')
+    axis.set_xlabel(MASS_AXIS_LABEL)
+    if decay:
+        axis.set_ylabel(TAU_AXIS_LABEL)
+    else:
+        axis.set_ylabel(SIGMAV_AXIS_LABEL)
 
     axis.set_xscale('log')
     axis.set_yscale('log')
@@ -267,7 +399,18 @@ def plot_limits_from_arrays(ldict, xlims, ylims, bands=None):
 
 
 def plot_expected_limit_bands(axis, bands):
-    """ Plot the expected limit bands """
+    """Add the expected limit bands to a plot
+
+    Parameters
+    ----------
+
+    axis : `matplotlib.Axes`
+        The axes we are adding the bands to
+
+    bands : dict
+        Dictionary with the bands
+
+    """
     masses = bands['masses']
 
     axis.fill_between(masses, bands['q02'], bands['q97'], color='yellow')
@@ -275,36 +418,93 @@ def plot_expected_limit_bands(axis, bands):
     axis.plot(masses, bands['median'], color='gray')
 
 
-def plot_mc_truth(axis, mc_model):
-    """ Plot the expected limit bands """
-    sigmav = mc_model['sigmav']['value']
+def plot_mc_truth(axis, mc_model, decay=False):
+    """Add a marker showing the true injected signal to the plot
+
+    Parameters
+    ----------
+
+    axis : `matplotlib.Axes`
+        The axes we are adding the bands to
+
+    mc_model : dict
+        Dictionary with truth
+
+    decay : bool
+        Plot value for decay instead of annihilation
+    
+    """
+    if decay:
+        norm = mc_model['tau']['value']
+    else:
+        norm = mc_model['sigmav']['value']
     mass = mc_model['mass']['value']
-    axis.scatter([mass], [sigmav])
+    axis.scatter([mass], [norm])
 
 
-def plot_limits(sdict, xlims, ylims, alpha=0.05):
+def plot_limits(sdict, xlims, ylims, alpha=0.05, decay=False):
     """ Plot the upper limits as a function of DM particle mass and cross section.
 
-    sdict      : A dictionary of CastroData objects,
-                 with the log-likelihood v. normalization for each energy bin
-    xlims      : x-axis limits
-    ylims      : y-axis limits
-    alpha      : Confidence level to use in setting limits = 1 - alpha
+    Parameters
+    ----------
+
+    sdict      : dict
+        A dictionary of `DMCastroData` objects with the log-likelihood v. normalization for each energy bin
+
+    xlims      : tuple
+        x-axis limits
+
+    ylims      : tuple
+        y-axis limits
+
+    alpha      : float
+        Confidence level to use in setting limits = 1 - alpha
+
+    decay : bool
+        Plot limits for decay instead of annihilation
+
     """
 
     ldict = {}
     for key, val in sdict.items():
         ldict[key] = (val.masses, val.getLimits(alpha))
-    return plot_limits_from_arrays(ldict, xlims, ylims)
+    return plot_limits_from_arrays(ldict, xlims, ylims, decay=decay)
 
 
-def compare_limits(sdict, xlims, ylims, alpha=0.05):
+def compare_limits(sdict, xlims, ylims, alpha=0.05, decay=False):
     """ Plot the upper limits as a functino of DM particle mass and cross section.
 
-    sdict      : limits and keys
-    xlims      : x-axis limits
-    ylims      : y-axis limits
-    alpha      : Confidence level to use in setting limits = 1 - alpha
+    Paramters
+    ---------
+
+    sdict      : dict
+        Dictionary with limits and keys
+
+    xlims      : tuple
+        x-axis limits
+
+    ylims      : tuple
+        y-axis limits
+
+    alpha      : float 
+        Confidence level to use in setting limits = 1 - alpha
+  
+    decay : bool
+        Plot limits for decay instead of annihilation
+
+
+    Returns
+    -------
+
+    fig : `matplotlib.Figure`
+        The figure
+
+    axis : `matplotlib.Axes`
+        The plot axes
+
+    leg : `matplotlib.Legend`
+        The figure legend
+
     """
     import matplotlib.pyplot as plt
 
@@ -315,6 +515,11 @@ def compare_limits(sdict, xlims, ylims, alpha=0.05):
     axis.set_yscale('log')
     axis.set_xlim((xlims[0], xlims[1]))
     axis.set_ylim((ylims[0], ylims[1]))
+    axis.set_xlabel(MASS_AXIS_LABEL)
+    if decay:
+        axis.set_ylabel(TAU_AXIS_LABEL)
+    else:
+        axis.set_ylabel(SIGMAV_AXIS_LABEL)
 
     for key, val in sdict.items():
         xvals = val.masses
@@ -326,7 +531,30 @@ def compare_limits(sdict, xlims, ylims, alpha=0.05):
 
 
 def plot_limit(dm_castro_data, ylims, alpha=0.05):
-    """ Plot the limit curve for a given DMCastroData object
+    """Plot the limit curve for a given DMCastroData object
+ 
+    Parameters
+    ----------
+
+    dm_castro_data :  `DMCastroData`
+        Object with the log-likelihood v. normalization for each mass 
+
+    ylims      : tuple
+        Y-axis limits for the plot
+
+    alpha      : float
+        Confidence level to use in setting limits = 1 - alpha
+
+
+    Returns
+    -------
+
+    fig : `matplotlib.Figure`
+        The figure
+
+    axis : `matplotlib.Axes`
+        The plot axes
+
     """
     import matplotlib.pyplot as plt
 
@@ -339,12 +567,20 @@ def plot_limit(dm_castro_data, ylims, alpha=0.05):
 
     axis.set_xscale('log')
     axis.set_yscale('log')
+    axis.set_xlabel(MASS_AXIS_LABEL)
+    if dm_castro_data.decay:
+        axis.set_ylabel(TAU_AXIS_LABEL)
+    else:
+        axis.set_ylabel(SIGMAV_AXIS_LABEL)
     axis.set_xlim((xmin, xmax))
 
     if ylims is not None:
         axis.set_ylim((ylims[0], ylims[1]))
 
-    yvals = dm_castro_data.getLimits(alpha)
+    if decay:
+        yvals = dm_castro_data.getLimits(1.0 - alpha)
+    else:
+        yvals = dm_castro_data.getLimits(alpha)
     if yvals.shape[0] == xbins.shape[0]:
         xvals = xbins
     else:
@@ -353,43 +589,3 @@ def plot_limit(dm_castro_data, ylims, alpha=0.05):
 
     return fig, axis
 
-
-def test_func():
-    """ Test the functionality of this module """
-    norm_type = "EFLUX"
-
-    spec_table = DMSpecTable.create_from_fits("dm_spec_2.fits")
-    castro_eflux = castro.CastroData.create_from_fits(
-        "dsph_castro.fits", norm_type, irow=3)
-    castro_dm = spec_table.convert_castro_data(castro_eflux, 4, norm_type)
-
-    mass_label = r"$m_{\chi}$ [GeV]"
-    sigmav_label = r'$\langle \sigma v \rangle$ [$cm^{3} s^{-1}$]'
-    masses = np.logspace(1, 4, 13)
-
-    fig2_dm = sed_plotting.plotCastro_base(castro_dm,
-                                           ylims=(1e-28, 1e-22),
-                                           xlabel=mass_label,
-                                           ylabel=sigmav_label,
-                                           nstep=100)
-
-    nll_dm = castro_dm[2]
-    j_prior = stats_utils.create_prior_functor(
-        dict(functype='lgauss', mu=1., sigma=0.15))
-    j_vals = np.linspace(0.7, 1.3, 30)
-
-    in_vals = np.meshgrid(j_vals, nll_dm.interp.x)
-    func = stats_utils.LnLFn_norm_prior(nll_dm, j_prior)
-
-    out_vals = func.loglike(in_vals[0], in_vals[1])
-
-    xlims = (j_vals[0], j_vals[-1])
-    ylims = (nll_dm.interp.x[1], nll_dm.interp.x[-1])
-
-    cnn = plot_castro_nuiscance(xlims, ylims, out_vals, zlims=(0., 30.))
-    cll = plot_comparison(func, nstep=100, xlims=(0, 1e-26))
-
-    return fig2_dm, cnn, cll
-
-if __name__ == "__main__":
-    test_func()
