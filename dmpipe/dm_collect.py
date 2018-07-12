@@ -65,11 +65,15 @@ class CollectLimits(Link):
     @staticmethod
     def is_decay_limits(limitfile):
         tokens = os.path.splitext(os.path.basename(limitfile))[0].split('_')
+        if tokens[3] in ['point', 'dmap', 'dradial']:
+            return True
         return tokens[2] in ['point', 'dmap', 'dradial']
-        
+
     @staticmethod
     def is_ann_limits(limitfile):
         tokens = os.path.splitext(os.path.basename(limitfile))[0].split('_')
+        if tokens[3] in ['point', 'map', 'radial']:
+            return True
         return tokens[2] in ['point', 'map', 'radial']
 
     @staticmethod
@@ -86,7 +90,7 @@ class CollectLimits(Link):
                 if sed_ok_ann:
                     ochans.append(chan)
         return ochans
-    
+
 
     def run_analysis(self, argv):
         """Run this analysis"""
