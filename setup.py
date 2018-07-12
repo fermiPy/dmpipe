@@ -56,7 +56,7 @@ setup(
         'scipy >= 0.14',
         'fermipy >= 0.17.2',
         'healpy',
-        'dmsky >= 0.2.2'
+        'dmsky >= 0.2.3'
     ],
     extras_require=dict(
         all=[],
