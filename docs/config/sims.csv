@@ -1,5 +1,6 @@
 ``extracopy``	[]	Extra files to copy
 ``nsims``	20	Number of simulations to run.
+``nsims_job``	0	Number of simulations to run per job.
 ``rand_config``	None	Path to config file for genaration random sky dirs
 ``seed``	0	Seed number for first simulation.
 ``sim``	None	Name of the simulation scenario.

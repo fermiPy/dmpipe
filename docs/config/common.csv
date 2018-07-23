@@ -1,12 +1,13 @@
 ``alias_dict``	None	File to rename target version keys.
+``astro_prior``	None	Types of Prior on J-factor or D-factor
+``astro_priors``	[]	Types of Prior on J-factor or D-factor
+``astro_value_file``	None	Path to yaml file with target j_value or d_value
 ``chan``	bb	DM annihilation channel
 ``channels``	[]	DM annihilation channels
 ``clobber``	False	Overwrite existing files.
 ``config``	None	Path to fermipy config file.
 ``dry_run``	False	Print commands but do not run them.
-``j_value_file``	None	Path to yaml file with target j_value
-``jprior``	None	Types of Prior on J-factor
-``jpriors``	[]	Types of Prior on J-factor
+``global_min``	False	Use global min for castro plots.
 ``make_plots``	False	Make plots
 ``mass``	100	DM particle mass
 ``nsims``	-1	Number of simulations to run.
