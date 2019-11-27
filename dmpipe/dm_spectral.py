@@ -60,12 +60,12 @@ class ConvertCastro(Link):
     @staticmethod
     def is_decay_sed(sedfile):
         tokens = os.path.splitext(os.path.basename(sedfile))[0].split('_')
-        return tokens[2] in ['point', 'dmap', 'dradial']
+        return tokens[2] in ['point', 'dmap', 'dradial', 'hpxdmap']
         
     @staticmethod
     def is_ann_sed(sedfile):
         tokens = os.path.splitext(os.path.basename(sedfile))[0].split('_')
-        return tokens[2] in ['point', 'map', 'radial']
+        return tokens[2] in ['point', 'map', 'radial', 'hpxmap']
 
     @staticmethod
     def select_channels(channels, sedfile):
