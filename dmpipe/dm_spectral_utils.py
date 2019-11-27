@@ -696,6 +696,114 @@ class DMCastroData(castro.CastroData_Base):
         return np.power(10, log_masses)
 
 
+    def write_glory_duck_v1(self, basepath, **kwargs):
+        """Write this object into the format that the 'Glory Duck' collaboration wants
+
+        Paramters
+        ---------
+
+        basepath : str
+            Path to output files
+        """
+        kwcopy = kwargs.copy()
+        sigmav_min = kwcopy.get('logsigmav_min', -30)
+        sigmav_max = kwcopy.get('logsigmav_max', -24)
+        #sigmav_nstep = kwcopy.get('sigmav_nstep', 20000)
+        sigmav_nstep = kwcopy.get('sigmav_nstep', 200)
+
+        sigmav_steps = np.logspace(sigmav_min, sigmav_max, sigmav_nstep)[::-1]
+        
+        for imass, mass in enumerate(self.masses):
+            filepath = "%s_%0.1f_GeV.txt" % (basepath, mass)
+            
+            ll_interp = self[imass].interp
+            ll_vals = ll_interp(sigmav_steps)
+            
+            outfile = open(filepath, 'w!')
+            
+            sys.stdout.write("Writing %i values to %s: " % (sigmav_nstep, filepath))
+            sys.stdout.flush()
+            for i, (sigmav, ll) in enumerate(zip(sigmav_steps, ll_vals)):
+                if i % 100 == 0:
+                    sys.stdout.write('.')
+                    sys.stdout.flush()
+                outfile.write("%6e %6e\n" % (sigmav, ll))
+            outfile.close()
+            sys.stdout.write('!\n')
+
+
+    def write_glory_duck_v2(self, filepath, **kwargs):
+        """Write this object into the format that the 'Glory Duck' collaboration wants
+
+        Paramters
+        ---------
+
+        basepath : str
+            Path to output files
+        """
+        kwcopy = kwargs.copy()
+        sigmav_min = kwcopy.get('logsigmav_min', -30)
+        sigmav_max = kwcopy.get('logsigmav_max', -24)
+        #sigmav_nstep = kwcopy.get('sigmav_nstep', 20000)
+        sigmav_nstep = kwcopy.get('sigmav_nstep', 200)
+        mass_vals = kwcopy.get('mass_vals', None)
+
+        sigmav_steps = np.logspace(sigmav_min, sigmav_max, sigmav_nstep)[::-1]
+
+        ll_vals_list = []
+        if mass_vals is not None:
+            mass_list = mass_vals
+        else:
+            mass_list = self.masses
+
+        # Do linear interpolation in log-space
+        log_masses = np.log10(self.masses)
+        log_mass_diffs = log_masses[1:] - log_masses[0:-1]
+        log_mass_vals = np.log10(mass_list)        
+
+        for log_mass in log_mass_vals:
+            mass_index = np.searchsorted(log_masses, log_mass)
+            if mass_index < 0: 
+                ll_vals_list.append(np.zeros((sigmav_nstep)))
+                continue
+            elif mass_index >= len(log_masses):
+                ll_vals_list.append(np.zeros((sigmav_nstep)))
+                continue
+            elif mass_index == len(log_masses) - 1:
+                ll_interp = self[mass_index].interp
+                ll_vals = ll_interp(sigmav_steps)
+                ll_vals_list.append(ll_vals)
+                continue
+            frac_lo = (log_masses[mass_index+1] - log_mass) / log_mass_diffs[mass_index]
+            frac_hi = 1 - frac_lo
+            ll_interp_lo = self[mass_index].interp            
+            ll_vals_lo = ll_interp_lo(sigmav_steps)
+            ll_interp_hi = self[mass_index+1].interp            
+            ll_vals_hi = ll_interp_hi(sigmav_steps)            
+            ll_vals = frac_lo*ll_vals_lo + frac_hi*ll_vals_hi
+            ll_vals_list.append(ll_vals)
+        
+        ll_vals_stack = np.vstack(ll_vals_list).T
+
+        outfile = open(filepath, 'w!')      
+        sys.stdout.write("Writing %i values to %s: " % (sigmav_nstep, filepath))
+
+        outfile.write("%.2f" % np.log10(self._astro_value))
+        for mass in mass_list:
+            outfile.write(" %.2f" % (mass))
+        outfile.write("\n")
+        sys.stdout.flush()
+        for i, (sigmav, ll_vals) in enumerate(zip(sigmav_steps, ll_vals_stack)):
+            if i % 1000 == 0:
+                sys.stdout.write('.')
+                sys.stdout.flush()
+            outfile.write("%6e " % (sigmav))
+            for ll_val in ll_vals:
+                outfile.write("%6e " % (ll_val))
+            outfile.write("\n")
+        outfile.close()
+        sys.stdout.write('!\n')
+
 
 class DMSpecTable(object):
     """ Version of the DM spectral tables in tabular form
@@ -856,6 +964,8 @@ class DMSpecTable(object):
         """Return an array with the energy bin reference energies
         """
         return self._e_table["E_REF"].data
+
+
 
     def write_fits(self, filepath, clobber=False):
         """ Write this object to a FITS file

@@ -9,6 +9,7 @@ This is useful to parallize the production of the source maps
 from __future__ import absolute_import, division, print_function
 
 import os
+import sys
 import copy
 
 from shutil import copyfile
@@ -167,6 +168,13 @@ class PrepareTargets(Link):
             source_model.update(dict(SpatialModel='DiffuseSource',
                                      SpatialType='SpatialMap',
                                      Spatial_Filename=target.j_map_file))
+        elif spatial in ['hpxmap']:
+            if target.j_map_file is None:
+                j_map_file = profile_path.replace('.yaml', '.fits')
+                target.write_jmap_hpx(j_map_file)
+            source_model.update(dict(SpatialModel='DiffuseSource',
+                                     SpatialType='SpatialMap',
+                                     Spatial_Filename=target.j_map_file))
         elif spatial in ['radial']:
             target.j_rad_file = profile_path.replace('.yaml', '.dat')
             target.write_j_rad_file()
@@ -177,6 +185,13 @@ class PrepareTargets(Link):
             if target.d_map_file is None:
                 d_map_file = profile_path.replace('.yaml', '.fits')
                 target.write_dmap_wcs(d_map_file)
+            source_model.update(dict(SpatialModel='DiffuseSource',
+                                     SpatialType='SpatialMap',
+                                     Spatial_Filename=target.d_map_file))
+        elif spatial in ['hpxdmap']:
+            if target.d_map_file is None:
+                d_map_file = profile_path.replace('.yaml', '.fits')
+                target.write_dmap_hpx(d_map_file)
             source_model.update(dict(SpatialModel='DiffuseSource',
                                      SpatialType='SpatialMap',
                                      Spatial_Filename=target.d_map_file))
