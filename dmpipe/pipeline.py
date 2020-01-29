@@ -275,6 +275,7 @@ class PipelineSim(Chain):
                        targetlist=targetlist,
                        config=config_localpath,
                        seed=seed, nsims=nsims,
+                       non_null_src=non_null_src,
                        do_find_src=do_find_src,
                        nsims_job=nsims_job)
         self._set_link('convert-castro',
