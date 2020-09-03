@@ -49,14 +49,14 @@ setup(
         'dmpipe-calc-sed-limits = dmpipe.scripts.calc_sed_limits:main', 
     ]},
     install_requires=[
-        'numpy >= 1.6.1',
-        'pyyaml >= 3.12',
-        'astropy >= 1.2.1',
-        'matplotlib >= 1.5.0',
-        'scipy >= 0.14',
-        'fermipy >= 0.17.3',
+        'numpy',
+        'pyyaml'
+        'astropy',
+        'matplotlib',
+        'scipy',
+        'fermipy',
         'healpy',
-        'dmsky >= 0.2.3'
+        'dmsky'
     ],
     extras_require=dict(
         all=[],
