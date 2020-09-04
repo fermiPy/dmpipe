@@ -50,7 +50,7 @@ setup(
     ]},
     install_requires=[
         'numpy',
-        'pyyaml'
+        'pyyaml',
         'astropy',
         'matplotlib',
         'scipy',
