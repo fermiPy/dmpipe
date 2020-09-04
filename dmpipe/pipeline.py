@@ -254,6 +254,8 @@ class PipelineSim(Chain):
         seed = sim_values.get('seed', 0)
         nsims = sim_values.get('nsims', 20)
         nsims_job = sim_values.get('nsims_job', 0)
+        non_null_src = sim_values.get('non_null_src', False)
+        do_find_src = sim_values.get('do_find_src', False)
 
         sim_plotting = config_dict.get('sim_plotting')
         plot_channels_default = config_dict.get('plot_channels', [])
@@ -273,6 +275,8 @@ class PipelineSim(Chain):
                        targetlist=targetlist,
                        config=config_localpath,
                        seed=seed, nsims=nsims,
+                       non_null_src=non_null_src,
+                       do_find_src=do_find_src,
                        nsims_job=nsims_job)
         self._set_link('convert-castro',
                        ConvertCastro_SG,
