@@ -346,7 +346,7 @@ class DMCastroData(castro.CastroData_Base):
                    norm_type='norm', decay=decay)
 
     @classmethod
-    def create_from_tables(cls, tab_s, tab_m, norm_type, decay=False):
+    def create_from_tables(cls, tab_s, tab_m, channel, norm_type, decay=False):
         """ Create a DMCastroData object from likelihood scan and mass tables
 
         Parameters
@@ -392,11 +392,18 @@ class DMCastroData(castro.CastroData_Base):
         else:
             raise ValueError('Unrecognized normalization type: %s' % norm_type)
 
-        nll_vals = -np.squeeze(np.array(tab_s['dloglike_scan']))
         nll_offsets = -np.squeeze(np.array(tab_s['dloglike_offset']))
+        mask = nll_offsets < 999.
 
+        nll_offsets = nll_offsets[mask]
+        norm_vals = norm_vals[mask]
+        nll_vals = -np.squeeze(np.array(tab_s['dloglike_scan']))
+        nll_vals = nll_vals[mask]
+        
+        n_mass = nll_vals.shape[0]
+        
         masses = np.squeeze(np.array(tab_m['masses']))
-        channel = np.squeeze(np.array(tab_m['channel']))
+        masses = masses[-mask.size:][mask]
 
         astro_value = np.squeeze(np.array(tab_s['astro_value']))
         try:
@@ -460,7 +467,7 @@ class DMCastroData(castro.CastroData_Base):
                 norm_type = 'sigmav'
         tab_s = Table.read(filepath, hdu=channel)
         tab_m = Table.read(filepath, hdu='masses')
-        return cls.create_from_tables(tab_s, tab_m,
+        return cls.create_from_tables(tab_s, tab_m, channel, 
                                       norm_type=norm_type, 
                                       decay=decay)
 
@@ -742,13 +749,21 @@ class DMCastroData(castro.CastroData_Base):
             Path to output files
         """
         kwcopy = kwargs.copy()
-        sigmav_min = kwcopy.get('logsigmav_min', -30)
-        sigmav_max = kwcopy.get('logsigmav_max', -24)
+        sigmav_min = kwcopy.get('logsigmav_min', -28)
+        sigmav_max = kwcopy.get('logsigmav_max', -18)
         #sigmav_nstep = kwcopy.get('sigmav_nstep', 20000)
-        sigmav_nstep = kwcopy.get('sigmav_nstep', 200)
+        sigmav_nstep = kwcopy.get('sigmav_nstep', 1001)
         mass_vals = kwcopy.get('mass_vals', None)
 
         sigmav_steps = np.logspace(sigmav_min, sigmav_max, sigmav_nstep)[::-1]
+
+        m_top = 170.
+        m_z = 91.
+        m_w = 82.
+        mass_threshold_dict = {5:m_top, 7:m_w, 8:m_z}
+        
+        mass_threshold = mass_threshold_dict.get(self._channel, 0.1)
+        log_mass_th = np.log10(mass_threshold)
 
         ll_vals_list = []
         if mass_vals is not None:
@@ -757,12 +772,18 @@ class DMCastroData(castro.CastroData_Base):
             mass_list = self.masses
 
         # Do linear interpolation in log-space
-        log_masses = np.log10(self.masses)
+        offset = len(self.masses) - len(self._loglikes) 
+
+        log_masses = np.log10(self.masses[offset:])
         log_mass_diffs = log_masses[1:] - log_masses[0:-1]
         log_mass_vals = np.log10(mass_list)        
 
+
         for log_mass in log_mass_vals:
-            mass_index = np.searchsorted(log_masses, log_mass)
+            if log_mass < log_mass_th:
+                ll_vals_list.append(np.zeros((sigmav_nstep)))
+                continue
+            mass_index = np.searchsorted(log_masses, log_mass) - offset
             if mass_index < 0: 
                 ll_vals_list.append(np.zeros((sigmav_nstep)))
                 continue
@@ -776,10 +797,13 @@ class DMCastroData(castro.CastroData_Base):
                 continue
             frac_lo = (log_masses[mass_index+1] - log_mass) / log_mass_diffs[mass_index]
             frac_hi = 1 - frac_lo
-            ll_interp_lo = self[mass_index].interp            
-            ll_vals_lo = ll_interp_lo(sigmav_steps)
-            ll_interp_hi = self[mass_index+1].interp            
-            ll_vals_hi = ll_interp_hi(sigmav_steps)            
+            try:
+                ll_interp_lo = self[mass_index].interp            
+                ll_vals_lo = ll_interp_lo(sigmav_steps)
+                ll_interp_hi = self[mass_index+1].interp            
+                ll_vals_hi = ll_interp_hi(sigmav_steps)
+            except:
+                raise IndexError("Interpolation failed at %s %i %i %i %.2f %i %i %.2f %.2f" % (filepath, len(self.masses), len(log_masses), offset, log_mass, mass_index, len(self._loglikes), log_masses[0], log_masses[-1]))
             ll_vals = frac_lo*ll_vals_lo + frac_hi*ll_vals_hi
             ll_vals_list.append(ll_vals)
         
@@ -957,8 +981,8 @@ class DMSpecTable(object):
     def ebin_edges(self):
         """Return an array with the energy bin edges
         """
-        return np.hstack([self._e_table["E_MIN"].data,
-                          self._e_table["E_MAX"].data])
+        return np.hstack([np.squeeze(self._e_table["E_MIN"].data),
+                          np.squeeze(self._e_table["E_MAX"].data[-1])])
 
     def ebin_refs(self):
         """Return an array with the energy bin reference energies
@@ -1086,6 +1110,7 @@ class DMSpecTable(object):
                     "REF_TAU": REF_TAU}
 
         nebins = len(ebin_edges) - 1
+        print(nebins, ebin_edges, len(evals))
         nrow = len(channels) * len(masses)
         dnde = np.ndarray((nrow, nebins))
         flux = np.ndarray((nrow, nebins))
@@ -1174,6 +1199,7 @@ class DMSpecTable(object):
             emins = np.append(emins, ebin_edges[:-1])
             emaxs = np.append(emaxs, ebin_edges[1:])
 
+        print(emins, emaxs)
         return cls.create(emins, emaxs, channels, masses)
 
 
