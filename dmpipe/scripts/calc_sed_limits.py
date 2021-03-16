@@ -1,5 +1,5 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
-from __future__ import absolute_import, division, print_function
+
 
 import os
 import argparse
@@ -51,7 +51,7 @@ def compute_limits(sedfile, roster, chan, masses, alpha=0.05, apply_prior=False,
     ts_out = []
 
     # Loop over targets in roster
-    for name, target in roster.items():
+    for name, target in list(roster.items()):
 
         names += [name]
         if len(roster) > 1:

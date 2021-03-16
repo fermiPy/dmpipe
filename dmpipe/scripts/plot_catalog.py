@@ -7,7 +7,7 @@
 """
 Top level script to make a castro plot in mass / sigmav space
 """
-from __future__ import absolute_import, division, print_function
+
 
 import yaml
 
@@ -71,7 +71,7 @@ def main():
     axout.set_xlim(0, npix[0])
     axout.set_ylim(0, npix[1])
 
-    for key, val in clusters.items():
+    for key, val in list(clusters.items()):
         if len(val) < 10:
             continue
         clust = [key] + val
