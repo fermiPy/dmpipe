@@ -2,7 +2,7 @@
 """
 Analysis defaults options for DM pipelien analysis
 """
-from __future__ import absolute_import, division, print_function
+
 
 from fermipy.jobs import defaults as base_defaults
 

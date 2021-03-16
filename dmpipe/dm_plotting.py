@@ -5,7 +5,7 @@
 """
 Top level scripts to make castro plot and limits plots in mass / sigmav space
 """
-from __future__ import absolute_import, division, print_function
+
 
 import os
 from os.path import splitext
@@ -325,7 +325,7 @@ class PlotLimits_SG(ScatterGather):
                            sim=sim)
 
         targets = load_yaml(targets_yaml)
-        for target_name, target_list in targets.items():
+        for target_name, target_list in list(targets.items()):
             for targ_prof in target_list:
                 prof_chans = select_channels(channels, targ_prof)
                 for astro_prior in astro_priors:
@@ -393,7 +393,7 @@ class PlotStackedLimits_SG(ScatterGather):
         astro_priors = args['astro_priors']
         channels = args['channels']
 
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
             for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,
@@ -404,8 +404,8 @@ class PlotStackedLimits_SG(ScatterGather):
                 for chan in rost_chans:
                     targ_key = "%s:%s:%s" % (roster_name, astro_prior, chan)
                     if sim is not None:
-                        seedlist = range(
-                            args['seed'], args['seed'] + args['nsims'])
+                        seedlist = list(range(
+                            args['seed'], args['seed'] + args['nsims']))
                         sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
                     else:
                         seedlist = [None]
@@ -475,7 +475,7 @@ class PlotDM_SG(ScatterGather):
         channels = args['channels']
         global_min = args['global_min']
 
-        for target_name, target_list in targets.items():
+        for target_name, target_list in list(targets.items()):
             for targ_prof in target_list:
                 prof_chans = select_channels(channels, targ_prof)
                 for astro_prior in astro_priors:
@@ -543,7 +543,7 @@ class PlotStackedDM_SG(ScatterGather):
         channels = args['channels']
         global_min = args['global_min']
 
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
             for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,
@@ -556,8 +556,8 @@ class PlotStackedDM_SG(ScatterGather):
                     targ_key = "%s:%s:%s" % (roster_name, astro_prior, chan)
 
                     if sim is not None:
-                        seedlist = range(
-                            args['seed'], args['seed'] + args['nsims'])
+                        seedlist = list(range(
+                            args['seed'], args['seed'] + args['nsims']))
                     else:
                         seedlist = [None]
 
@@ -631,7 +631,7 @@ class PlotControlLimits_SG(ScatterGather):
 
         sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
 
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
             for astro_prior in astro_priors:                
                 name_keys = dict(target_type=ttype,
@@ -699,7 +699,7 @@ class PlotControlMLEs_SG(ScatterGather):
 
         sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
 
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
             for astro_prior in astro_priors:                
                 name_keys = dict(target_type=ttype,
@@ -763,7 +763,7 @@ class PlotFinalLimits_SG(ScatterGather):
         channels = args['channels']
 
         sims = args['sims']
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
             for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,

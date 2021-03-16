@@ -6,7 +6,7 @@ Run gtsrcmaps for a single energy plane for a single source
 
 This is useful to parallize the production of the source maps
 """
-from __future__ import absolute_import, division, print_function
+
 
 import os
 import sys
@@ -119,7 +119,7 @@ class PrepareTargets(Link):
 
         for i, comp in enumerate(comps):
             comp_name = "%02i" % i
-            if not comp.has_key('gtlike'):
+            if 'gtlike' not in comp:
                 comp['gtlike'] = {}
             comp['gtlike']['bexpmap'] = os.path.abspath(os.path.join(target_dir, 'bexpmap_%s.fits' % comp_name))
             comp['gtlike']['srcmap'] = os.path.abspath(os.path.join(sim_target_dir, 'srcmap_%s.fits' % comp_name))
@@ -317,8 +317,8 @@ class PrepareTargets(Link):
         target_info_dict = {}
         roster_info_dict = {}
 
-        for roster_name, rost in roster_dict.items():
-            for target_name, target in rost.items():
+        for roster_name, rost in list(roster_dict.items()):
+            for target_name, target in list(rost.items()):
 
                 if aliases is not None:
                     try:

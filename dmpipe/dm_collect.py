@@ -4,7 +4,7 @@
 """
 Collect information for simulated realizations of an analysis
 """
-from __future__ import absolute_import, division, print_function
+
 
 import os
 
@@ -175,7 +175,7 @@ class CollectLimits_SG(ScatterGather):
                            seed=args['seed'],
                            specconfig=specconfig)
 
-        for target_name, profile_list in targets.items():
+        for target_name, profile_list in list(targets.items()):
             for profile in profile_list:
                 for astro_prior in astro_priors:
                     if is_null(astro_prior):
@@ -257,7 +257,7 @@ class CollectStackedLimits_SG(ScatterGather):
                            seed=args['seed'])
 
         roster_dict = load_yaml(roster_yaml)
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             for astro_prior in astro_priors:
                 if is_null(astro_prior):
                     astro_prior = 'none'

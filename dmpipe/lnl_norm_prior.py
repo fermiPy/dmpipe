@@ -2,7 +2,7 @@
 """
 Utilities to fit dark matter spectra to castro data
 """
-from __future__ import absolute_import, division, print_function
+
 import numpy as np
 import scipy.optimize as opt
 from scipy.interpolate import splrep, splev
