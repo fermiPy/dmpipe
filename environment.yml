@@ -9,6 +9,4 @@ dependencies:
   - astropy<4
   - matplotlib
   - healpy
-  - astropy-healpix
-  - gammapy>=0.18
   - fermipy
