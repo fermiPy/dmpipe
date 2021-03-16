@@ -726,7 +726,7 @@ class DMCastroData(castro.CastroData_Base):
             ll_interp = self[imass].interp
             ll_vals = ll_interp(sigmav_steps)
             
-            outfile = open(filepath, 'w!')
+            outfile = open(filepath, 'w')
             
             sys.stdout.write("Writing %i values to %s: " % (sigmav_nstep, filepath))
             sys.stdout.flush()
@@ -809,7 +809,7 @@ class DMCastroData(castro.CastroData_Base):
         
         ll_vals_stack = np.vstack(ll_vals_list).T
 
-        outfile = open(filepath, 'w!')      
+        outfile = open(filepath, 'w')      
         sys.stdout.write("Writing %i values to %s: " % (sigmav_nstep, filepath))
 
         outfile.write("%.2f" % np.log10(self._astro_value))
@@ -1190,10 +1190,10 @@ class DMSpecTable(object):
             try:
                 nebins = comp['binning'].get('enumbins', None)
             except KeyError:
-                nebins = np.round(binsperdec * np.log10(emax / emin))
+                nebins = int(np.round(binsperdec * np.log10(emax / emin)))
 
             if nebins is None:
-                nebins = np.round(comp['binning']['binsperdec'] * np.log10(emax / emin))
+                nebins = int(np.round(comp['binning']['binsperdec'] * np.log10(emax / emin)))
 
             ebin_edges = np.logspace(logemin, logemax, nebins + 1)
             emins = np.append(emins, ebin_edges[:-1])
