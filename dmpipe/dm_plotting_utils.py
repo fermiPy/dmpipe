@@ -61,8 +61,8 @@ def plot_dm_spectra_by_channel(dm_spec_table, mass=100.,
     import matplotlib.pyplot as plt
 
     chan_names = dm_spec_table.channel_names
-    chan_ids = dm_spec_table.channel_map.keys()
-    chan_idx_list = dm_spec_table.channel_map.values()
+    chan_ids = list(dm_spec_table.channel_map.keys())
+    chan_idx_list = list(dm_spec_table.channel_map.values())
     energies = dm_spec_table.ebin_refs()
 
     fig = plt.figure()
@@ -247,7 +247,7 @@ def plot_nll(nll_dict, xlims=None, nstep=50, ylims=None, decay=False):
     axis.set_ylabel(DELTA_LOGLIKE_AXIS_LABEL)
     axis.set_xscale('log')
 
-    for lab, nll in nll_dict.items():
+    for lab, nll in list(nll_dict.items()):
         yvals = nll.interp(xvals)
         yvals -= yvals.min()
         axis.plot(xvals, yvals, label=lab)
@@ -304,7 +304,7 @@ def plot_stacked(sdict, xlims, ibin=0, decay=False):
     import matplotlib.pyplot as plt
     ndict = {}
 
-    for key, val in sdict.items():
+    for key, val in list(sdict.items()):
         ndict[key] = val[ibin]
 
     #mles = np.array([n.mle() for n in ndict.values()])
@@ -321,7 +321,7 @@ def plot_stacked(sdict, xlims, ibin=0, decay=False):
         axis.set_xlabel(SIGMAV_AXIS_LABEL)
     axis.set_ylabel(DELTA_LOGLIKE_AXIS_LABEL)
 
-    for key, val in ndict.items():
+    for key, val in list(ndict.items()):
         yvals = val.interp(xvals)
         if key.lower() == "stacked":
             axis.plot(xvals, yvals, lw=3, label=key)
@@ -386,7 +386,7 @@ def plot_limits_from_arrays(ldict, xlims, ylims, bands=None, decay=False):
     if bands is not None:
         plot_expected_limit_bands(axis, bands)
 
-    for key, val in ldict.items():
+    for key, val in list(ldict.items()):
         xvals = val[0]
         yvals = val[1]
         if key.lower() == "stacked":
@@ -466,7 +466,7 @@ def plot_limits(sdict, xlims, ylims, alpha=0.05, decay=False):
     """
 
     ldict = {}
-    for key, val in sdict.items():
+    for key, val in list(sdict.items()):
         ldict[key] = (val.masses, val.getLimits(alpha))
     return plot_limits_from_arrays(ldict, xlims, ylims, decay=decay)
 
@@ -521,7 +521,7 @@ def compare_limits(sdict, xlims, ylims, alpha=0.05, decay=False):
     else:
         axis.set_ylabel(SIGMAV_AXIS_LABEL)
 
-    for key, val in sdict.items():
+    for key, val in list(sdict.items()):
         xvals = val.masses
         yvals = val.getLimits(alpha)
         axis.plot(xvals, yvals, label=key)
@@ -588,4 +588,5 @@ def plot_limit(dm_castro_data, ylims, alpha=0.05):
     axis.plot(xvals, yvals)
 
     return fig, axis
+
 

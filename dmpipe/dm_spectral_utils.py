@@ -4,7 +4,7 @@
 """
 Interface to Dark Matter spectra
 """
-from __future__ import absolute_import, division, print_function
+
 
 import sys
 
@@ -36,9 +36,9 @@ class DMCastroData(castro.CastroData_Base):
     series of DM masses
     """
 
-    def __init__(self, norm_vals, nll_vals, nll_offsets,
-                 channel, masses, astro_value,
-                 **kwargs):
+    def __init__(self, norm_vals, nll_vals, channel, masses, astro_value,
+                 astro_prior=None, prior_applied=True, ref_j=REF_J, ref_sigmav=REF_SIGV, 
+                 norm_type='sigmav'):
         """ C'tor
 
         Parameters
@@ -108,8 +108,9 @@ class DMCastroData(castro.CastroData_Base):
             self._channel = DMFitFunction.channel_rev_map[channel]
         else:
             self._channel = channel
-        super(DMCastroData, self).__init__(norm_vals, nll_vals,
-                                           nll_offsets, norm_type=norm_type)
+        super(DMCastroData, self).__init__(norm_vals,
+                                           nll_vals,
+                                           norm_type=norm_type)
 
     @property
     def n_masses(self):
@@ -214,27 +215,13 @@ class DMCastroData(castro.CastroData_Base):
         """
         data = load_yaml(yamlfile)
         masses = np.array([float(v) for v in data['param']])
-
-        if decay:
-            astro_str = 'dvalue'
-            rvalues_str = 'rdvalues'
-            sigma_str = 'dsigma'
-            ref_str = 'd_ref'
-            norm_type = 'tau'
-        else:
-            astro_str = 'jvalue'
-            rvalues_str = 'rjvalues'
-            sigma_str = 'jsigma'
-            ref_str = 'j_ref'
-            norm_type = 'sigmav'
-
-        if prior is not None:
+        if jprior is not None:
             try:
-                astro_value = data[rvalues_str][prior]
-                sigma = data[sigma_str]
+                astro_value = data['rjvalues'][jprior]
+                jsigma = data['jsigma']
             except KeyError:
                 astro_value = 1.
-                sigma = 1.
+                jsigma = 1.
             lnlstr = 'p1lnl'
             prior_dict = dict(functype=jprior,
                               mu=astro_value,
@@ -243,7 +230,7 @@ class DMCastroData(castro.CastroData_Base):
             prior = create_prior_functor(prior_dict)
         else:
             try:
-                astro_value = data[astro_str]
+                astro_value = data['jvalue']
             except KeyError:
                 astro_value = 1.            
             jsigma = None
@@ -254,12 +241,8 @@ class DMCastroData(castro.CastroData_Base):
         
         norm_list = []
         nll_list = []
-        ll_offset_list = []
-
         masses =  np.array(sorted ([ float(v) for v in data['param'] ]))
         masses_st =[ "%0.1f" % v for v in masses ]
-        
-
         for mass in masses_st:
             norm_list.append(data['lnldata'][mass]['norm'])
             ll_vals = data['lnldata'][mass][lnlstr]
@@ -340,10 +323,17 @@ class DMCastroData(castro.CastroData_Base):
                                                                             ylims, weights)
 
 
-        return cls(norm_vals, nll_vals, nll_offsets,
+        return cls(norm_vals, nll_vals, nll_offsets,                    
                    components[0].channel, components[0].masses,
                    astro_value=None, ref_astro=ref_astro, ref_inter=ref_inter, 
                    norm_type='norm', decay=decay)
+
+
+        #norm_vals, nll_vals = castro.CastroData_Base.stack_nll(shape, components,
+        #                                                       ylims, weights)
+        #return cls(norm_vals, nll_vals, components[0].channel, components[0].masses,
+        #          astro_value=None, ref_j=ref_j, ref_sigmav=ref_sigmav, 
+        #          norm_type='norm')
 
     @classmethod
     def create_from_tables(cls, tab_s, tab_m, channel, norm_type, decay=False):
@@ -668,7 +658,7 @@ class DMCastroData(castro.CastroData_Base):
                    astro_str: self.ref_astro,
                    inter_str: self.ref_inter}
 
-        for k, v in limit_dict.items():
+        for k, v in list(limit_dict.items()):
             collist.append(Column(name=k, dtype=float, shape=v.shape))
             valdict[k] = v
 

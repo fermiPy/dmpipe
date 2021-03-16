@@ -4,7 +4,7 @@
 """
 Interface to Dark Matter spectra
 """
-from __future__ import absolute_import, division, print_function
+
 
 import sys
 import os
@@ -328,7 +328,7 @@ class ConvertCastro(Link):
         if args.nsims < 0:
             seedlist = [None]
         else:
-            seedlist = range(args.seed, args.seed + args.nsims)
+            seedlist = list(range(args.seed, args.seed + args.nsims))
 
         for seed in seedlist:
             sedfile = args.sed_file
@@ -531,7 +531,7 @@ class StackLikelihood(Link):
                 dm_castro = DMCastroData.create_from_tables(tab_s, tab_m, norm_type, decay)
                 component_dict[chan].append(dm_castro)
 
-        for chan, comps in component_dict.items():
+        for chan, comps in list(component_dict.items()):
             if not comps:
                 continue
             decay = chan.find('_decay') >= 0
@@ -560,7 +560,7 @@ class StackLikelihood(Link):
             Overwrite existing files
 
         """
-        channels = stacked_dict.keys()
+        channels = list(stacked_dict.keys())
         t_list = []
         n_list = []
         lim_list = []
@@ -682,7 +682,7 @@ class StackLikelihood(Link):
             Flag to overwrite existing files.
 
         """
-        for roster_name, rost in roster_dict.items():
+        for roster_name, rost in list(roster_dict.items()):
             rost_chans = StackLikelihood.select_channels(channels, roster_name)
             stacked_dict = StackLikelihood.stack_roster(rost, ttype,
                                                         rost_chans, astro_prior_key, sim, seed)
@@ -723,7 +723,7 @@ class StackLikelihood(Link):
         roster_dict = load_yaml(roster_file)
 
         if is_sim:
-            seedlist = range(args.seed, args.seed + args.nsims)
+            seedlist = list(range(args.seed, args.seed + args.nsims))
         else:
             seedlist = [0]
 
@@ -790,7 +790,7 @@ class ConvertCastro_SG(ScatterGather):
                            seed=seed,
                            clobber=clobber)
 
-        for target_name, profile_list in targets.items():
+        for target_name, profile_list in list(targets.items()):
             for profile in profile_list:
                 for astro_prior in astro_priors:
                     full_key = "%s:%s:%s" % (target_name, profile, astro_prior)
