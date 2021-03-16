@@ -1,3 +1,4 @@
+""" Tools to run Dark Matter analysis pipeline """
 
 from ._version import get_versions
 __version__ = get_versions()['version']

@@ -210,7 +210,7 @@ class PipelineSim(Chain):
 
     plot-stacked-limits : `PlotStackedLimits_SG`
         Make DM 'Castro' plots for each roster, J-factor prior type and channel.
- 
+
     plot-control-limits : `PlotControlLimits_SG`
         Make DM 'Castro' plots for each roster, J-factor prior type and channel.
 
@@ -592,7 +592,7 @@ class Pipeline(Chain):
         if link_status == JobStatus.done:
             self._preconfigured = True
             return
-        elif link_status == JobStatus.failed:
+        if link_status == JobStatus.failed:
             link.clean_jobs()
         link.run_with_log()
         self._preconfigured = True
@@ -666,6 +666,6 @@ class Pipeline(Chain):
                        ttype=ttype,
                        rosterlist=rosterlist,
                        channels=plot_channels,
-                       astro_priors=astro_priors,                       
+                       astro_priors=astro_priors,
                        sims=final_plot_sims,
                        dry_run=dry_run)

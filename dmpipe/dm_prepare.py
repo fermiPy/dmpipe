@@ -233,12 +233,12 @@ class PrepareTargets(Link):
         astro_profile_data = target.profile.copy()
         astro_profile_data['j_integ'] = target.j_integ
         astro_profile_data['j_sigma'] = target.j_sigma
-        
+
         # Put the D-factors in a try-expect block
         try:
             astro_profile_data['d_integ'] = target.d_integ
             astro_profile_data['d_sigma'] = target.d_sigma
-        except:
+        except Exception:
             sys.stdout.write("WARNING, could not compute D-Factors for target %s\n" % target.name)
 
         write_yaml(astro_profile_data, astro_val_path)
@@ -285,9 +285,7 @@ class PrepareTargets(Link):
         return sim_profile
 
     @classmethod
-    def _write_target_dirs(cls, ttype, roster_dict,
-                           base_config, sims, spatial_models,
-                           aliases):
+    def _write_target_dirs(cls, ttype, roster_dict, base_config, sims, spatial_models, aliases): # pylint: disable=too-many-arguments
         """ Create and populate directoris for target analysis.
 
         Parameters

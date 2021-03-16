@@ -1,13 +1,12 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+""" Calculate the limits given an SED file """
 
-
-import os
 import argparse
 
 import numpy as np
 from astropy.table import Table, Column
 
-from fermipy.castro import CastroData
+from fermipy.castro import CastroData, ReferenceSpec
 from fermipy.spectrum import DMFitFunction
 from dmpipe.dm_spectral import DMSpecTable, DMCastroData
 
@@ -19,7 +18,6 @@ def load_sed_from_txt(sedfile):
     """Load an SED from a txt file in the format used for online materials
     associated with dsph papers.."""
 
-    # FIXME: Discover energy binning
     sed = np.loadtxt(sedfile, unpack=True)
 
     emin = np.unique(sed[0])
@@ -40,7 +38,7 @@ def compute_limits(sedfile, roster, chan, masses, alpha=0.05, apply_prior=False,
     Parameters
     ----------
     sedfile : str
-        Path to SED file.  
+        Path to SED file.
 
     """
 
@@ -108,6 +106,7 @@ def compute_limits(sedfile, roster, chan, masses, alpha=0.05, apply_prior=False,
 
 
 def main(args=None):
+    """ Main """
 
     usage = "usage: %(prog)s [options]"
     description = ('Generate DM limits from a SED file.')
@@ -148,7 +147,7 @@ def main(args=None):
     channels = ['bb', 'ee', 'mumu', 'tautau', 'uu', 'ww']
     if args.channel is not None:
         channels = args.channel.split(',')
-    
+
     masses_high = [100.00, 158.10, 250.00, 353.60, 500.00, 707.00,
                    1000.00, 1581.00, 2500.00, 3536.00, 5000.00, 7070.00, 10000.00]
 

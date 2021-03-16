@@ -32,14 +32,17 @@ NAME_FACTORY = NameFactory(basedir='.')
 
 
 def is_decay_profile(profile):
+    """ Check if a profile string is for DM decay """
     tokens = profile.split('_')
     return tokens[-1] in ['point', 'dmap', 'dradial']
 
 def is_ann_profile(profile):
+    """ Check if a profile string is for DM annihilation """
     tokens = profile.split('_')
     return tokens[-1] in ['point', 'map', 'radial']
 
 def select_channels(channels, profile):
+    """ Select the relevent channels (for decay or annihilation) for a given profile """
     sed_ok_decay = is_decay_profile(profile)
     sed_ok_ann = is_ann_profile(profile)
     ochans = []
@@ -52,7 +55,7 @@ def select_channels(channels, profile):
             if sed_ok_ann:
                 ochans.append(chan)
     return ochans
-    
+
 
 def get_ul_bands(table, prefix):
     """ Get the upper limit bands a table
@@ -239,7 +242,7 @@ class PlotMLEs(Link):
             injected_src = None
 
         xlims = (1e1, 1e4)
-        
+
         dm_plot = plot_limits_from_arrays(ldict, xlims, ylims, bands)
 
         if injected_src is not None:
@@ -279,7 +282,7 @@ class PlotDM(Link):
         elif exttype in ['.yaml']:
             dm_castro = DMCastroData.create_from_yamlfile(args.infile, args.chan)
         else:
-            raise ValueError("Can not read file type %s for SED" % extype)
+            raise ValueError("Can not read file type %s for SED" % exttype)
 
         dm_plot = plot_dm_castro(dm_castro, global_min=args.global_min)
         if args.outfile:
@@ -413,10 +416,10 @@ class PlotStackedLimits_SG(ScatterGather):
 
                     for seed in seedlist:
                         if seed is not None:
-                            name_keys['seed'] = "%06i" % seed
+                            name_keys['seed'] = "%06i" % seed  # pylint: disable=bad-string-format-type
                             input_path = NAME_FACTORY.sim_stackedlimitsfile(
                                 **name_keys)
-                            full_targ_key = "%s_%06i" % (targ_key, seed)
+                            full_targ_key = "%s_%06i" % (targ_key, seed) # pylint: disable=bad-string-format-type
                         else:
                             input_path = NAME_FACTORY.stackedlimitsfile(
                                 **name_keys)
@@ -465,7 +468,7 @@ class PlotDM_SG(ScatterGather):
         job_configs = {}
 
         ttype = args['ttype']
-        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
+        (targets_yaml, _) = NAME_FACTORY.resolve_targetfile(args)
         if targets_yaml is None:
             return job_configs
 
@@ -563,10 +566,10 @@ class PlotStackedDM_SG(ScatterGather):
 
                     for seed in seedlist:
                         if seed is not None:
-                            name_keys['seed'] = "%06i" % seed
+                            name_keys['seed'] = "%06i" % seed  # pylint: disable=bad-string-format-type
                             input_path = NAME_FACTORY.sim_resultsfile(
                                 **name_keys)
-                            full_targ_key = "%s_%06i" % (targ_key, seed)
+                            full_targ_key = "%s_%06i" % (targ_key, seed) # pylint: disable=bad-string-format-type
                         else:
                             input_path = NAME_FACTORY.resultsfile(**name_keys)
                             full_targ_key = targ_key
@@ -633,7 +636,7 @@ class PlotControlLimits_SG(ScatterGather):
 
         for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
-            for astro_prior in astro_priors:                
+            for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,
                                  roster_name=roster_name,
                                  astro_prior=astro_prior,
@@ -701,7 +704,7 @@ class PlotControlMLEs_SG(ScatterGather):
 
         for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
-            for astro_prior in astro_priors:                
+            for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,
                                  roster_name=roster_name,
                                  astro_prior=astro_prior,

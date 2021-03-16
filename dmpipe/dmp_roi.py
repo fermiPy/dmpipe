@@ -336,7 +336,7 @@ def lon_idxs(rings, lons, nroi_per_ring):
     return roi_idxs
 
 
-class DMROISet(object):
+class DMROISet:
     """ A simple class to generate the centers of a set of ROIs tile the entire sky
 
     This is just the base class.  Implementations of the tilings are in sub-classes:
@@ -482,8 +482,7 @@ class DMROISetWCS(DMROISet):
         roi_idxs = lon_idxs(rings, glons, self.__nroi_per_ring)
         return roi_idxs
 
-    def create_roi_wcs(self, roi_idx, coordsys='CEL', projection='AIT',
-                       cdelt=1.0, crpix=1., naxis=2, energies=None):
+    def create_roi_wcs(self, roi_idx, coordsys='CEL', projection='AIT', cdelt=1.0, crpix=1., naxis=2, energies=None): #pylint: disable=too-many-arguments
         """ Create a WCS object.
 
         Parameters
