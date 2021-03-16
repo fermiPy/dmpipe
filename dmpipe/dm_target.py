@@ -18,7 +18,7 @@ except AttributeError:
 from dmsky.file_io import table as dm_table
 
 
-class DMTargetFactory(object):
+class DMTargetFactory:
     """ A class to build a set of DM target objects from a dmsky Roster object
     """
     rlib = RosterLibrary()

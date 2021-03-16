@@ -4,7 +4,7 @@
 """
 Interface to Dark Matter spectra
 """
-from __future__ import absolute_import, division, print_function
+
 
 import sys
 import os
@@ -59,16 +59,19 @@ class ConvertCastro(Link):
 
     @staticmethod
     def is_decay_sed(sedfile):
+        """ Return true if the SED is appropriate for decay """
         tokens = os.path.splitext(os.path.basename(sedfile))[0].split('_')
         return tokens[2] in ['point', 'dmap', 'dradial', 'hpxdmap']
-        
+
     @staticmethod
     def is_ann_sed(sedfile):
+        """ Return true if the SED is appropriate for annihilation """
         tokens = os.path.splitext(os.path.basename(sedfile))[0].split('_')
         return tokens[2] in ['point', 'map', 'radial', 'hpxmap']
 
     @staticmethod
     def select_channels(channels, sedfile):
+        """ Return a list of channels to consider for this SED """
         sed_ok_decay = ConvertCastro.is_decay_sed(sedfile)
         sed_ok_ann = ConvertCastro.is_ann_sed(sedfile)
         ochans = []
@@ -81,7 +84,7 @@ class ConvertCastro(Link):
                 if sed_ok_ann:
                     ochans.append(chan)
         return ochans
-    
+
 
     @staticmethod
     def convert_sed_to_dm(spec_table, sed, channels, **kwargs):
@@ -99,7 +102,7 @@ class ConvertCastro(Link):
         channels : list
             List of the channels to convert
 
-        
+
         Keyword arguments
         -----------------
 
@@ -232,7 +235,7 @@ class ConvertCastro(Link):
 
         sed_file : str
             Path to the SED file
- 
+
         outfile : str
             Path to write the output `DMCastroData` object to
 
@@ -242,7 +245,7 @@ class ConvertCastro(Link):
 
         Keyword arguments
         -----------------
- 
+
         norm_type : str
             Normalization type to use
 
@@ -261,7 +264,7 @@ class ConvertCastro(Link):
         norm_type = kwargs.get('norm_type', 'eflux')
         j_factor = kwargs.get('j_factor', None)
         d_factor = kwargs.get('d_factor', None)
-        clobber = kwargs.get('clobber', False)        
+        clobber = kwargs.get('clobber', False)
 
         use_chans = ConvertCastro.select_channels(channels, sed_file)
 
@@ -271,10 +274,10 @@ class ConvertCastro(Link):
         elif exttype in ['.yaml']:
             sed = CastroData.create_from_yamlfile(sed_file)
         else:
-            raise ValueError("Can not read file type %s for SED" % extype)
-        
-        c_list, t_list, n_list = ConvertCastro.convert_sed_to_dm(spec_table, sed, use_chans, 
-                                                                 norm_type=norm_type, 
+            raise ValueError("Can not read file type %s for SED" % exttype)
+
+        c_list, t_list, n_list = ConvertCastro.convert_sed_to_dm(spec_table, sed, use_chans,
+                                                                 norm_type=norm_type,
                                                                  j_val=j_factor, d_val=d_factor)
 
         if is_not_null(outfile):
@@ -282,8 +285,7 @@ class ConvertCastro(Link):
 
         if is_not_null(limitfile):
             mass_table = t_list[-1]
-            c_list_lim, t_list_lim, n_list_lim = ConvertCastro.extract_dm_limits(
-                c_list, use_chans, [0.68, 0.95], mass_table)
+            _, t_list_lim, n_list_lim = ConvertCastro.extract_dm_limits(c_list, use_chans, [0.68, 0.95], mass_table)
             fits_utils.write_tables_to_fits(limitfile, t_list_lim,
                                             clobber=clobber, namelist=n_list_lim)
 
@@ -303,7 +305,7 @@ class ConvertCastro(Link):
 
         j_value = profile.get('j_integ', None)
         j_sigma = profile.get('j_sigma', None)
- 
+
         if is_null(j_value):
             j_factor = None
         elif is_null(args.astro_prior) or is_null(j_sigma) or j_sigma == 0.0:
@@ -314,7 +316,7 @@ class ConvertCastro(Link):
                             mu=j_value, sigma=j_sigma)
 
         d_value = profile.get('d_integ', None)
-        d_sigma = profile.get('d_sigma', None)        
+        d_sigma = profile.get('d_sigma', None)
 
         if is_null(d_value):
             d_factor = None
@@ -328,7 +330,7 @@ class ConvertCastro(Link):
         if args.nsims < 0:
             seedlist = [None]
         else:
-            seedlist = range(args.seed, args.seed + args.nsims)
+            seedlist = list(range(args.seed, args.seed + args.nsims))
 
         for seed in seedlist:
             sedfile = args.sed_file
@@ -403,7 +405,7 @@ class SpecTable(Link):
 
         spec_config = load_yaml(spec_config)
         channels = spec_config['channels']
-        
+
         if isinstance(spec_config['masses'], dict):
             masses = np.logspace(np.log10(spec_config['masses']['mass_min']),
                                  np.log10(spec_config['masses']['mass_max']),
@@ -438,16 +440,19 @@ class StackLikelihood(Link):
 
     @staticmethod
     def is_decay_roster(roster):
+        """ Return true if the roster is applicable for decay """
         tokens = roster.split('_')
         return tokens[-1] in ['point', 'dmap', 'dradial']
-        
+
     @staticmethod
     def is_ann_roster(roster):
+        """ Return true if the roster is applicable for annhilation """
         tokens = roster.split('_')
         return tokens[-1] in ['point', 'map', 'radial']
 
     @staticmethod
     def select_channels(channels, roster):
+        """ Return a list of channels to consider for this roster """
         roster_ok_decay = StackLikelihood.is_decay_roster(roster)
         roster_ok_ann = StackLikelihood.is_ann_roster(roster)
         ochans = []
@@ -460,11 +465,10 @@ class StackLikelihood(Link):
                 if roster_ok_ann:
                     ochans.append(chan)
         return ochans
-    
+
 
     @staticmethod
-    def stack_roster(rost, ttype,
-                     channels, astro_prior_key, sim, seed):
+    def stack_roster(rost, ttype, channels, astro_prior_key, sim, seed): #pylint: disable=too-many-arguments
         """ Stack all of the DMCastroData in a roster
 
         Parameters
@@ -531,7 +535,7 @@ class StackLikelihood(Link):
                 dm_castro = DMCastroData.create_from_tables(tab_s, tab_m, norm_type, decay)
                 component_dict[chan].append(dm_castro)
 
-        for chan, comps in component_dict.items():
+        for chan, comps in list(component_dict.items()):
             if not comps:
                 continue
             decay = chan.find('_decay') >= 0
@@ -560,7 +564,7 @@ class StackLikelihood(Link):
             Overwrite existing files
 
         """
-        channels = stacked_dict.keys()
+        channels = list(stacked_dict.keys())
         t_list = []
         n_list = []
         lim_list = []
@@ -594,12 +598,11 @@ class StackLikelihood(Link):
                                         clobber=clobber, namelist=n_list)
         fits_utils.write_tables_to_fits(limitfile, lim_table_list,
                                         clobber=clobber, namelist=n_list)
-       
+
 
 
     @staticmethod
-    def write_stacked(ttype, roster_name, stacked_dict,
-                      astro_prior_key, sim, seed, clobber):
+    def write_stacked(ttype, roster_name, stacked_dict, astro_prior_key, sim, seed, clobber):  #pylint: disable=too-many-arguments
         """ Write the stacked DMCastroData object to a FITS file
 
         Parameters
@@ -650,11 +653,10 @@ class StackLikelihood(Link):
         limitfile = outpath.replace('results', 'limits')
         print("Writing stacked results %s" % outpath)
         StackLikelihood.write_fits_files(stacked_dict, outpath, limitfile, clobber)
-        
+
 
     @staticmethod
-    def stack_rosters(roster_dict, ttype, channels,
-                      astro_prior_key, sim, seed, clobber):
+    def stack_rosters(roster_dict, ttype, channels, astro_prior_key, sim, seed, clobber):  #pylint: disable=too-many-arguments
         """ Stack all of the DMCastroData in a dictionary of rosters
 
         Parameters
@@ -682,7 +684,7 @@ class StackLikelihood(Link):
             Flag to overwrite existing files.
 
         """
-        for roster_name, rost in roster_dict.items():
+        for roster_name, rost in list(roster_dict.items()):
             rost_chans = StackLikelihood.select_channels(channels, roster_name)
             stacked_dict = StackLikelihood.stack_roster(rost, ttype,
                                                         rost_chans, astro_prior_key, sim, seed)
@@ -723,7 +725,7 @@ class StackLikelihood(Link):
         roster_dict = load_yaml(roster_file)
 
         if is_sim:
-            seedlist = range(args.seed, args.seed + args.nsims)
+            seedlist = list(range(args.seed, args.seed + args.nsims))
         else:
             seedlist = [0]
 
@@ -790,7 +792,7 @@ class ConvertCastro_SG(ScatterGather):
                            seed=seed,
                            clobber=clobber)
 
-        for target_name, profile_list in targets.items():
+        for target_name, profile_list in list(targets.items()):
             for profile in profile_list:
                 for astro_prior in astro_priors:
                     full_key = "%s:%s:%s" % (target_name, profile, astro_prior)

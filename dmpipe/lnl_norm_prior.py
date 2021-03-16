@@ -2,7 +2,8 @@
 """
 Utilities to fit dark matter spectra to castro data
 """
-from __future__ import absolute_import, division, print_function
+# pylint: disable=anomalous-backslash-in-string
+
 import numpy as np
 import scipy.optimize as opt
 from scipy.interpolate import splrep, splev
@@ -88,6 +89,11 @@ class LnLFn_norm_prior(castro.LnLFn):
         That will give interoplated values of the type determined by ret_type
         """
         return self._interp
+
+    @property
+    def lnlfn(self):
+        """ Return the wrapped likelihood """
+        return self._lnlfn
 
     def init_return(self, ret_type):
         """Specify the return type.
@@ -223,7 +229,7 @@ class LnLFn_norm_prior(castro.LnLFn):
         for xtmp in x:
             def fn(t):
                 """Functor to return profile likelihood"""
-                return -self.loglike(xtmp, t)
+                return -self.loglike(xtmp, t) # pylint: disable=cell-var-from-loop
             ytmp = opt.fmin(fn, 1.0, disp=False)[0]
             ztmp = self.loglike(xtmp, ytmp)
             z.append(ztmp)
@@ -249,12 +255,12 @@ class LnLFn_norm_prior(castro.LnLFn):
 
             def rf(t):
                 """Functor for spline evaluation"""
-                return splev(t, sp, der=1)
+                return splev(t, sp, der=1)  # pylint: disable=cell-var-from-loop
             ix = np.argmax(splev(yv, sp))
             imin, imax = max(0, ix - 3), min(len(yv) - 1, ix + 3)
             try:
                 y0 = opt.brentq(rf, yv[imin], yv[imax], xtol=1e-10)
-            except:
+            except Exception:
                 y0 = yv[ix]
             z0 = self.loglike(xtmp, y0)
             z.append(z0)
@@ -283,7 +289,6 @@ class LnLFn_norm_prior(castro.LnLFn):
         marg_z[msk] = -1 * np.log(z[msk])
 
         # Extrapolate to unphysical values
-        # FIXME, why is this needed
         dlogzdx = (np.log(z[msk][-1]) - np.log(z[msk][-2])) / (x[msk][-1] - x[msk][-2])
         marg_z[~msk] = marg_z[msk][-1] + \
             (marg_z[~msk] - marg_z[msk][-1]) * dlogzdx

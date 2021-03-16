@@ -2,7 +2,7 @@
 """
 Handle the naming conventions for DM pipeline analysis
 """
-from __future__ import absolute_import, division, print_function
+
 
 import sys
 
@@ -157,8 +157,7 @@ class NameFactory(NameFactory_Base):
             if require_sim_name:
                 sys.stderr.write('Simulation scenario must be specified')
                 return (None, None)
-            else:
-                sim = None
+            sim = None
 
         name_keys = dict(target_type=ttype,
                          rosterlist='roster_list.yaml',

@@ -4,7 +4,7 @@
 """
 Scripts to run the all-sky diffuse analysis
 """
-from __future__ import absolute_import, division, print_function
+
 
 from fermipy.utils import load_yaml
 
@@ -210,7 +210,7 @@ class PipelineSim(Chain):
 
     plot-stacked-limits : `PlotStackedLimits_SG`
         Make DM 'Castro' plots for each roster, J-factor prior type and channel.
- 
+
     plot-control-limits : `PlotControlLimits_SG`
         Make DM 'Castro' plots for each roster, J-factor prior type and channel.
 
@@ -571,7 +571,7 @@ class Pipeline(Chain):
         spatial_models = config_dict.get('spatial_models')
         sims = config_dict.get('sims', {})
         sim_names = []
-        sim_names += sims.keys()
+        sim_names += list(sims.keys())
         if 'random' in config_dict:
             sim_names += ['random']
 
@@ -592,7 +592,7 @@ class Pipeline(Chain):
         if link_status == JobStatus.done:
             self._preconfigured = True
             return
-        elif link_status == JobStatus.failed:
+        if link_status == JobStatus.failed:
             link.clean_jobs()
         link.run_with_log()
         self._preconfigured = True
@@ -612,7 +612,7 @@ class Pipeline(Chain):
         specfile = config_dict.get('specfile')
         sims = config_dict.get('sims', {})
         sim_names = []
-        sim_names += sims.keys()
+        sim_names += list(sims.keys())
         if 'random' in config_dict:
             sim_names += ['random']
 
@@ -642,7 +642,7 @@ class Pipeline(Chain):
 
         final_plot_sims = []
 
-        for sim in sims.keys():
+        for sim in list(sims.keys()):
             if sim in ['null']:
                 final_plot_sims.append(sim)
             linkname = 'sim_%s' % sim
@@ -666,6 +666,6 @@ class Pipeline(Chain):
                        ttype=ttype,
                        rosterlist=rosterlist,
                        channels=plot_channels,
-                       astro_priors=astro_priors,                       
+                       astro_priors=astro_priors,
                        sims=final_plot_sims,
                        dry_run=dry_run)

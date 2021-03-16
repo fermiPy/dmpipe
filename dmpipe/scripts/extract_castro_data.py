@@ -51,7 +51,7 @@ def read_targets_from_yaml(yamlfile):
         coords[i, 0] = val['l']
         coords[i, 1] = val['b']
 
-    out_dict = {'targets': din.keys(),
+    out_dict = {'targets': list(din.keys()),
                 'coordinates': coords}
     return out_dict
 
@@ -82,7 +82,7 @@ def main():
 
     # Read the target file
     targ_type = os.path.splitext(args.targets)[1]
-    print targ_type
+    print(targ_type)
     if targ_type in ['.fit', '.fits']:
         targets = DMTargetFactory.read_table(args.targets)
         roster = None

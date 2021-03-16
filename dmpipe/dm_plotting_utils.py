@@ -7,13 +7,11 @@ Utilities to plot dark matter analyses
 
 import numpy as np
 
-from fermipy import castro
-from fermipy import stats_utils
 from fermipy import sed_plotting
 from fermipy.spectrum import DMFitFunction
 
-from dmpipe.dm_spectral_utils import DMSpecTable
-
+import matplotlib.pyplot as plt
+from matplotlib import cm
 
 ENERGY_AXIS_LABEL = r'Energy [MeV]'
 ENERGY_FLUX_AXIS_LABEL = r'Energy Flux [MeV s$^{-1}$ cm$^{-2}$]'
@@ -58,11 +56,9 @@ def plot_dm_spectra_by_channel(dm_spec_table, mass=100.,
         The figure legend
 
     """
-    import matplotlib.pyplot as plt
-
     chan_names = dm_spec_table.channel_names
-    chan_ids = dm_spec_table.channel_map.keys()
-    chan_idx_list = dm_spec_table.channel_map.values()
+    chan_ids = list(dm_spec_table.channel_map.keys())
+    chan_idx_list = list(dm_spec_table.channel_map.values())
     energies = dm_spec_table.ebin_refs()
 
     fig = plt.figure()
@@ -81,7 +77,7 @@ def plot_dm_spectra_by_channel(dm_spec_table, mass=100.,
         chan_masses = dm_spec_table.masses(chan_id).data
         mass_idx = np.abs(chan_masses - mass).argmin()
         table_idx = idx_list[mass_idx]
-        spectrum = dm_spec_table._s_table[table_idx]["ref_%s" % spec_type]
+        spectrum = dm_spec_table.spectra_table[table_idx]["ref_%s" % spec_type]
         axis.plot(energies, spectrum, label=chan)
 
     leg = axis.legend(loc="best", ncol=2, fontsize=10)
@@ -121,8 +117,6 @@ def plot_dm_spectra_by_mass(dm_spec_table, chan='bb',
         The figure legend
 
     """
-    import matplotlib.pyplot as plt
-
     chan_id = DMFitFunction.channel_rev_map[chan]
     chan_idx_list = dm_spec_table.channel_map[chan_id]
     energies = dm_spec_table.ebin_refs()
@@ -141,7 +135,7 @@ def plot_dm_spectra_by_mass(dm_spec_table, chan='bb',
 
     masses = dm_spec_table.masses(chan_id)
     for table_idx, mass in zip(chan_idx_list, masses):
-        spectrum = dm_spec_table._s_table[table_idx]["ref_%s" % spec_type]
+        spectrum = dm_spec_table.spectra_table[table_idx]["ref_%s" % spec_type]
         axis.plot(energies, spectrum, label="%.1F GeV" % mass)
 
     leg = axis.legend(loc="best", ncol=2, fontsize=10)
@@ -156,7 +150,7 @@ def plot_dm_castro(castro_dm, ylims=None, nstep=100, zlims=None, global_min=Fals
     ----------
 
     castro_dm :  `DMCastroData`
-        Object with the log-likelihood v. normalization for each mass 
+        Object with the log-likelihood v. normalization for each mass
 
     ylims      : tuple
         Y-axis limits for the plot
@@ -192,9 +186,6 @@ def plot_dm_castro(castro_dm, ylims=None, nstep=100, zlims=None, global_min=Fals
 def plot_castro_nuiscance(xlims, ylims, zvals, zlims=None, decay=False):
     """ Make a castro plot including the effect of the nuisance parameter
     """
-    import matplotlib.pyplot as plt
-    from matplotlib import cm
-
     fig = plt.figure()
     axis = fig.add_subplot(111)
     axis.set_yscale('log')
@@ -215,15 +206,13 @@ def plot_castro_nuiscance(xlims, ylims, zvals, zlims=None, decay=False):
 
     image = axis.imshow(zvals, extent=[xlims[0], xlims[-1], ylims[0], ylims[-1]],
                         origin='lower', aspect='auto', interpolation='nearest',
-                        vmin=zmin, vmax=zmax, cmap=cm.jet_r)
+                        vmin=zmin, vmax=zmax, cmap=cm.jet_r) # pylint: disable=no-member
     return fig, axis, image
 
 
 def plot_nll(nll_dict, xlims=None, nstep=50, ylims=None, decay=False):
     """ Plot the -log(L) as a function of sigmav for each object in a dict
     """
-    import matplotlib.pyplot as plt
-
     if xlims is None:
         xmin = 1e-28
         xmax = 1e-24
@@ -247,7 +236,7 @@ def plot_nll(nll_dict, xlims=None, nstep=50, ylims=None, decay=False):
     axis.set_ylabel(DELTA_LOGLIKE_AXIS_LABEL)
     axis.set_xscale('log')
 
-    for lab, nll in nll_dict.items():
+    for lab, nll in list(nll_dict.items()):
         yvals = nll.interp(xvals)
         yvals -= yvals.min()
         axis.plot(xvals, yvals, label=lab)
@@ -259,11 +248,9 @@ def plot_nll(nll_dict, xlims=None, nstep=50, ylims=None, decay=False):
 def plot_comparison(nll, nstep=25, xlims=None, decay=False):
     """ Plot the comparison between differnt version of the -log(L)
     """
-    import matplotlib.pyplot as plt
-
     if xlims is None:
-        xmin = nll._lnlfn.interp.xmin
-        xmax = nll._lnlfn.interp.xmax
+        xmin = nll.lnlfn.interp.xmin
+        xmax = nll.lnlfn.interp.xmax
     else:
         xmin = xlims[0]
         xmax = xlims[1]
@@ -301,10 +288,9 @@ def plot_stacked(sdict, xlims, ibin=0, decay=False):
     """ Stack a set of -log(L) curves and plot the stacked curve
     as well as the individual curves
     """
-    import matplotlib.pyplot as plt
     ndict = {}
 
-    for key, val in sdict.items():
+    for key, val in list(sdict.items()):
         ndict[key] = val[ibin]
 
     #mles = np.array([n.mle() for n in ndict.values()])
@@ -321,7 +307,7 @@ def plot_stacked(sdict, xlims, ibin=0, decay=False):
         axis.set_xlabel(SIGMAV_AXIS_LABEL)
     axis.set_ylabel(DELTA_LOGLIKE_AXIS_LABEL)
 
-    for key, val in ndict.items():
+    for key, val in list(ndict.items()):
         yvals = val.interp(xvals)
         if key.lower() == "stacked":
             axis.plot(xvals, yvals, lw=3, label=key)
@@ -353,7 +339,7 @@ def plot_limits_from_arrays(ldict, xlims, ylims, bands=None, decay=False):
 
     decay : bool
         Plot limits for decay instead of annihilation
-    
+
 
     Returns
     -------
@@ -368,8 +354,6 @@ def plot_limits_from_arrays(ldict, xlims, ylims, bands=None, decay=False):
         The figure legend
 
     """
-    import matplotlib.pyplot as plt
-
     fig = plt.figure()
     axis = fig.add_subplot(111)
     axis.set_xlabel(MASS_AXIS_LABEL)
@@ -386,7 +370,7 @@ def plot_limits_from_arrays(ldict, xlims, ylims, bands=None, decay=False):
     if bands is not None:
         plot_expected_limit_bands(axis, bands)
 
-    for key, val in ldict.items():
+    for key, val in list(ldict.items()):
         xvals = val[0]
         yvals = val[1]
         if key.lower() == "stacked":
@@ -432,7 +416,7 @@ def plot_mc_truth(axis, mc_model, decay=False):
 
     decay : bool
         Plot value for decay instead of annihilation
-    
+
     """
     if decay:
         norm = mc_model['tau']['value']
@@ -466,7 +450,7 @@ def plot_limits(sdict, xlims, ylims, alpha=0.05, decay=False):
     """
 
     ldict = {}
-    for key, val in sdict.items():
+    for key, val in list(sdict.items()):
         ldict[key] = (val.masses, val.getLimits(alpha))
     return plot_limits_from_arrays(ldict, xlims, ylims, decay=decay)
 
@@ -486,9 +470,9 @@ def compare_limits(sdict, xlims, ylims, alpha=0.05, decay=False):
     ylims      : tuple
         y-axis limits
 
-    alpha      : float 
+    alpha      : float
         Confidence level to use in setting limits = 1 - alpha
-  
+
     decay : bool
         Plot limits for decay instead of annihilation
 
@@ -506,8 +490,6 @@ def compare_limits(sdict, xlims, ylims, alpha=0.05, decay=False):
         The figure legend
 
     """
-    import matplotlib.pyplot as plt
-
     fig = plt.figure()
     axis = fig.add_subplot(111)
 
@@ -521,7 +503,7 @@ def compare_limits(sdict, xlims, ylims, alpha=0.05, decay=False):
     else:
         axis.set_ylabel(SIGMAV_AXIS_LABEL)
 
-    for key, val in sdict.items():
+    for key, val in list(sdict.items()):
         xvals = val.masses
         yvals = val.getLimits(alpha)
         axis.plot(xvals, yvals, label=key)
@@ -532,12 +514,12 @@ def compare_limits(sdict, xlims, ylims, alpha=0.05, decay=False):
 
 def plot_limit(dm_castro_data, ylims, alpha=0.05):
     """Plot the limit curve for a given DMCastroData object
- 
+
     Parameters
     ----------
 
     dm_castro_data :  `DMCastroData`
-        Object with the log-likelihood v. normalization for each mass 
+        Object with the log-likelihood v. normalization for each mass
 
     ylims      : tuple
         Y-axis limits for the plot
@@ -556,8 +538,6 @@ def plot_limit(dm_castro_data, ylims, alpha=0.05):
         The plot axes
 
     """
-    import matplotlib.pyplot as plt
-
     xbins = dm_castro_data.masses
     xmin = xbins[0]
     xmax = xbins[-1]
@@ -577,7 +557,7 @@ def plot_limit(dm_castro_data, ylims, alpha=0.05):
     if ylims is not None:
         axis.set_ylim((ylims[0], ylims[1]))
 
-    if decay:
+    if dm_castro_data.decay:
         yvals = dm_castro_data.getLimits(1.0 - alpha)
     else:
         yvals = dm_castro_data.getLimits(alpha)
@@ -588,4 +568,3 @@ def plot_limit(dm_castro_data, ylims, alpha=0.05):
     axis.plot(xvals, yvals)
 
     return fig, axis
-

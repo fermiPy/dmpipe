@@ -5,7 +5,7 @@
 """
 Top level scripts to make castro plot and limits plots in mass / sigmav space
 """
-from __future__ import absolute_import, division, print_function
+
 
 import os
 from os.path import splitext
@@ -32,14 +32,17 @@ NAME_FACTORY = NameFactory(basedir='.')
 
 
 def is_decay_profile(profile):
+    """ Check if a profile string is for DM decay """
     tokens = profile.split('_')
     return tokens[-1] in ['point', 'dmap', 'dradial']
 
 def is_ann_profile(profile):
+    """ Check if a profile string is for DM annihilation """
     tokens = profile.split('_')
     return tokens[-1] in ['point', 'map', 'radial']
 
 def select_channels(channels, profile):
+    """ Select the relevent channels (for decay or annihilation) for a given profile """
     sed_ok_decay = is_decay_profile(profile)
     sed_ok_ann = is_ann_profile(profile)
     ochans = []
@@ -52,7 +55,7 @@ def select_channels(channels, profile):
             if sed_ok_ann:
                 ochans.append(chan)
     return ochans
-    
+
 
 def get_ul_bands(table, prefix):
     """ Get the upper limit bands a table
@@ -239,7 +242,7 @@ class PlotMLEs(Link):
             injected_src = None
 
         xlims = (1e1, 1e4)
-        
+
         dm_plot = plot_limits_from_arrays(ldict, xlims, ylims, bands)
 
         if injected_src is not None:
@@ -279,7 +282,7 @@ class PlotDM(Link):
         elif exttype in ['.yaml']:
             dm_castro = DMCastroData.create_from_yamlfile(args.infile, args.chan)
         else:
-            raise ValueError("Can not read file type %s for SED" % extype)
+            raise ValueError("Can not read file type %s for SED" % exttype)
 
         dm_plot = plot_dm_castro(dm_castro, global_min=args.global_min)
         if args.outfile:
@@ -325,7 +328,7 @@ class PlotLimits_SG(ScatterGather):
                            sim=sim)
 
         targets = load_yaml(targets_yaml)
-        for target_name, target_list in targets.items():
+        for target_name, target_list in list(targets.items()):
             for targ_prof in target_list:
                 prof_chans = select_channels(channels, targ_prof)
                 for astro_prior in astro_priors:
@@ -393,7 +396,7 @@ class PlotStackedLimits_SG(ScatterGather):
         astro_priors = args['astro_priors']
         channels = args['channels']
 
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
             for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,
@@ -404,8 +407,8 @@ class PlotStackedLimits_SG(ScatterGather):
                 for chan in rost_chans:
                     targ_key = "%s:%s:%s" % (roster_name, astro_prior, chan)
                     if sim is not None:
-                        seedlist = range(
-                            args['seed'], args['seed'] + args['nsims'])
+                        seedlist = list(range(
+                            args['seed'], args['seed'] + args['nsims']))
                         sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
                     else:
                         seedlist = [None]
@@ -413,10 +416,10 @@ class PlotStackedLimits_SG(ScatterGather):
 
                     for seed in seedlist:
                         if seed is not None:
-                            name_keys['seed'] = "%06i" % seed
+                            name_keys['seed'] = "%06i" % seed  # pylint: disable=bad-string-format-type
                             input_path = NAME_FACTORY.sim_stackedlimitsfile(
                                 **name_keys)
-                            full_targ_key = "%s_%06i" % (targ_key, seed)
+                            full_targ_key = "%s_%06i" % (targ_key, seed) # pylint: disable=bad-string-format-type
                         else:
                             input_path = NAME_FACTORY.stackedlimitsfile(
                                 **name_keys)
@@ -465,7 +468,7 @@ class PlotDM_SG(ScatterGather):
         job_configs = {}
 
         ttype = args['ttype']
-        (targets_yaml, sim) = NAME_FACTORY.resolve_targetfile(args)
+        (targets_yaml, _) = NAME_FACTORY.resolve_targetfile(args)
         if targets_yaml is None:
             return job_configs
 
@@ -475,7 +478,7 @@ class PlotDM_SG(ScatterGather):
         channels = args['channels']
         global_min = args['global_min']
 
-        for target_name, target_list in targets.items():
+        for target_name, target_list in list(targets.items()):
             for targ_prof in target_list:
                 prof_chans = select_channels(channels, targ_prof)
                 for astro_prior in astro_priors:
@@ -543,7 +546,7 @@ class PlotStackedDM_SG(ScatterGather):
         channels = args['channels']
         global_min = args['global_min']
 
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
             for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,
@@ -556,17 +559,17 @@ class PlotStackedDM_SG(ScatterGather):
                     targ_key = "%s:%s:%s" % (roster_name, astro_prior, chan)
 
                     if sim is not None:
-                        seedlist = range(
-                            args['seed'], args['seed'] + args['nsims'])
+                        seedlist = list(range(
+                            args['seed'], args['seed'] + args['nsims']))
                     else:
                         seedlist = [None]
 
                     for seed in seedlist:
                         if seed is not None:
-                            name_keys['seed'] = "%06i" % seed
+                            name_keys['seed'] = "%06i" % seed  # pylint: disable=bad-string-format-type
                             input_path = NAME_FACTORY.sim_resultsfile(
                                 **name_keys)
-                            full_targ_key = "%s_%06i" % (targ_key, seed)
+                            full_targ_key = "%s_%06i" % (targ_key, seed) # pylint: disable=bad-string-format-type
                         else:
                             input_path = NAME_FACTORY.resultsfile(**name_keys)
                             full_targ_key = targ_key
@@ -631,9 +634,9 @@ class PlotControlLimits_SG(ScatterGather):
 
         sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
 
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
-            for astro_prior in astro_priors:                
+            for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,
                                  roster_name=roster_name,
                                  astro_prior=astro_prior,
@@ -699,9 +702,9 @@ class PlotControlMLEs_SG(ScatterGather):
 
         sim_path = os.path.join('config', 'sim_%s.yaml' % sim)
 
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
-            for astro_prior in astro_priors:                
+            for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,
                                  roster_name=roster_name,
                                  astro_prior=astro_prior,
@@ -763,7 +766,7 @@ class PlotFinalLimits_SG(ScatterGather):
         channels = args['channels']
 
         sims = args['sims']
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             rost_chans = select_channels(channels, roster_name)
             for astro_prior in astro_priors:
                 name_keys = dict(target_type=ttype,

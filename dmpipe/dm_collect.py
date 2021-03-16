@@ -4,7 +4,7 @@
 """
 Collect information for simulated realizations of an analysis
 """
-from __future__ import absolute_import, division, print_function
+
 
 import os
 
@@ -64,6 +64,7 @@ class CollectLimits(Link):
 
     @staticmethod
     def is_decay_limits(limitfile):
+        """ Return true if a file has limits for decay """
         tokens = os.path.splitext(os.path.basename(limitfile))[0].split('_')
         if tokens[3] in ['point', 'dmap', 'dradial']:
             return True
@@ -71,6 +72,7 @@ class CollectLimits(Link):
 
     @staticmethod
     def is_ann_limits(limitfile):
+        """ Return true if a file has limits for annhilation """
         tokens = os.path.splitext(os.path.basename(limitfile))[0].split('_')
         if tokens[3] in ['point', 'map', 'radial']:
             return True
@@ -78,6 +80,7 @@ class CollectLimits(Link):
 
     @staticmethod
     def select_channels(channels, limitfile):
+        """ Retun a list of channels to match to a given limit file """
         sed_ok_decay = CollectLimits.is_decay_limits(limitfile)
         sed_ok_ann = CollectLimits.is_ann_limits(limitfile)
         ochans = []
@@ -175,7 +178,7 @@ class CollectLimits_SG(ScatterGather):
                            seed=args['seed'],
                            specconfig=specconfig)
 
-        for target_name, profile_list in targets.items():
+        for target_name, profile_list in list(targets.items()):
             for profile in profile_list:
                 for astro_prior in astro_priors:
                     if is_null(astro_prior):
@@ -257,7 +260,7 @@ class CollectStackedLimits_SG(ScatterGather):
                            seed=args['seed'])
 
         roster_dict = load_yaml(roster_yaml)
-        for roster_name in roster_dict.keys():
+        for roster_name in list(roster_dict.keys()):
             for astro_prior in astro_priors:
                 if is_null(astro_prior):
                     astro_prior = 'none'

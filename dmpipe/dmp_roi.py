@@ -4,7 +4,7 @@
 """
 Classes and utilities that define a set of regions of interest to tile the sky
 """
-from __future__ import absolute_import, division, print_function
+
 
 import sys
 import os
@@ -149,7 +149,7 @@ def merge_and_sort_table(tdict, klist):
 
     # This builds the columns from the first entry, and removes all the rows
     out_table = table.Table(rlist[0].columns)
-    to_remove = range(len(out_table))
+    to_remove = list(range(len(out_table)))
     out_table.remove_rows(to_remove)
 
     # Now loop on the rList and add back the rows
@@ -336,7 +336,7 @@ def lon_idxs(rings, lons, nroi_per_ring):
     return roi_idxs
 
 
-class DMROISet(object):
+class DMROISet:
     """ A simple class to generate the centers of a set of ROIs tile the entire sky
 
     This is just the base class.  Implementations of the tilings are in sub-classes:
@@ -482,8 +482,7 @@ class DMROISetWCS(DMROISet):
         roi_idxs = lon_idxs(rings, glons, self.__nroi_per_ring)
         return roi_idxs
 
-    def create_roi_wcs(self, roi_idx, coordsys='CEL', projection='AIT',
-                       cdelt=1.0, crpix=1., naxis=2, energies=None):
+    def create_roi_wcs(self, roi_idx, coordsys='CEL', projection='AIT', cdelt=1.0, crpix=1., naxis=2, energies=None): #pylint: disable=too-many-arguments
         """ Create a WCS object.
 
         Parameters
@@ -570,7 +569,7 @@ class DMROISetWCS(DMROISet):
         # Loop over ROIs
         min_roi = rois.min()
         max_roi = rois.max()
-        for iroi in xrange(min_roi, max_roi + 1):
+        for iroi in range(min_roi, max_roi + 1):
             # progress
             if iroi % 10 == 0:
                 sys.stdout.write('.')
@@ -637,7 +636,7 @@ class DMROISetWCS(DMROISet):
         max_roi = rois.max()
 
         nrows = 0
-        for iroi in xrange(min_roi, max_roi + 1):
+        for iroi in range(min_roi, max_roi + 1):
             # progress
             if iroi % 10 == 0:
                 sys.stdout.write('.')
@@ -724,7 +723,7 @@ class DMROISetWCS(DMROISet):
         min_roi = rois.min()
         max_roi = rois.max()
 
-        for iroi in xrange(min_roi, max_roi + 1):
+        for iroi in range(min_roi, max_roi + 1):
             # progress
             if iroi % 10 == 0:
                 sys.stdout.write('.')
