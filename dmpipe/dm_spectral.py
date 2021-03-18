@@ -532,7 +532,7 @@ class StackLikelihood(Link):
                     tab_s = Table.read(dmlike_path, hdu=chan)
                 except KeyError:
                     continue
-                dm_castro = DMCastroData.create_from_tables(tab_s, tab_m, norm_type, decay)
+                dm_castro = DMCastroData.create_from_tables(tab_s, tab_m, chan, norm_type, decay)
                 component_dict[chan].append(dm_castro)
 
         for chan, comps in list(component_dict.items()):
